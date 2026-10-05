@@ -12,6 +12,7 @@ from .delivery_matching import match_deliveries_and_returns
 from .special_status_matching import match_special_status_flow
 from .production_input_matching import match_production_inputs
 from .stock_correction_matching import match_generic_wms_stock_corrections
+from .wme_residual_matching import match_wme_residual_movements
 from .source_readers import (
     filter_by_period,
     first_non_empty,
@@ -734,6 +735,88 @@ def investigate_product(
             )
             result.cause_status = "PROBABILA"
             result.evidence_level = "B"
+
+    wme_residual_match = match_wme_residual_movements(
+        wme_rows,
+        excluded_warehouses={"DETERIORATE", "PROTAN", "MOSTRE"},
+    )
+    result.details["wme_residual_movements"] = {
+        "residual_movements": len(
+            wme_residual_match.residual_movements
+        ),
+        "wme_signed_total": round(
+            wme_residual_match.wme_signed_total,
+            decimals,
+        ),
+        "system_difference_effect": round(
+            wme_residual_match.system_difference_effect,
+            decimals,
+        ),
+    }
+
+    if wme_residual_match.residual_movements:
+        for item in wme_residual_match.residual_movements:
+            result.unmatched_operations.append(
+                {
+                    "date": "-",
+                    "system": "WME",
+                    "document": item["document"],
+                    "operation_type": item["operation_type"],
+                    "quantity": item["system_difference_effect"],
+                    "reason": (
+                        f"Mișcare WME ne-standard în "
+                        f"{item['warehouse']}; efect WMS-WME "
+                        f"{item['system_difference_effect']:.3f}"
+                    ),
+                    "status": item["status"],
+                }
+            )
+        result.findings.append(
+            {
+                "type": "WME_RESIDUAL_MOVEMENTS",
+                "description": (
+                    f"Mișcările WME non-standard în afara gestiunilor speciale "
+                    f"au efect net asupra diferenței WMS-WME de "
+                    f"{wme_residual_match.system_difference_effect:.3f} "
+                    f"{result.unit}."
+                ),
+                "evidence": "SRC-WME(F/PV/alte tipuri ne-standard)",
+            }
+        )
+
+        wme_residual_effect = round(
+            wme_residual_match.system_difference_effect,
+            decimals,
+        )
+        if (
+            wme_residual_effect != 0
+            and result.initial_difference != 0
+            and (wme_residual_effect > 0)
+            == (result.initial_difference > 0)
+        ):
+            candidate_explained = round(
+                result.explained_difference + wme_residual_effect,
+                decimals,
+            )
+            if (
+                abs(candidate_explained)
+                <= abs(result.initial_difference) + 10 ** (-decimals)
+            ):
+                result.explained_difference = candidate_explained
+                result.unexplained_difference = round(
+                    result.initial_difference
+                    - result.explained_difference,
+                    decimals,
+                )
+                result.cause_code = "CAUSE-MULTI-PARTIAL"
+                result.cause_description = (
+                    "Diferența este explicată parțial prin operațiuni WMS/WME "
+                    "reziduale identificate separat; legătura documentară dintre "
+                    "aceste operațiuni nu este presupusă automat."
+                )
+                result.cause_status = "PROBABILA"
+                result.evidence_level = "B"
+                result.verdict = "REVIEW"
 
     generic_correction_match = match_generic_wms_stock_corrections(
         wms_rows,
