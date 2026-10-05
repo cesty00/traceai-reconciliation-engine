@@ -695,7 +695,7 @@ def investigate_product(
                         f"{group['wms_transfer_total']:.3f} {result.unit} către "
                         f"{group['wms_destination']}, WME NT "
                         f"{group['wme_nt_total']:.3f} către "
-                        f"{group['wme_counter_warehouse']}, urmat de corecții "
+                        f"{group['wme_warehouse']}, urmat de corecții "
                         f"WMS {group['wms_correction_total']:.3f}. "
                         "Corelarea este tratată drept cauză probabilă, nu regulă "
                         "generală activă."
