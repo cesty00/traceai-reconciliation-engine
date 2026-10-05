@@ -1,0 +1,29 @@
+version: "0.1"
+principles:
+  force_match: false
+  quantity_rounding_decimals: 3
+  keep_raw_immutable: true
+  separate_verdict_and_cause: true
+
+verdict_order:
+  - MATCH_DIRECT
+  - MATCH_NORMALIZARE
+  - MATCH_DUPA_NETARE
+  - REVIEW
+  - NOT_MATCH
+
+evidence_levels:
+  A: confirmare_directa
+  B: corelare_puternica
+  C: probabil
+  D: insuficient
+
+active_rules:
+  - id: GST-01
+    description: "Se neteaza diferentele pe produs intre zone/gestiuni inainte de verdict."
+  - id: MAP-04
+    description: "NEDEFINIT IN WMS nu se trateaza ca diferenta reala pana la rezolvarea maparii."
+  - id: INT-01
+    description: "Document WMS lipsa in WME nu este automat NOT_MATCH; se verifica NEOPERAT/respingere."
+
+candidate_rules: []
