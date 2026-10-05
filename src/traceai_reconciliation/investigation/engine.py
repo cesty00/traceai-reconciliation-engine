@@ -8,6 +8,7 @@ import pandas as pd
 
 from .models import InvestigationSources, ProductInvestigationResult
 from .production_matching import match_production_adjustments
+from .delivery_matching import match_deliveries_and_returns
 from .source_readers import (
     filter_by_period,
     first_non_empty,
@@ -528,6 +529,43 @@ def investigate_product(
         "intre gestiuni nu modifică totalul produsului."
     )
 
+    delivery_match = match_deliveries_and_returns(wms_rows, wme_rows)
+    result.details["delivery_matching"] = {
+        "wms_net_total": round(delivery_match.wms_net_total, decimals),
+        "wme_ae_total": round(delivery_match.wme_ae_total, decimals),
+        "residual_documents": len(delivery_match.residual_documents),
+        "residual_total": round(delivery_match.residual_total, decimals),
+    }
+
+    if delivery_match.residual_documents:
+        for item in delivery_match.residual_documents:
+            result.unmatched_operations.append(
+                {
+                    "date": "-",
+                    "system": "WMS↔WME",
+                    "document": item["document"],
+                    "operation_type": "DELIVERY_RETURN_NET_VS_AE",
+                    "quantity": item["difference"],
+                    "reason": (
+                        f"WMS net {item['wms_net_quantity']:.3f} vs "
+                        f"WME AE {item['wme_ae_quantity']:.3f}"
+                    ),
+                    "status": "QTY_DIFF",
+                }
+            )
+        result.findings.append(
+            {
+                "type": "DELIVERY_RETURN_RESIDUAL",
+                "description": (
+                    f"După netarea Livrare + Receptie/retur WMS și compararea "
+                    f"cu AE WME rămân {len(delivery_match.residual_documents)} "
+                    f"documente cu diferență, total "
+                    f"{delivery_match.residual_total:.3f} {result.unit}."
+                ),
+                "evidence": "SRC-WMS + SRC-WME(AE)",
+            }
+        )
+
     production_match = match_production_adjustments(wms_rows, wme_rows)
     result.details["production_matching"] = {
         "wms_positive_total": round(production_match.wms_positive_total, decimals),
@@ -605,6 +643,34 @@ def investigate_product(
             result.cause_status = "PROBABILA"
             result.evidence_level = "B"
             result.verdict = "REVIEW"
+
+    delivery_residual = round(delivery_match.residual_total, decimals)
+    if (
+        delivery_residual != 0
+        and result.initial_difference != 0
+        and (delivery_residual > 0) == (result.initial_difference > 0)
+    ):
+        candidate_explained = round(
+            result.explained_difference + delivery_residual,
+            decimals,
+        )
+        if abs(candidate_explained) <= abs(result.initial_difference) + 10 ** (-decimals):
+            result.explained_difference = candidate_explained
+            result.unexplained_difference = round(
+                result.initial_difference - result.explained_difference,
+                decimals,
+            )
+            if result.cause_code == "CAUSE-OPERATIONAL-MATCHING-PENDING":
+                result.cause_code = "CAUSE-MULTI-PARTIAL"
+            elif result.cause_code == "CAUSE-WMS-ONLY-ADJUSTMENT-PARTIAL":
+                result.cause_code = "CAUSE-MULTI-PARTIAL"
+            result.cause_description = (
+                "Diferența este explicată parțial de operațiuni WMS fără "
+                "corespondent și/sau diferențe cantitative reziduale după "
+                "netarea documentelor de livrare/retur. Restul rămâne în investigație."
+            )
+            result.cause_status = "PROBABILA"
+            result.evidence_level = "B"
 
     result.operation_timeline.extend(_timeline_from_wms(wms_rows))
     result.operation_timeline.extend(_timeline_from_wme(wme_rows))
