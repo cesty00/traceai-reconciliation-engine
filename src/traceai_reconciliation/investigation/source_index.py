@@ -507,6 +507,54 @@ class SQLiteSourceIndex:
             frame = filter_by_period(frame, period)
         return frame, ids
 
+    def read_wms_transfer_mose(
+        self,
+        period: str | None = None,
+    ) -> pd.DataFrame:
+        """Read all WMS TRANSFER_MOSE rows for basket-level matching."""
+        with sqlite3.connect(self.db_path) as connection:
+            frame = pd.read_sql_query(
+                """
+                SELECT *
+                FROM wms
+                WHERE UPPER(TRIM(CAST("Numar comanda" AS TEXT)))
+                      LIKE 'TRANSFER_MOSE%'
+                """,
+                connection,
+            )
+        if period and not frame.empty:
+            frame = filter_by_period(frame, period)
+        return frame
+
+    def read_wme_mose_nt(
+        self,
+        period: str | None = None,
+    ) -> pd.DataFrame:
+        """Read WME NT rows that explicitly connect DP and MOSE."""
+        with sqlite3.connect(self.db_path) as connection:
+            frame = pd.read_sql_query(
+                """
+                SELECT *
+                FROM wme
+                WHERE UPPER(TRIM(OperationType)) = 'NT'
+                  AND (
+                    (
+                      UPPER(TRIM(Warehouse)) = 'DEPOZIT PRINCIPAL'
+                      AND UPPER(TRIM(Partner)) = 'MOSE'
+                    )
+                    OR
+                    (
+                      UPPER(TRIM(Warehouse)) = 'MOSE'
+                      AND UPPER(TRIM(Partner)) = 'DEPOZIT PRINCIPAL'
+                    )
+                  )
+                """,
+                connection,
+            )
+        if period and not frame.empty:
+            frame = filter_by_period(frame, period)
+        return frame
+
     def read_production_product(
         self,
         product_code: str,
