@@ -13,6 +13,9 @@ from .investigation import (
     investigate_product,
     load_batch_manifest,
     run_batch,
+    load_registry_export,
+    select_registry_cases,
+    write_manifest,
 )
 from .loaders import read_table
 from .product_audit import summarize_stock_report
@@ -36,6 +39,37 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument("--case-id", help="CASE_ID for product investigation")
+    parser.add_argument(
+        "--registry-export",
+        help="CSV/JSON export of REGISTRU_CAZURI used to build a batch manifest",
+    )
+    parser.add_argument(
+        "--manifest-output",
+        help="Output JSON path for a manifest generated from REGISTRU_CAZURI",
+    )
+    parser.add_argument(
+        "--batch-limit",
+        type=int,
+        help="Maximum number of registry cases selected into a generated manifest",
+    )
+    parser.add_argument(
+        "--registry-status",
+        action="append",
+        help=(
+            "Registry status to include when generating a manifest. "
+            "Can be repeated. Defaults to DESCHIS and IN_ANALIZA."
+        ),
+    )
+    parser.add_argument(
+        "--exclude-case-id",
+        action="append",
+        help="CASE_ID to exclude from generated backlog manifest; repeatable",
+    )
+    parser.add_argument(
+        "--exclude-product",
+        action="append",
+        help="Product code to exclude from generated backlog manifest; repeatable",
+    )
     parser.add_argument(
         "--batch-manifest",
         help="JSON/CSV manifest for controlled multi-case execution",
@@ -96,6 +130,42 @@ def _write_json(path: str | Path, payload: dict) -> Path:
         encoding="utf-8",
     )
     return output
+
+
+def _run_registry_manifest_generation(
+    args: argparse.Namespace,
+) -> None:
+    if not args.registry_export or not args.manifest_output:
+        raise SystemExit(
+            "Registry manifest generation requires "
+            "--registry-export and --manifest-output."
+        )
+
+    rows = load_registry_export(args.registry_export)
+    statuses = (
+        set(args.registry_status)
+        if args.registry_status
+        else None
+    )
+    cases = select_registry_cases(
+        rows,
+        statuses=statuses,
+        limit=args.batch_limit,
+        exclude_case_ids=set(args.exclude_case_id or []),
+        exclude_products=set(args.exclude_product or []),
+    )
+    output = write_manifest(args.manifest_output, cases)
+    print(
+        json.dumps(
+            {
+                "manifest": str(output),
+                "selected_cases": len(cases),
+                "case_ids": [case.case_id for case in cases],
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+    )
 
 
 def _run_batch_investigation(args: argparse.Namespace) -> None:
@@ -226,6 +296,10 @@ def _run_real_product_investigation(args: argparse.Namespace) -> None:
 
 def main() -> None:
     args = build_parser().parse_args()
+
+    if args.registry_export:
+        _run_registry_manifest_generation(args)
+        return
 
     if args.batch_manifest:
         _run_batch_investigation(args)
