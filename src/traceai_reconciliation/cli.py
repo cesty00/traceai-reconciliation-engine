@@ -6,7 +6,12 @@ import json
 from pathlib import Path
 
 from . import __version__
-from .investigation import InvestigationSources, build_case_report, investigate_product
+from .investigation import (
+    InvestigationSources,
+    build_case_report,
+    build_registry_update,
+    investigate_product,
+)
 from .loaders import read_table
 from .product_audit import summarize_stock_report
 from .reports import generate_docx_report, load_case_report_json
@@ -21,6 +26,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--case-json", help="Structured CaseReport JSON input")
     parser.add_argument("--output-docx", help="DOCX output path")
     parser.add_argument("--output-json", help="Technical JSON output path")
+    parser.add_argument(
+        "--output-registry-json",
+        help=(
+            "Optional deterministic REGISTRU_CAZURI upsert payload JSON. "
+            "No Google credentials are stored or used by the engine."
+        ),
+    )
     parser.add_argument("--case-id", help="CASE_ID for product investigation")
     parser.add_argument("--period", help="Investigation period label")
     parser.add_argument("--report-date", help="Report date")
@@ -118,13 +130,21 @@ def _run_real_product_investigation(args: argparse.Namespace) -> None:
         rules_version=args.rules_version,
     )
 
+    registry_update = build_registry_update(
+        result,
+        case_report,
+    )
     technical_payload = {
         "investigation": asdict(result),
         "case_report": asdict(case_report),
+        "registry_update": registry_update,
     }
 
     if args.output_json:
         _write_json(args.output_json, technical_payload)
+
+    if args.output_registry_json:
+        _write_json(args.output_registry_json, registry_update)
 
     output = generate_docx_report(case_report, args.output_docx)
     print(str(output))
