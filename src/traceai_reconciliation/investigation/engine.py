@@ -9,6 +9,7 @@ import pandas as pd
 from .models import InvestigationSources, ProductInvestigationResult
 from .production_matching import match_production_adjustments
 from .delivery_matching import match_deliveries_and_returns
+from .receipt_matching import match_inbound_receipts
 from .special_status_matching import match_special_status_flow
 from .production_input_matching import match_production_inputs
 from .stock_correction_matching import match_generic_wms_stock_corrections
@@ -611,6 +612,77 @@ def investigate_product(
                 ),
                 "evidence": "SRC-WMS + SRC-WME(AE)",
             }
+        )
+
+    receipt_match = match_inbound_receipts(wms_rows, wme_rows)
+    result.details["receipt_matching"] = {
+        "supported_documents": len(receipt_match.documents),
+        "residual_documents": len(receipt_match.residual_documents),
+        "unsupported_receipts": len(receipt_match.unsupported_receipts),
+        "wms_supported_total": round(
+            receipt_match.wms_supported_total,
+            decimals,
+        ),
+        "wme_supported_total": round(
+            receipt_match.wme_supported_total,
+            decimals,
+        ),
+        "residual_total": round(
+            receipt_match.residual_total,
+            decimals,
+        ),
+    }
+
+    if receipt_match.documents:
+        matched_count = sum(
+            1 for item in receipt_match.documents
+            if item["status"] == "MATCH"
+        )
+        result.findings.append(
+            {
+                "type": "INBOUND_RECEIPT_MATCHING",
+                "description": (
+                    f"Recepții inbound validate documentar: "
+                    f"{matched_count}/{len(receipt_match.documents)} "
+                    f"documente sunt concordante pentru familiile "
+                    f"IN→FE și TRANSFER_CG→NT; rezidual total "
+                    f"{receipt_match.residual_total:.3f} {result.unit}."
+                ),
+                "evidence": "SRC-WMS(Receptie) + SRC-WME(FE/NT)",
+            }
+        )
+
+    if receipt_match.residual_documents:
+        for item in receipt_match.residual_documents:
+            result.unmatched_operations.append(
+                {
+                    "date": "-",
+                    "system": "WMS↔WME",
+                    "document": item["document"],
+                    "operation_type": (
+                        f"RECEIPT_{item['family']}_VS_"
+                        f"{item['wme_operation_type']}"
+                    ),
+                    "quantity": item["difference"],
+                    "reason": (
+                        f"WMS {item['wms_quantity']:.3f} vs "
+                        f"WME {item['wme_quantity']:.3f}"
+                    ),
+                    "status": "QTY_DIFF",
+                }
+            )
+
+        result.technical_warnings.append(
+            "Diferențele reziduale RECEIPT sunt raportate ca dovezi, "
+            "dar nu sunt încă adăugate automat la diferența explicată "
+            "până la validarea pe cazuri reale suplimentare."
+        )
+
+    if receipt_match.unsupported_receipts:
+        result.technical_warnings.append(
+            f"{len(receipt_match.unsupported_receipts)} recepții WMS aparțin "
+            "familiilor neacoperite de matcherul inbound (de ex. retururi, "
+            "TRANSFER_MOSE sau lanțuri -1/-2) și rămân în regulile dedicate."
         )
 
     production_input_match = match_production_inputs(wms_rows, wme_rows)
