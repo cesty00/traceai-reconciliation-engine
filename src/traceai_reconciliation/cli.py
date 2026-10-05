@@ -30,6 +30,14 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--production", help="Production CSV/XLSX")
     parser.add_argument("--nomenclature", help="WME-WMS nomenclature XLSX")
     parser.add_argument(
+        "--indexed-cache",
+        action="store_true",
+        help=(
+            "Build/reuse a local SQLite index for large WMS/WME/production "
+            "sources. Recommended for repeated product investigations."
+        ),
+    )
+    parser.add_argument(
         "--cache-dir",
         help=(
             "Optional local cache directory. Defaults to .traceai_cache "
@@ -93,6 +101,7 @@ def _run_real_product_investigation(args: argparse.Namespace) -> None:
         production=Path(args.production),
         nomenclature=Path(args.nomenclature),
         cache_dir=cache_dir,
+        use_source_index=args.indexed_cache,
     )
 
     result = investigate_product(
