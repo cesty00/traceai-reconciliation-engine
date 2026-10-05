@@ -588,6 +588,9 @@ def investigate_product(
             stock_zone_match.mapping_effect_total,
             decimals,
         ),
+        "applied_to_explanation": bool(
+            stock_zone_match.confirmed_report_mapping_rows
+        ),
     }
 
     if stock_zone_match.confirmed_report_mapping_rows:
@@ -654,6 +657,7 @@ def investigate_product(
             delivery_match.net_zero_derived_documents
         ),
         "residual_total": round(delivery_match.residual_total, decimals),
+        "applied_to_explanation": False,
     }
 
     if delivery_match.wme_only_documents:
@@ -961,6 +965,7 @@ def investigate_product(
         "reversal_pairs": len(production_match.reversal_pairs),
         "residual_adjustments": len(production_match.residual_wms_adjustments),
         "residual_total": round(production_match.residual_total, decimals),
+        "applied_to_explanation": False,
     }
 
     if production_match.reversal_pairs:
@@ -1018,6 +1023,9 @@ def investigate_product(
         bounded = abs(residual_total) <= abs(result.initial_difference) + 10 ** (-decimals)
         if same_sign and bounded:
             result.explained_difference = residual_total
+            result.details["production_matching"][
+                "applied_to_explanation"
+            ] = True
             result.unexplained_difference = round(
                 result.initial_difference - residual_total,
                 decimals,
@@ -1043,18 +1051,35 @@ def investigate_product(
             decimals,
         )
         if abs(candidate_explained) <= abs(result.initial_difference) + 10 ** (-decimals):
+            previous_cause_code = result.cause_code
             result.explained_difference = candidate_explained
+            result.details["delivery_matching"][
+                "applied_to_explanation"
+            ] = True
             result.unexplained_difference = round(
                 result.initial_difference - result.explained_difference,
                 decimals,
             )
-            if result.cause_code != "CAUSE-MULTI-PARTIAL":
-                result.cause_code = "CAUSE-MULTI-PARTIAL"
-            result.cause_description = (
-                "Diferența este explicată parțial de operațiuni WMS fără "
-                "corespondent și/sau diferențe cantitative reziduale după "
-                "netarea documentelor de livrare/retur. Restul rămâne în investigație."
-            )
+            result.cause_code = "CAUSE-MULTI-PARTIAL"
+            if previous_cause_code == "CAUSE-REPORT-MAPPING-PARTIAL":
+                result.cause_description = (
+                    "Diferența este explicată prin combinația dintre un efect "
+                    "confirmat de mapare al raportului de stoc și o diferență "
+                    "reziduală de livrare/retur WMS față de AE WME."
+                )
+            elif abs(result.unexplained_difference) <= 10 ** (-decimals):
+                result.cause_description = (
+                    "Diferența este explicată integral prin combinația "
+                    "componentelor operaționale validate și a diferențelor "
+                    "reziduale după netarea documentelor de livrare/retur."
+                )
+            else:
+                result.cause_description = (
+                    "Diferența este explicată parțial de operațiuni WMS fără "
+                    "corespondent și/sau diferențe cantitative reziduale după "
+                    "netarea documentelor de livrare/retur. Diferența rămasă "
+                    "este păstrată separat pentru investigație."
+                )
             result.cause_status = "PROBABILA"
             result.evidence_level = "B"
 
@@ -1126,6 +1151,7 @@ def investigate_product(
             generic_correction_match.residual_total,
             decimals,
         ),
+        "applied_to_explanation": False,
     }
 
     if generic_correction_match.residual_corrections:
@@ -1186,6 +1212,9 @@ def investigate_product(
                 <= abs(result.initial_difference) + 10 ** (-decimals)
             ):
                 result.explained_difference = candidate_explained
+                result.details["generic_stock_corrections"][
+                    "applied_to_explanation"
+                ] = True
                 result.unexplained_difference = round(
                     result.initial_difference
                     - result.explained_difference,
@@ -1210,6 +1239,7 @@ def investigate_product(
             special_status_match.explained_total,
             decimals,
         ),
+        "applied_to_explanation": False,
     }
 
     if special_status_match.matched_groups:
@@ -1250,6 +1280,9 @@ def investigate_product(
                 <= abs(result.initial_difference) + 10 ** (-decimals)
             ):
                 result.explained_difference = candidate_explained
+                result.details["special_status_matching"][
+                    "applied_to_explanation"
+                ] = True
                 result.unexplained_difference = round(
                     result.initial_difference
                     - result.explained_difference,
