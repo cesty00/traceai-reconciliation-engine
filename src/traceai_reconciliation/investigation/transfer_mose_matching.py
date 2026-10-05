@@ -69,17 +69,23 @@ def match_transfer_mose(
     if wms_rows.empty:
         return TransferMoseMatchResult([], [], [], [], 0.0, 0.0)
 
-    required_wms = {
+    minimum_wms = {
         "Data",
         "Tip operatiune",
         "Cantitate",
-        "Numar comanda",
     }
-    missing = required_wms - set(wms_rows.columns)
-    if missing:
+    missing_minimum = minimum_wms - set(wms_rows.columns)
+    if missing_minimum:
         raise ValueError(
-            f"TRANSFER_MOSE matching: coloane WMS lipsă {sorted(missing)}"
+            "TRANSFER_MOSE matching: coloane WMS de bază lipsă "
+            f"{sorted(missing_minimum)}"
         )
+
+    # If the source does not expose the order column, the specific
+    # TRANSFER_MOSE family cannot be identified. Treat the matcher as a no-op
+    # instead of breaking unrelated product investigations.
+    if "Numar comanda" not in wms_rows.columns:
+        return TransferMoseMatchResult([], [], [], [], 0.0, 0.0)
 
     work = wms_rows.copy()
     work["_order"] = work["Numar comanda"].map(normalize_transfer_mose_order)
