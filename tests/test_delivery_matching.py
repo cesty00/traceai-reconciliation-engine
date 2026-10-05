@@ -13,6 +13,9 @@ def test_normalize_delivery_documents() -> None:
     assert normalize_delivery_document("WME108805-1") == "108805"
     assert normalize_delivery_document("WMS111828-1") == "111828"
     assert normalize_delivery_document("RET_WME109598") == "109598"
+    assert normalize_delivery_document("SFA24164") == "24164"
+    assert normalize_delivery_document("RET_SFA109598") == "109598"
+    assert normalize_delivery_document("AV_WMS108432-1") == "108432"
     assert normalize_delivery_document("R15311") == "15311"
     assert (
         normalize_delivery_document(
@@ -133,6 +136,40 @@ def test_supplier_receipt_is_not_treated_as_delivery_return() -> None:
             {
                 "OperationType": "AE",
                 "Document": "120000",
+                "SignedQuantity": -100.0,
+            }
+        ]
+    )
+
+    result = match_deliveries_and_returns(wms, wme)
+
+    assert result.wms_net_total == -100.0
+    assert result.wme_ae_total == -100.0
+    assert result.residual_total == 0.0
+    assert result.residual_documents == []
+
+
+
+def test_transfer_delivery_is_not_compared_to_ae() -> None:
+    wms = pd.DataFrame(
+        [
+            {
+                "Tip operatiune": "Livrare",
+                "Cantitate": -500.0,
+                "Numar comanda": "TRANSFER_MOSE-202521093",
+            },
+            {
+                "Tip operatiune": "Livrare",
+                "Cantitate": -100.0,
+                "Numar comanda": "SFA24164",
+            },
+        ]
+    )
+    wme = pd.DataFrame(
+        [
+            {
+                "OperationType": "AE",
+                "Document": "24164",
                 "SignedQuantity": -100.0,
             }
         ]
