@@ -14,7 +14,10 @@ from .special_status_matching import match_special_status_flow
 from .production_input_matching import match_production_inputs
 from .stock_correction_matching import match_generic_wms_stock_corrections
 from .stock_report_zone_matching import reconcile_stock_report_zones
-from .transfer_mose_matching import match_transfer_mose
+from .transfer_mose_matching import (
+    match_transfer_mose,
+    match_transfer_mose_baskets,
+)
 from .wme_residual_matching import match_wme_residual_movements
 from .source_readers import (
     filter_by_period,
@@ -698,11 +701,34 @@ def investigate_product(
             }
         )
 
-    transfer_mose_match = match_transfer_mose(
-        wms_rows,
-        wme_rows,
-    )
+    has_transfer_mose = False
+    if "Numar comanda" in wms_rows.columns:
+        has_transfer_mose = (
+            wms_rows["Numar comanda"]
+            .fillna("")
+            .astype(str)
+            .str.strip()
+            .str.upper()
+            .str.startswith("TRANSFER_MOSE")
+            .any()
+        )
+
+    transfer_mose_scope = "PRODUCT_FALLBACK"
+    if source_index is not None and has_transfer_mose:
+        transfer_mose_match = match_transfer_mose_baskets(
+            source_index.read_wms_transfer_mose(period=period),
+            source_index.read_wme_mose_nt(period=period),
+            product_name=product_name,
+        )
+        transfer_mose_scope = "BASKET_INDEXED"
+    else:
+        transfer_mose_match = match_transfer_mose(
+            wms_rows,
+            wme_rows,
+        )
+
     result.details["transfer_mose_matching"] = {
+        "scope": transfer_mose_scope,
         "matches": len(transfer_mose_match.matches),
         "cancelled_orders": len(
             transfer_mose_match.cancelled_orders
