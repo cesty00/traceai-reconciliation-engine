@@ -4,6 +4,7 @@ import csv
 import hashlib
 import re
 import unicodedata
+from datetime import datetime
 from pathlib import Path
 from typing import Iterable, Sequence
 
@@ -17,22 +18,25 @@ ALIASES: dict[str, tuple[str, ...]] = {
         "Cod produs WMS/DS", "DS", "ProductCode",
     ),
     "product_name": (
-        "DenumireArticol", "Denumire articol", "Denumire produs", "Produs", "ProductName",
+        "DenumireArticol", "Denumire articol", "Denumire produs", "Produs",
+        "ProductName", "productname", "Denumire",
     ),
     "quantity": (
-        "Cantitate", "Quantity", "Qty", "Cant", "Cantitate operata",
+        "Cantitate", "cantitate", "Quantity", "Qty", "Cant", "Cantitate operata",
+        "SignedQuantity",
     ),
-    "unit": ("UM", "U.M.", "Unitate masura", "Unit"),
+    "unit": ("UM", "U.M.", "Unitate masura", "Unit", "U.M."),
     "date": (
-        "Data", "Data operatie", "Data operatiune", "Data document", "Date", "DataDoc",
+        "Data", "Data operatie", "Data operatiune", "Data document", "Date",
+        "DataDoc", "Data Start",
     ),
     "document": (
-        "Document", "NrDocument", "Nr document", "Numar document", "Numar", "NrDoc",
-        "Comanda", "Numar Comanda", "Order",
+        "Document", "NrDocument", "Nr document", "Numar document", "Numar",
+        "NrDoc", "Comanda", "Numar Comanda", "Numar comanda", "Order",
     ),
     "operation_type": (
-        "Tip operatiune", "Tip operatie", "Operatiune", "Tip document", "TipDoc",
-        "Tip", "OperationType",
+        "Tip operatiune", "Tip operatie", "Operatiune", "Tip document",
+        "TipDoc", "Tip", "OperationType", "TipLinie",
     ),
     "warehouse": (
         "Gestiune", "Depozit", "Locatie", "Warehouse", "Gestiune sursa",
@@ -41,18 +45,21 @@ ALIASES: dict[str, tuple[str, ...]] = {
         "Stoc", "Sold", "Stoc la data", "Sold final", "Balance",
     ),
     "wme_item_id": (
-        "ID articol WME", "Id articol WME", "ID articol", "IdArticol", "idArticol",
-        "Cod articol WME", "CodArticolWME", "ArticolID",
+        "ID articol WME", "Id articol WME", "ID articol", "IdArticol",
+        "idArticol", "Cod articol WME", "CodArticolWME", "ArticolID",
+        "WMEItemId",
     ),
     "wms_product_code": (
-        "Cod produs WMS/DS", "Cod WMS/DS", "Cod DS", "Cod WMS", "CodArticolWMS",
-        "CodArticol", "Cod produs",
+        "Cod produs WMS/DS", "Cod WMS/DS", "Cod DS", "Cod WMS",
+        "CodArticolWMS", "CodArticol", "Cod produs", "Cod articol",
     ),
     "stock_wme": ("QuantityERP", "Stoc ERP", "Stoc WME", "QuantityWME"),
     "stock_wms": ("QuantityWMS", "Stoc WMS"),
     "stock_difference": ("QuantityDifference", "Diferenta", "Diferență"),
-    "initial_stock": ("StocInitial", "Stoc initial", "Stoc inițial", "Quantity", "Cantitate", "Stoc"),
-    "production_kind": ("Tip", "Tip operatie", "Tip operatiune", "CONSUM/PREDARE", "Miscare"),
+    "initial_stock": (
+        "StocInitial", "Stoc initial", "Stoc inițial", "Quantity",
+        "Cantitate", "cantitate", "Stoc",
+    ),
     "lot": ("Lot", "Lot produs", "LotArticol"),
 }
 
@@ -65,7 +72,9 @@ def normalize_header(value: object) -> str:
     return re.sub(r"[^a-z0-9]+", "", text)
 
 
-def resolve_column(columns: Sequence[object], semantic_name: str, required: bool = True) -> str | None:
+def resolve_column(
+    columns: Sequence[object], semantic_name: str, required: bool = True
+) -> str | None:
     candidates = ALIASES.get(semantic_name, ())
     normalized = {normalize_header(col): str(col) for col in columns}
     for alias in candidates:
@@ -74,7 +83,8 @@ def resolve_column(columns: Sequence[object], semantic_name: str, required: bool
             return normalized[key]
     if required:
         raise ValueError(
-            f"Nu pot rezolva coloana '{semantic_name}'. Coloane disponibile: {list(map(str, columns))}"
+            f"Nu pot rezolva coloana '{semantic_name}'. "
+            f"Coloane disponibile: {list(map(str, columns))}"
         )
     return None
 
@@ -100,12 +110,56 @@ def detect_csv_delimiter(path: str | Path) -> str:
         except UnicodeDecodeError:
             continue
     else:
-        return ","
+        return ";"
+
+    first_line = text.splitlines()[0] if text.splitlines() else text
+    counts = {delimiter: first_line.count(delimiter) for delimiter in (";", ",", "\t", "|")}
+    best = max(counts, key=counts.get)
+    if counts[best] > 0:
+        return best
+
     try:
-        dialect = csv.Sniffer().sniff(text, delimiters=",;\t|")
-        return dialect.delimiter
+        return csv.Sniffer().sniff(text, delimiters=",;\t|").delimiter
     except csv.Error:
-        return ";" if text.count(";") > text.count(",") else ","
+        return ";"
+
+
+def parse_period(period: str) -> tuple[pd.Timestamp, pd.Timestamp]:
+    tokens = re.findall(r"\d{2}\.\d{2}\.\d{4}|\d{4}-\d{2}-\d{2}", str(period))
+    if len(tokens) != 2:
+        raise ValueError(
+            "Perioada trebuie să conțină exact două date, de exemplu "
+            "'01.01.2026-04.10.2026'."
+        )
+
+    def parse_one(value: str) -> pd.Timestamp:
+        if "." in value:
+            return pd.Timestamp(datetime.strptime(value, "%d.%m.%Y"))
+        return pd.Timestamp(datetime.strptime(value, "%Y-%m-%d"))
+
+    start, end = map(parse_one, tokens)
+    if start > end:
+        raise ValueError("Data de început este după data de sfârșit.")
+    return start, end
+
+
+def filter_by_period(
+    df: pd.DataFrame,
+    period: str,
+    semantic_date_column: str = "date",
+) -> pd.DataFrame:
+    if df.empty:
+        return df.copy()
+    date_col = resolve_column(df.columns, semantic_date_column, required=False)
+    if date_col is None:
+        return df.copy()
+
+    start, end = parse_period(period)
+    parsed = pd.to_datetime(df[date_col], errors="coerce", dayfirst=True)
+    mask = parsed.between(start, end + pd.Timedelta(days=1) - pd.Timedelta(microseconds=1))
+    result = df.loc[mask].copy()
+    result[date_col] = parsed.loc[mask]
+    return result
 
 
 def _string_mask(series: pd.Series, accepted_values: set[str]) -> pd.Series:
@@ -125,37 +179,34 @@ def filter_csv_by_values(
     chunks: list[pd.DataFrame] = []
     resolved_column: str | None = None
 
-    read_kwargs = {
-        "sep": delimiter,
-        "chunksize": chunksize,
-        "low_memory": False,
-        "encoding": "utf-8-sig",
-    }
-    try:
-        iterator = pd.read_csv(path, **read_kwargs)
-        for chunk in iterator:
-            if resolved_column is None:
-                resolved_column = resolve_column(chunk.columns, semantic_column)
-            mask = _string_mask(chunk[resolved_column], accepted)
-            if mask.any():
-                chunks.append(chunk.loc[mask].copy())
-    except UnicodeDecodeError:
-        read_kwargs["encoding"] = "cp1250"
-        iterator = pd.read_csv(path, **read_kwargs)
-        for chunk in iterator:
-            if resolved_column is None:
-                resolved_column = resolve_column(chunk.columns, semantic_column)
-            mask = _string_mask(chunk[resolved_column], accepted)
-            if mask.any():
-                chunks.append(chunk.loc[mask].copy())
+    for encoding in ("utf-8-sig", "cp1250", "latin1"):
+        try:
+            iterator = pd.read_csv(
+                path,
+                sep=delimiter,
+                chunksize=chunksize,
+                low_memory=False,
+                encoding=encoding,
+            )
+            for chunk in iterator:
+                if resolved_column is None:
+                    resolved_column = resolve_column(chunk.columns, semantic_column)
+                mask = _string_mask(chunk[resolved_column], accepted)
+                if mask.any():
+                    chunks.append(chunk.loc[mask].copy())
+            break
+        except UnicodeDecodeError:
+            chunks = []
+            resolved_column = None
+            continue
 
     if not chunks:
         return pd.DataFrame()
     return pd.concat(chunks, ignore_index=True)
 
 
-def read_excel_table(path: str | Path) -> pd.DataFrame:
-    return pd.read_excel(Path(path))
+def read_excel_table(path: str | Path, sheet_name: str | int = 0) -> pd.DataFrame:
+    return pd.read_excel(Path(path), sheet_name=sheet_name)
 
 
 def filter_xlsx_by_values(
@@ -203,9 +254,137 @@ def read_filtered(
         return filter_xlsx_by_values(path, semantic_column, accepted_values)
     if suffix == ".xls":
         raise ValueError(
-            f"{path.name}: format .xls neacceptat în citirea filtrată. Convertește sursa la .xlsx fără a modifica datele."
+            f"{path.name}: format .xls neacceptat în citirea filtrată. "
+            "Convertește sursa la .xlsx fără a modifica datele."
         )
     raise ValueError(f"Format sursă neacceptat: {path.suffix}")
+
+
+def read_production_product(
+    path: str | Path,
+    product_code: str,
+    period: str | None = None,
+    chunksize: int = 50000,
+) -> pd.DataFrame:
+    path = Path(path)
+    delimiter = detect_csv_delimiter(path)
+    matches: list[pd.DataFrame] = []
+
+    iterator = pd.read_csv(
+        path,
+        sep=delimiter,
+        chunksize=chunksize,
+        low_memory=False,
+        encoding="utf-8-sig",
+    )
+    for chunk in iterator:
+        direct = resolve_column(chunk.columns, "product_code", required=False)
+        if direct is not None:
+            mask = chunk[direct].astype(str).str.strip().eq(str(product_code).strip())
+        else:
+            pre = next(
+                (c for c in chunk.columns if normalize_header(c) == normalize_header("PRE_Cod Articol")),
+                None,
+            )
+            con = next(
+                (c for c in chunk.columns if normalize_header(c) == normalize_header("CON_Cod Articol")),
+                None,
+            )
+            if pre is None and con is None:
+                raise ValueError(
+                    f"{path.name}: nu găsesc PRE_Cod Articol / CON_Cod Articol."
+                )
+            mask = pd.Series(False, index=chunk.index)
+            if pre is not None:
+                mask |= chunk[pre].astype(str).str.strip().eq(str(product_code).strip())
+            if con is not None:
+                mask |= chunk[con].astype(str).str.strip().eq(str(product_code).strip())
+
+        if mask.any():
+            matches.append(chunk.loc[mask].copy())
+
+    result = pd.concat(matches, ignore_index=True) if matches else pd.DataFrame()
+    return filter_by_period(result, period) if period and not result.empty else result
+
+
+WME_STANDARD_COLUMNS = [
+    "LineNo",
+    "OperationType",
+    "Document",
+    "Date",
+    "Incoming",
+    "Outgoing",
+    "Balance",
+    "Price",
+    "Account",
+    "Partner",
+    "ProductName",
+    "CounterWarehouse",
+    "WMEItemId",
+    "Warehouse",
+    "Unit",
+    "Note",
+    "InternalRef",
+    "SignedQuantity",
+]
+
+
+def read_wme_product(
+    path: str | Path,
+    product_name: str,
+    period: str | None = None,
+) -> tuple[pd.DataFrame, set[str]]:
+    path = Path(path)
+    workbook = load_workbook(path, read_only=True, data_only=True)
+    worksheet = workbook[workbook.sheetnames[0]]
+
+    rows: list[dict[str, object]] = []
+    ids: set[str] = set()
+
+    for row in worksheet.iter_rows(values_only=True):
+        if len(row) < 15:
+            continue
+        current_name = str(row[10] or "").strip()
+        if current_name != str(product_name).strip():
+            continue
+
+        item_id = str(row[12] or "").strip()
+        if item_id:
+            ids.add(item_id)
+
+        incoming = pd.to_numeric(pd.Series([row[4]]), errors="coerce").iloc[0]
+        outgoing = pd.to_numeric(pd.Series([row[5]]), errors="coerce").iloc[0]
+        incoming = 0.0 if pd.isna(incoming) else float(incoming)
+        outgoing = 0.0 if pd.isna(outgoing) else float(outgoing)
+
+        rows.append(
+            {
+                "LineNo": row[0],
+                "OperationType": row[1],
+                "Document": row[2],
+                "Date": row[3],
+                "Incoming": incoming,
+                "Outgoing": outgoing,
+                "Balance": row[6],
+                "Price": row[7],
+                "Account": row[8],
+                "Partner": row[9],
+                "ProductName": current_name,
+                "CounterWarehouse": row[11],
+                "WMEItemId": item_id,
+                "Warehouse": row[13],
+                "Unit": row[14],
+                "Note": row[15] if len(row) > 15 else None,
+                "InternalRef": row[16] if len(row) > 16 else None,
+                "SignedQuantity": incoming - outgoing,
+            }
+        )
+
+    workbook.close()
+    result = pd.DataFrame(rows, columns=WME_STANDARD_COLUMNS)
+    if period and not result.empty:
+        result = filter_by_period(result, period)
+    return result, ids
 
 
 def numeric_sum(df: pd.DataFrame, semantic_column: str) -> float:
