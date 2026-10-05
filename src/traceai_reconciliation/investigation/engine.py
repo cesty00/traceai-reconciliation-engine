@@ -7,6 +7,7 @@ from typing import Any
 import pandas as pd
 
 from .models import InvestigationSources, ProductInvestigationResult
+from .production_matching import match_production_adjustments
 from .source_readers import (
     filter_by_period,
     first_non_empty,
@@ -527,6 +528,84 @@ def investigate_product(
         "intre gestiuni nu modifică totalul produsului."
     )
 
+    production_match = match_production_adjustments(wms_rows, wme_rows)
+    result.details["production_matching"] = {
+        "wms_positive_total": round(production_match.wms_positive_total, decimals),
+        "wme_np_total": round(production_match.wme_np_total, decimals),
+        "reversal_pairs": len(production_match.reversal_pairs),
+        "residual_adjustments": len(production_match.residual_wms_adjustments),
+        "residual_total": round(production_match.residual_total, decimals),
+    }
+
+    if production_match.reversal_pairs:
+        reversal_total = sum(
+            item["quantity"] for item in production_match.reversal_pairs
+        )
+        result.findings.append(
+            {
+                "type": "WMS_PRODUCTION_REVERSAL_PAIRS",
+                "description": (
+                    f"Au fost identificate {len(production_match.reversal_pairs)} "
+                    f"perechi WMS de ajustare pozitivă + ajustare negativă fără "
+                    f"document, pe aceeași zi/locație/lot/cantitate, total "
+                    f"{reversal_total:.3f} {result.unit}. Aceste perechi sunt "
+                    "tratate ca reversări WMS și nu explică singure diferența finală."
+                ),
+                "evidence": "SRC-WMS + SRC-WME(NP)",
+            }
+        )
+
+    if production_match.residual_wms_adjustments:
+        for item in production_match.residual_wms_adjustments:
+            result.unmatched_operations.append(
+                {
+                    "date": item["date"],
+                    "system": "WMS",
+                    "document": item["document"] or "-",
+                    "operation_type": item["operation_type"],
+                    "quantity": item["quantity"],
+                    "reason": item["reason"],
+                    "status": item["status"],
+                }
+            )
+
+        residual_total = round(production_match.residual_total, decimals)
+        result.findings.append(
+            {
+                "type": "WMS_ONLY_PRODUCTION_ADJUSTMENT",
+                "description": (
+                    f"Au rămas {len(production_match.residual_wms_adjustments)} "
+                    f"ajustări negative WMS fără document și fără pereche de "
+                    f"reversare, total {residual_total:.3f} {result.unit}. "
+                    "Aceste operațiuni necesită validarea motivului operațional "
+                    "și verificarea existenței unui corespondent WME."
+                ),
+                "evidence": "SRC-WMS + SRC-WME + matching producție",
+            }
+        )
+
+        same_sign = (
+            residual_total != 0
+            and result.initial_difference != 0
+            and (residual_total > 0) == (result.initial_difference > 0)
+        )
+        bounded = abs(residual_total) <= abs(result.initial_difference) + 10 ** (-decimals)
+        if same_sign and bounded:
+            result.explained_difference = residual_total
+            result.unexplained_difference = round(
+                result.initial_difference - residual_total,
+                decimals,
+            )
+            result.cause_code = "CAUSE-WMS-ONLY-ADJUSTMENT-PARTIAL"
+            result.cause_description = (
+                "O parte din diferență este explicată de ajustări negative WMS "
+                "fără document, fără pereche de reversare și fără corespondent "
+                "WME identificat. Diferența reziduală rămâne în investigație."
+            )
+            result.cause_status = "PROBABILA"
+            result.evidence_level = "B"
+            result.verdict = "REVIEW"
+
     result.operation_timeline.extend(_timeline_from_wms(wms_rows))
     result.operation_timeline.extend(_timeline_from_wme(wme_rows))
     result.operation_timeline.extend(
@@ -602,7 +681,7 @@ def investigate_product(
         result.cause_status = "CONFIRMATA"
         result.explained_difference = 0.0
         result.unexplained_difference = 0.0
-    else:
+    elif result.explained_difference == 0:
         result.verdict = "REVIEW"
         result.evidence_level = "B" if len(wme_ids) == 1 else "C"
         result.cause_code = "CAUSE-OPERATIONAL-MATCHING-PENDING"
