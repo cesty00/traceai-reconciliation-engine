@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.venv/
+venv/
+.env
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Local data - never commit operational exports
+data/raw/
+data/input/
+data/output/
+*.csv
+*.CSV
+*.xls
+*.XLS
+*.xlsx
+*.XLSX
+
+# Local logs / temp
+*.log
+tmp/
