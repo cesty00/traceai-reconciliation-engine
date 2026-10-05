@@ -1,4 +1,4 @@
-version: "0.3"
+version: "0.4"
 principles:
   force_match: false
   quantity_rounding_decimals: 3
