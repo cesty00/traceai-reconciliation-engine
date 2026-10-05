@@ -50,12 +50,34 @@ def match_deliveries_and_returns(
     if wms_rows.empty:
         return DeliveryMatchResult([], [], 0.0, 0.0, 0.0)
 
-    required = {"Tip operatiune", "Cantitate", "Numar comanda"}
-    missing = required - set(wms_rows.columns)
-    if missing:
+    minimum = {"Tip operatiune", "Cantitate"}
+    missing_minimum = minimum - set(wms_rows.columns)
+    if missing_minimum:
         raise ValueError(
-            f"WMS delivery matching: coloane lipsă {sorted(missing)}"
+            f"WMS delivery matching: coloane de bază lipsă "
+            f"{sorted(missing_minimum)}"
         )
+
+    operations = wms_rows["Tip operatiune"].astype(str).str.strip()
+    has_delivery_flow = operations.isin(["Livrare", "Receptie"]).any()
+    if not has_delivery_flow:
+        return DeliveryMatchResult([], [], 0.0, 0.0, 0.0)
+
+    if "Numar comanda" not in wms_rows.columns:
+        has_delivery = operations.eq("Livrare").any()
+        has_return_like_receipt = False
+        if "Document" in wms_rows.columns:
+            doc_values = wms_rows["Document"].astype(str).str.upper()
+            has_return_like_receipt = (
+                operations.eq("Receptie")
+                & doc_values.str.contains(r"-[12]$|RET_WME|^WMS|^WME", regex=True)
+            ).any()
+        if has_delivery or has_return_like_receipt:
+            raise ValueError(
+                "WMS delivery matching: flux de livrare/retur existent, "
+                "dar coloana 'Numar comanda' lipsește."
+            )
+        return DeliveryMatchResult([], [], 0.0, 0.0, 0.0)
 
     work = wms_rows.copy()
     work["_op"] = work["Tip operatiune"].astype(str).str.strip()
