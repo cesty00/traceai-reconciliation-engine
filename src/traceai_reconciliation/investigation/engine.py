@@ -11,6 +11,7 @@ from .source_readers import (
     filter_by_period,
     first_non_empty,
     numeric_sum,
+    parse_period,
     read_excel_table,
     read_filtered,
     read_production_product,
@@ -176,6 +177,77 @@ def _wme_final_balances(wme_rows: pd.DataFrame) -> tuple[dict[str, float], float
     return final_by_warehouse, float(sum(final_by_warehouse.values()))
 
 
+
+def _wme_balance_total_at(
+    wme_rows: pd.DataFrame,
+    cutoff: pd.Timestamp,
+    strictly_before: bool = False,
+) -> tuple[dict[str, float], float | None]:
+    if wme_rows.empty:
+        return {}, None
+
+    work = wme_rows.copy()
+    work["Date"] = pd.to_datetime(work["Date"], errors="coerce", dayfirst=True)
+    work["LineNo"] = pd.to_numeric(work["LineNo"], errors="coerce")
+    work["Balance"] = pd.to_numeric(work["Balance"], errors="coerce")
+
+    if strictly_before:
+        work = work[work["Date"] < cutoff]
+    else:
+        work = work[work["Date"] <= cutoff]
+
+    final_by_warehouse: dict[str, float] = {}
+    for warehouse, group in work.groupby("Warehouse", dropna=False):
+        ordered = group.sort_values(["Date", "LineNo"], na_position="first")
+        balances = ordered["Balance"].dropna()
+        if balances.empty:
+            continue
+        final_by_warehouse[str(warehouse)] = float(balances.iloc[-1])
+
+    if not final_by_warehouse:
+        return {}, None
+    return final_by_warehouse, float(sum(final_by_warehouse.values()))
+
+
+def _wms_total_net_movement(
+    wms_rows: pd.DataFrame,
+) -> tuple[float | None, list[str]]:
+    if wms_rows.empty:
+        return 0.0, []
+
+    op_col = resolve_column(wms_rows.columns, "operation_type")
+    qty_col = resolve_column(wms_rows.columns, "quantity")
+    quantities = pd.to_numeric(wms_rows[qty_col], errors="coerce").fillna(0.0)
+
+    stock_effect_operations = {
+        "Ajustare pozitiva",
+        "Ajustare negativa",
+        "Receptie",
+        "Livrare",
+    }
+    internal_operations = {
+        "Mutare",
+        "Mutare intre gestiuni",
+        "Incarcare Camion",
+    }
+
+    operations = wms_rows[op_col].astype(str).str.strip()
+    unknown = sorted(
+        {
+            value
+            for value in operations.unique().tolist()
+            if value
+            and value not in stock_effect_operations
+            and value not in internal_operations
+        }
+    )
+    if unknown:
+        return None, unknown
+
+    mask = operations.isin(stock_effect_operations)
+    return float(quantities.loc[mask].sum()), []
+
+
 def investigate_product(
     product_code: str,
     case_id: str,
@@ -305,11 +377,12 @@ def investigate_product(
         product_name,
     )
 
-    wme_rows, wme_ids = read_wme_product(
+    wme_all_rows, wme_ids = read_wme_product(
         sources.wme_ledger,
         product_name,
-        period=period,
+        period=None,
     )
+    wme_rows = filter_by_period(wme_all_rows, period)
 
     if not wms_rows.empty:
         unit = first_non_empty(wms_rows, "unit")
@@ -341,7 +414,28 @@ def investigate_product(
             "Maparea rămâne de validat înainte să devină regulă generală."
         )
 
-    final_wme_by_warehouse, final_wme_total = _wme_final_balances(wme_rows)
+    period_start, period_end = parse_period(period)
+
+    opening_wme_by_warehouse, opening_wme_total = _wme_balance_total_at(
+        wme_all_rows,
+        period_start,
+        strictly_before=True,
+    )
+    final_wme_by_warehouse, final_wme_total = _wme_balance_total_at(
+        wme_all_rows,
+        period_end + pd.Timedelta(days=1) - pd.Timedelta(microseconds=1),
+        strictly_before=False,
+    )
+
+    if opening_wme_total is not None:
+        result.opening_stock_wme = round(opening_wme_total, decimals)
+
+    wme_net_movement = (
+        float(pd.to_numeric(wme_rows["SignedQuantity"], errors="coerce").fillna(0.0).sum())
+        if not wme_rows.empty
+        else 0.0
+    )
+
     if final_wme_total is not None:
         result.calculated_stock_wme = round(final_wme_total, decimals)
         wme_gap = round(
@@ -361,11 +455,76 @@ def investigate_product(
             }
         )
 
+    wms_net_movement, unknown_wms_operations = _wms_total_net_movement(wms_rows)
+    if unknown_wms_operations:
+        result.technical_warnings.append(
+            "Reconstrucția totală WMS nu a fost calculată deoarece există tipuri de "
+            f"operațiuni fără regulă de impact asupra stocului: {unknown_wms_operations}."
+        )
+    elif result.opening_stock_wms is not None and wms_net_movement is not None:
+        result.calculated_stock_wms = round(
+            result.opening_stock_wms + wms_net_movement,
+            decimals,
+        )
+        wms_gap = round(
+            (result.reported_stock_wms or 0.0) - result.calculated_stock_wms,
+            decimals,
+        )
+        result.findings.append(
+            {
+                "type": "WMS_TOTAL_RECONSTRUCTION",
+                "description": (
+                    f"Stoc inițial WMS {result.opening_stock_wms:.3f} + "
+                    f"mișcare netă cu impact extern {wms_net_movement:.3f} = "
+                    f"stoc calculat {result.calculated_stock_wms:.3f}; "
+                    f"QuantityWMS raportat este {(result.reported_stock_wms or 0.0):.3f}; "
+                    f"abaterea este {wms_gap:.3f}."
+                ),
+                "evidence": "SRC-OPENING-WMS + SRC-WMS + SRC-STOCK-REPORT",
+            }
+        )
+
+    if (
+        result.opening_stock_wms is not None
+        and result.opening_stock_wme is not None
+        and wms_net_movement is not None
+    ):
+        initial_system_difference = round(
+            result.opening_stock_wms - result.opening_stock_wme,
+            decimals,
+        )
+        movement_system_difference = round(
+            wms_net_movement - wme_net_movement,
+            decimals,
+        )
+        reconstructed_difference = round(
+            initial_system_difference + movement_system_difference,
+            decimals,
+        )
+        result.findings.append(
+            {
+                "type": "DIFFERENCE_DECOMPOSITION",
+                "description": (
+                    f"Diferență la începutul perioadei: {initial_system_difference:.3f}; "
+                    f"diferență generată de mișcările perioadei: "
+                    f"{movement_system_difference:.3f}; total reconstruit: "
+                    f"{reconstructed_difference:.3f}; diferență raportată: "
+                    f"{result.initial_difference:.3f}."
+                ),
+                "evidence": "reconstrucție independentă WMS + WME",
+            }
+        )
+    else:
+        initial_system_difference = None
+        movement_system_difference = None
+        reconstructed_difference = None
+
     result.technical_warnings.append(
-        "Reconstrucția cantitativă WMS pe gestiuni rămâne suspendată până la "
-        "validarea mapării locațiilor WMS către gestiunile raportului și a semnului "
-        "fiecărui tip de operațiune. Rândurile WMS sunt însă extrase și delimitate "
-        "strict la perioada cazului."
+        "Reconstrucția WMS pe gestiuni/locații rămâne suspendată până la validarea "
+        "mapării locațiilor WMS către gestiunile raportului. Reconstrucția totală pe "
+        "produs folosește numai operațiunile cu impact total de stoc validate: "
+        "Ajustare pozitiva, Ajustare negativa, Receptie și Livrare; Mutare/Mutare "
+        "intre gestiuni nu modifică totalul produsului."
     )
 
     result.operation_timeline.extend(_timeline_from_wms(wms_rows))
@@ -384,7 +543,13 @@ def investigate_product(
             "wme_mapping_ids": sorted(wme_ids),
             "nomenclature_status": nomenclature_status,
             "nomenclature_evidence": nomenclature_evidence,
+            "wme_opening_balances": opening_wme_by_warehouse,
             "wme_final_balances": final_wme_by_warehouse,
+            "wms_net_movement": wms_net_movement,
+            "wme_net_movement": round(wme_net_movement, decimals),
+            "initial_system_difference": initial_system_difference,
+            "movement_system_difference": movement_system_difference,
+            "reconstructed_difference": reconstructed_difference,
         }
     )
 
