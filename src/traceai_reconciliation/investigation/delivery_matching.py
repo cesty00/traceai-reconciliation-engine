@@ -11,6 +11,7 @@ import pandas as pd
 class DeliveryMatchResult:
     documents: list[dict[str, Any]]
     residual_documents: list[dict[str, Any]]
+    wme_only_documents: list[dict[str, Any]]
     wms_net_total: float
     wme_ae_total: float
     residual_total: float
@@ -51,7 +52,7 @@ def match_deliveries_and_returns(
     reported as a false missing AE.
     """
     if wms_rows.empty:
-        return DeliveryMatchResult([], [], 0.0, 0.0, 0.0)
+        return DeliveryMatchResult([], [], [], 0.0, 0.0, 0.0)
 
     minimum = {"Tip operatiune", "Cantitate"}
     missing_minimum = minimum - set(wms_rows.columns)
@@ -64,7 +65,7 @@ def match_deliveries_and_returns(
     operations = wms_rows["Tip operatiune"].astype(str).str.strip()
     has_delivery_flow = operations.isin(["Livrare", "Receptie"]).any()
     if not has_delivery_flow:
-        return DeliveryMatchResult([], [], 0.0, 0.0, 0.0)
+        return DeliveryMatchResult([], [], [], 0.0, 0.0, 0.0)
 
     if "Numar comanda" not in wms_rows.columns:
         has_delivery = operations.eq("Livrare").any()
@@ -80,7 +81,7 @@ def match_deliveries_and_returns(
                 "WMS delivery matching: flux de livrare/retur existent, "
                 "dar coloana 'Numar comanda' lipsește."
             )
-        return DeliveryMatchResult([], [], 0.0, 0.0, 0.0)
+        return DeliveryMatchResult([], [], [], 0.0, 0.0, 0.0)
 
     work = wms_rows.copy()
     work["_op"] = work["Tip operatiune"].astype(str).str.strip()
@@ -120,13 +121,40 @@ def match_deliveries_and_returns(
         & return_like_receipt
     ].copy()
 
+    cancellation_adjustment = pd.DataFrame(columns=work.columns)
+    if "Cod-motiv" in work.columns:
+        cancellation_mask = (
+            work["_op"].eq("Ajustare pozitiva")
+            & work["Cod-motiv"]
+                .fillna("")
+                .astype(str)
+                .str.strip()
+                .str.upper()
+                .eq("ANULARE COMANDA")
+            & work["_doc"].ne("")
+        )
+        cancellation_adjustment = work[cancellation_mask].copy()
+
     wms_delivery = delivery.groupby("_doc")["_qty"].sum()
     wms_returns = receipt.groupby("_doc")["_qty"].sum()
+    wms_cancellations = (
+        cancellation_adjustment.groupby("_doc")["_qty"].sum()
+        if not cancellation_adjustment.empty
+        else pd.Series(dtype=float)
+    )
     wms_net = pd.concat(
-        [wms_delivery.rename("delivery"), wms_returns.rename("return")],
+        [
+            wms_delivery.rename("delivery"),
+            wms_returns.rename("return"),
+            wms_cancellations.rename("cancellation"),
+        ],
         axis=1,
     ).fillna(0.0)
-    wms_net["wms_net"] = wms_net["delivery"] + wms_net["return"]
+    wms_net["wms_net"] = (
+        wms_net["delivery"]
+        + wms_net["return"]
+        + wms_net["cancellation"]
+    )
 
     op_series = wme_rows.get(
         "OperationType",
@@ -144,14 +172,30 @@ def match_deliveries_and_returns(
     else:
         wme_ae = pd.Series(dtype=float)
 
+    relevant_documents = set(wms_net.index)
+    wme_relevant = wme_ae[wme_ae.index.isin(relevant_documents)]
+    wme_only = wme_ae[~wme_ae.index.isin(relevant_documents)]
+
     comparison = pd.concat(
-        [wms_net["wms_net"].rename("wms_net"), wme_ae.rename("wme_ae")],
+        [
+            wms_net["wms_net"].rename("wms_net"),
+            wme_relevant.rename("wme_ae"),
+        ],
         axis=1,
     ).fillna(0.0)
     comparison["difference"] = comparison["wms_net"] - comparison["wme_ae"]
 
     documents: list[dict[str, Any]] = []
     residual_documents: list[dict[str, Any]] = []
+    wme_only_documents: list[dict[str, Any]] = [
+        {
+            "document": str(doc),
+            "wme_ae_quantity": float(quantity),
+            "status": "WME_ONLY_REVIEW",
+        }
+        for doc, quantity in wme_only.sort_index().items()
+        if abs(float(quantity)) > tolerance
+    ]
     for doc, row in comparison.sort_index().iterrows():
         difference = float(row["difference"])
         item = {
@@ -168,6 +212,7 @@ def match_deliveries_and_returns(
     return DeliveryMatchResult(
         documents=documents,
         residual_documents=residual_documents,
+        wme_only_documents=wme_only_documents,
         wms_net_total=float(comparison["wms_net"].sum()),
         wme_ae_total=float(comparison["wme_ae"].sum()),
         residual_total=float(comparison["difference"].sum()),
