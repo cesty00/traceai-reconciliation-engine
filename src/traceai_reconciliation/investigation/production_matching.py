@@ -60,18 +60,29 @@ def match_production_adjustments(
     if wms_rows.empty:
         return ProductionMatchResult([], [], [], 0.0, 0.0, 0.0)
 
-    required_wms = {
-        "Data",
-        "Tip operatiune",
-        "Cantitate",
-        "Numar comanda",
-        "Locatie sursa",
-        "Lot",
-    }
-    missing = required_wms - set(wms_rows.columns)
-    if missing:
+    minimum_wms = {"Data", "Tip operatiune", "Cantitate"}
+    missing_minimum = minimum_wms - set(wms_rows.columns)
+    if missing_minimum:
         raise ValueError(
-            f"WMS production matching: coloane lipsă {sorted(missing)}"
+            f"WMS production matching: coloane de bază lipsă "
+            f"{sorted(missing_minimum)}"
+        )
+
+    operation_values = (
+        wms_rows["Tip operatiune"].astype(str).str.strip()
+    )
+    has_production_adjustment = operation_values.isin(
+        ["Ajustare pozitiva", "Ajustare negativa"]
+    ).any()
+    if not has_production_adjustment:
+        return ProductionMatchResult([], [], [], 0.0, 0.0, 0.0)
+
+    production_columns = {"Numar comanda", "Locatie sursa", "Lot"}
+    missing_production = production_columns - set(wms_rows.columns)
+    if missing_production:
+        raise ValueError(
+            f"WMS production matching: operațiuni de ajustare existente, "
+            f"dar coloane de producție lipsă {sorted(missing_production)}"
         )
 
     work = wms_rows.copy()
