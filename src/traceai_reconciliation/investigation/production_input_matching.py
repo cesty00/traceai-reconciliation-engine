@@ -21,6 +21,7 @@ def match_production_inputs(
     wms_rows: pd.DataFrame,
     wme_rows: pd.DataFrame,
     tolerance: float = 0.001,
+    production_rows: pd.DataFrame | None = None,
 ) -> ProductionInputMatchResult:
     """
     Compare WMS PRODUCTION-IN negative adjustments with WME BC by normalized
@@ -98,14 +99,58 @@ def match_production_inputs(
         comparison["wms_production_in"] - comparison["wme_bc"]
     )
 
+    production_by_doc: dict[str, float] = {}
+    if production_rows is not None and not production_rows.empty:
+        production = production_rows.copy()
+        if {"TipLinie", "Numar Comanda", "CON_Cantitate Consumata"}.issubset(
+            production.columns
+        ):
+            production = production[
+                production["TipLinie"]
+                .astype(str)
+                .str.strip()
+                .str.upper()
+                .eq("CONSUM")
+            ].copy()
+            production["_doc"] = production["Numar Comanda"].map(
+                normalize_document
+            )
+            production["_qty"] = pd.to_numeric(
+                production["CON_Cantitate Consumata"],
+                errors="coerce",
+            ).fillna(0.0)
+            production_by_doc = (
+                production[production["_doc"].ne("")]
+                .groupby("_doc")["_qty"]
+                .sum()
+                .to_dict()
+            )
+
     documents: list[dict[str, Any]] = []
     residual_documents: list[dict[str, Any]] = []
     for doc, row in comparison.sort_index().iterrows():
         difference = float(row["difference"])
+        wms_quantity = float(row["wms_production_in"])
+        wme_quantity = float(row["wme_bc"])
+        production_quantity = float(production_by_doc.get(str(doc), 0.0))
+        production_confirmed = (
+            production_quantity > tolerance
+            and abs(abs(wms_quantity) - production_quantity) <= tolerance
+        )
+        if abs(difference) <= tolerance:
+            residual_kind = "MATCH"
+        elif abs(wme_quantity) <= tolerance and abs(wms_quantity) > tolerance:
+            residual_kind = "WME_BC_MISSING"
+        else:
+            residual_kind = "WME_BC_QTY_DIFF"
+
         item = {
             "document": str(doc),
-            "wms_production_in": float(row["wms_production_in"]),
-            "wme_bc": float(row["wme_bc"]),
+            "wms_production_in": wms_quantity,
+            "wme_bc": wme_quantity,
+            "production_consumption": production_quantity,
+            "production_confirmed": production_confirmed,
+            "residual_kind": residual_kind,
             "difference": difference,
             "status": "MATCH" if abs(difference) <= tolerance else "QTY_DIFF",
         }

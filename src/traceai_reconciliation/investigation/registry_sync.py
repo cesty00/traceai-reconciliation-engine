@@ -57,6 +57,10 @@ def infer_applied_rules(
     if production.get("applied_to_explanation", False):
         rules.append("PROD-02")
 
+    production_input = details.get("production_input_matching", {})
+    if production_input.get("applied_to_explanation", False):
+        rules.append("PROD-03")
+
     special = details.get("special_status_matching", {})
     if special.get("applied_to_explanation", False):
         rules.append("GST-04")

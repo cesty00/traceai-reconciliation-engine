@@ -898,17 +898,31 @@ def investigate_product(
             "TRANSFER_MOSE sau lanțuri -1/-2) și rămân în regulile dedicate."
         )
 
-    production_input_match = match_production_inputs(wms_rows, wme_rows)
+    production_input_match = match_production_inputs(
+        wms_rows,
+        wme_rows,
+        production_rows=production_rows,
+    )
+    production_input_confirmed_missing = [
+        item
+        for item in production_input_match.residual_documents
+        if item.get("residual_kind") == "WME_BC_MISSING"
+        and item.get("production_confirmed", False)
+    ]
     result.details["production_input_matching"] = {
         "wms_total": round(production_input_match.wms_total, decimals),
         "wme_bc_total": round(production_input_match.wme_bc_total, decimals),
         "residual_documents": len(
             production_input_match.residual_documents
         ),
+        "production_confirmed_missing_bc": len(
+            production_input_confirmed_missing
+        ),
         "residual_total": round(
             production_input_match.residual_total,
             decimals,
         ),
+        "applied_to_explanation": False,
     }
 
     if production_input_match.residual_documents:
@@ -923,7 +937,9 @@ def investigate_product(
                     "reason": (
                         f"WMS PRODUCTION-IN "
                         f"{item['wms_production_in']:.3f} vs "
-                        f"WME BC {item['wme_bc']:.3f}"
+                        f"WME BC {item['wme_bc']:.3f}; "
+                        f"producție {item.get('production_consumption', 0.0):.3f}; "
+                        f"tip={item.get('residual_kind', 'QTY_DIFF')}"
                     ),
                     "status": "QTY_DIFF",
                 }
@@ -936,9 +952,14 @@ def investigate_product(
                     f"{len(production_input_match.residual_documents)} "
                     f"documente cu diferență, total "
                     f"{production_input_match.residual_total:.3f} "
-                    f"{result.unit}."
+                    f"{result.unit}; "
+                    f"{len(production_input_confirmed_missing)} documente "
+                    f"au consumul WMS confirmat exact de raportul de producție "
+                    f"și BC WME lipsă."
                 ),
-                "evidence": "SRC-WMS(PRODUCTION-IN) + SRC-WME(BC)",
+                "evidence": (
+                    "SRC-WMS(PRODUCTION-IN) + SRC-WME(BC) + SRC-PROD(CONSUM)"
+                ),
             }
         )
     elif production_input_match.documents:
@@ -1038,6 +1059,49 @@ def investigate_product(
             )
             result.cause_status = "PROBABILA"
             result.evidence_level = "B"
+            result.verdict = "REVIEW"
+
+    production_input_residual = round(
+        production_input_match.residual_total,
+        decimals,
+    )
+    production_input_safe = (
+        bool(production_input_match.residual_documents)
+        and len(production_input_confirmed_missing)
+        == len(production_input_match.residual_documents)
+        and all(
+            item.get("residual_kind") == "WME_BC_MISSING"
+            for item in production_input_match.residual_documents
+        )
+    )
+    if production_input_safe and production_input_residual != 0:
+        candidate_explained = round(
+            result.explained_difference + production_input_residual,
+            decimals,
+        )
+        if abs(candidate_explained - result.initial_difference) <= 10 ** (-decimals):
+            had_previous_explanation = abs(result.explained_difference) > 10 ** (-decimals)
+            result.explained_difference = candidate_explained
+            result.unexplained_difference = round(
+                result.initial_difference - result.explained_difference,
+                decimals,
+            )
+            result.details["production_input_matching"][
+                "applied_to_explanation"
+            ] = True
+            result.cause_code = (
+                "CAUSE-MULTI-PARTIAL"
+                if had_previous_explanation
+                else "CAUSE-WME-BC-MISSING-CONFIRMED"
+            )
+            result.cause_description = (
+                "Diferența este explicată integral de consumuri PRODUCTION-IN "
+                "înregistrate în WMS și confirmate exact de raportul de "
+                "producție, pentru care documentele BC corespondente lipsesc "
+                "din WME."
+            )
+            result.cause_status = "CONFIRMATA"
+            result.evidence_level = "A"
             result.verdict = "REVIEW"
 
     delivery_residual = round(delivery_match.residual_total, decimals)
