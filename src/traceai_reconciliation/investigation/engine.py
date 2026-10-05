@@ -26,6 +26,7 @@ from .source_readers import (
     sha256_file,
 )
 from .source_hash_cache import hash_sources
+from .source_index import SQLiteSourceIndex
 
 
 def _row_value(
@@ -351,6 +352,29 @@ def investigate_product(
         hash_sources(source_paths, cache_dir=sources.cache_dir)
     )
 
+    source_index = None
+    if sources.use_source_index:
+        if sources.cache_dir is None:
+            raise ValueError(
+                "use_source_index=True necesită cache_dir."
+            )
+        source_index = SQLiteSourceIndex(sources.cache_dir)
+        index_rebuilt = source_index.ensure_index(
+            sources.wms_movements,
+            sources.wme_ledger,
+            sources.production,
+        )
+        result.details["source_index"] = {
+            "enabled": True,
+            "rebuilt": index_rebuilt,
+            "database": str(source_index.db_path),
+        }
+    else:
+        result.details["source_index"] = {
+            "enabled": False,
+            "rebuilt": False,
+        }
+
     opening_rows = read_filtered(
         sources.opening_stock_wms,
         "product_code",
@@ -366,18 +390,28 @@ def investigate_product(
             decimals,
         )
 
-    wms_rows = read_filtered(
-        sources.wms_movements,
-        "product_code",
-        [product_code],
-    )
-    wms_rows = filter_by_period(wms_rows, period)
+    if source_index is not None:
+        wms_rows = source_index.read_wms_product(
+            product_code,
+            period=period,
+        )
+        production_rows = source_index.read_production_product(
+            product_code,
+            period=period,
+        )
+    else:
+        wms_rows = read_filtered(
+            sources.wms_movements,
+            "product_code",
+            [product_code],
+        )
+        wms_rows = filter_by_period(wms_rows, period)
 
-    production_rows = read_production_product(
-        sources.production,
-        product_code,
-        period=period,
-    )
+        production_rows = read_production_product(
+            sources.production,
+            product_code,
+            period=period,
+        )
 
     nomenclature = read_excel_table(sources.nomenclature)
     nomenclature_status, nomenclature_evidence = _validate_nomenclature(
@@ -386,11 +420,17 @@ def investigate_product(
         product_name,
     )
 
-    wme_all_rows, wme_ids = read_wme_product(
-        sources.wme_ledger,
-        product_name,
-        period=None,
-    )
+    if source_index is not None:
+        wme_all_rows, wme_ids = source_index.read_wme_product(
+            product_name,
+            period=None,
+        )
+    else:
+        wme_all_rows, wme_ids = read_wme_product(
+            sources.wme_ledger,
+            product_name,
+            period=None,
+        )
     wme_rows = filter_by_period(wme_all_rows, period)
 
     if not wms_rows.empty:
