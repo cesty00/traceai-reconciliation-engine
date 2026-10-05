@@ -20,6 +20,27 @@ CAUSE_STATUSES = {"CONFIRMATA", "PROBABILA", "NEDETERMINATA"}
 CASE_STATUSES = {"DESCHIS", "IN_ANALIZA", "ASTEPTARE_VALIDARE", "INCHIS"}
 RECOMMENDATION_TYPES = {"IMEDIATA", "CORECTIVA", "PREVENTIVA", "AUTOMATIZARE_CONTROL"}
 
+DOCX_ANNEX_ROW_LIMIT = 120
+
+
+def _sample_rows_for_docx(
+    rows: Sequence[Sequence[object]],
+    limit: int = DOCX_ANNEX_ROW_LIMIT,
+) -> tuple[list[Sequence[object]], int]:
+    """Keep report annexes usable while the technical JSON retains all rows."""
+    materialized = list(rows)
+    total = len(materialized)
+    if total <= limit:
+        return materialized, 0
+
+    head_count = limit // 2
+    tail_count = limit - head_count
+    selected = (
+        materialized[:head_count]
+        + materialized[-tail_count:]
+    )
+    return selected, total - len(selected)
+
 
 def validate_case_report(report: CaseReport, tolerance: float = 0.001) -> list[str]:
     errors: list[str] = []
@@ -98,6 +119,12 @@ def _repeat_table_header(row) -> None:
     tr_pr.append(tbl_header)
 
 
+def _prevent_row_split(row) -> None:
+    tr_pr = row._tr.get_or_add_trPr()
+    if tr_pr.find(qn("w:cantSplit")) is None:
+        tr_pr.append(OxmlElement("w:cantSplit"))
+
+
 def _set_landscape(section) -> None:
     section.orientation = WD_ORIENT.LANDSCAPE
     section.page_width, section.page_height = section.page_height, section.page_width
@@ -174,7 +201,9 @@ def _add_key_value_table(doc: DocumentObject, rows: Sequence[tuple[str, str]], w
     table.alignment = WD_TABLE_ALIGNMENT.CENTER
     table.style = "Table Grid"
     for label, value in rows:
-        cells = table.add_row().cells
+        row = table.add_row()
+        _prevent_row_split(row)
+        cells = row.cells
         cells[0].text = label
         cells[1].text = value
         cells[0].width = Cm(widths[0])
@@ -213,9 +242,12 @@ def _add_table(
                 run.font.name = "Arial"
                 run.font.size = Pt(font_size)
     _repeat_table_header(table.rows[0])
+    _prevent_row_split(table.rows[0])
 
     for row in rows:
-        cells = table.add_row().cells
+        table_row = table.add_row()
+        _prevent_row_split(table_row)
+        cells = table_row.cells
         for i, value in enumerate(row):
             cells[i].text = _text(value)
             _set_cell_margins(cells[i], top=45, bottom=45, start=45, end=45)
@@ -465,10 +497,21 @@ def generate_docx_report(report: CaseReport, output_path: str | Path) -> Path:
         for operation in report.operation_timeline
     ]
     if timeline_rows:
+        timeline_rows_docx, timeline_omitted = _sample_rows_for_docx(
+            timeline_rows
+        )
+        if timeline_omitted:
+            doc.add_paragraph(
+                f"Anexa Word afișează {len(timeline_rows_docx)} din "
+                f"{len(timeline_rows)} operațiuni (primele și ultimele din "
+                f"cronologie). {timeline_omitted} rânduri sunt omise din "
+                "DOCX pentru lizibilitate; jurnalul complet rămâne în "
+                "rezultatul tehnic JSON al execuției."
+            )
         _add_table(
             doc,
             ["Data", "Sistem", "Document", "Tip operațiune", "Cantitate", "Gestiune", "Corespondent", "Verdict", "Observație"],
-            timeline_rows,
+            timeline_rows_docx,
             6.6,
         )
     else:
@@ -488,10 +531,21 @@ def generate_docx_report(report: CaseReport, output_path: str | Path) -> Path:
         for item in report.unmatched_operations
     ]
     if unmatched_rows:
+        unmatched_rows_docx, unmatched_omitted = _sample_rows_for_docx(
+            unmatched_rows
+        )
+        if unmatched_omitted:
+            doc.add_paragraph(
+                f"Anexa Word afișează {len(unmatched_rows_docx)} din "
+                f"{len(unmatched_rows)} operațiuni fără corespondent / "
+                f"diferențe punctuale. {unmatched_omitted} rânduri sunt "
+                "omise din DOCX pentru lizibilitate; lista completă rămâne "
+                "în rezultatul tehnic JSON al execuției."
+            )
         _add_table(
             doc,
             ["Data", "Sistem", "Document", "Tip", "Cantitate", "Motiv", "Status"],
-            unmatched_rows,
+            unmatched_rows_docx,
             7.0,
         )
     else:

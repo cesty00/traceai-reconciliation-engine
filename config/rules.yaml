@@ -1,4 +1,4 @@
-version: "0.2"
+version: "0.4"
 principles:
   force_match: false
   quantity_rounding_decimals: 3
@@ -21,6 +21,10 @@ evidence_levels:
 active_rules:
   - id: GST-01
     description: "Se neteaza diferentele pe produs intre zone/gestiuni inainte de verdict."
+  - id: GST-02
+    description: "QuantityERP=0 intr-o zona nu dovedeste automat lipsa in WME; se verifica soldul WME si logica raportului."
+  - id: GST-03
+    description: "Zonele/statusurile WMS se separa de gestiunile contabile WME; un efect de mapare al raportului se confirma numai cu dovada cantitativa."
   - id: MAP-04
     description: "NEDEFINIT IN WMS nu se trateaza ca diferenta reala pana la rezolvarea maparii."
   - id: INT-01
@@ -48,4 +52,15 @@ candidate_rules:
 
   - id: WME-01
     description: "Miscarile WME non-standard din afara gestiunilor speciale se raporteaza ca dovezi reziduale, dar nu se adauga automat la diferenta explicata fara o legatura documentara validata."
+    status: "CANDIDAT"
+
+  - id: REC-01
+    description: "Receptiile WMS cu Numar comanda IN... se compara cu FE pozitive WME dupa Document intrare si cantitatea agregata."
+    status: "CANDIDAT"
+  - id: REC-02
+    description: "Receptiile WMS TRANSFER_CG... se compara cu NT pozitive WME dupa Document intrare; TRANSFER_MOSE ramane in familia dedicata de transfer."
+    status: "CANDIDAT"
+
+  - id: TR-MOSE-01
+    description: "TRANSFER_MOSE se reconciliaza cu NT WME ca flux intern DP<->MOSE; _DEL_ se neteaza in ordinul de baza, Document intrare are prioritate, iar fallback-ul pe cantitate+directie+data se accepta numai daca este univoc."
     status: "CANDIDAT"

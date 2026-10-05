@@ -9,9 +9,15 @@ import pandas as pd
 from .models import InvestigationSources, ProductInvestigationResult
 from .production_matching import match_production_adjustments
 from .delivery_matching import match_deliveries_and_returns
+from .receipt_matching import match_inbound_receipts
 from .special_status_matching import match_special_status_flow
 from .production_input_matching import match_production_inputs
 from .stock_correction_matching import match_generic_wms_stock_corrections
+from .stock_report_zone_matching import reconcile_stock_report_zones
+from .transfer_mose_matching import (
+    match_transfer_mose,
+    match_transfer_mose_baskets,
+)
 from .wme_residual_matching import match_wme_residual_movements
 from .source_readers import (
     filter_by_period,
@@ -25,6 +31,8 @@ from .source_readers import (
     resolve_column,
     sha256_file,
 )
+from .source_hash_cache import hash_sources
+from .source_index import SQLiteSourceIndex
 
 
 def _row_value(
@@ -338,15 +346,40 @@ def investigate_product(
         ]
     )
 
-    for key, path in {
+    source_paths = {
         "stock_report": sources.stock_report,
         "opening_stock_wms": sources.opening_stock_wms,
         "wms_movements": sources.wms_movements,
         "wme_ledger": sources.wme_ledger,
         "production": sources.production,
         "nomenclature": sources.nomenclature,
-    }.items():
-        result.source_hashes[key] = sha256_file(path)
+    }
+    result.source_hashes.update(
+        hash_sources(source_paths, cache_dir=sources.cache_dir)
+    )
+
+    source_index = None
+    if sources.use_source_index:
+        if sources.cache_dir is None:
+            raise ValueError(
+                "use_source_index=True necesită cache_dir."
+            )
+        source_index = SQLiteSourceIndex(sources.cache_dir)
+        index_rebuilt = source_index.ensure_index(
+            sources.wms_movements,
+            sources.wme_ledger,
+            sources.production,
+        )
+        result.details["source_index"] = {
+            "enabled": True,
+            "rebuilt": index_rebuilt,
+            "database": str(source_index.db_path),
+        }
+    else:
+        result.details["source_index"] = {
+            "enabled": False,
+            "rebuilt": False,
+        }
 
     opening_rows = read_filtered(
         sources.opening_stock_wms,
@@ -363,18 +396,28 @@ def investigate_product(
             decimals,
         )
 
-    wms_rows = read_filtered(
-        sources.wms_movements,
-        "product_code",
-        [product_code],
-    )
-    wms_rows = filter_by_period(wms_rows, period)
+    if source_index is not None:
+        wms_rows = source_index.read_wms_product(
+            product_code,
+            period=period,
+        )
+        production_rows = source_index.read_production_product(
+            product_code,
+            period=period,
+        )
+    else:
+        wms_rows = read_filtered(
+            sources.wms_movements,
+            "product_code",
+            [product_code],
+        )
+        wms_rows = filter_by_period(wms_rows, period)
 
-    production_rows = read_production_product(
-        sources.production,
-        product_code,
-        period=period,
-    )
+        production_rows = read_production_product(
+            sources.production,
+            product_code,
+            period=period,
+        )
 
     nomenclature = read_excel_table(sources.nomenclature)
     nomenclature_status, nomenclature_evidence = _validate_nomenclature(
@@ -383,11 +426,17 @@ def investigate_product(
         product_name,
     )
 
-    wme_all_rows, wme_ids = read_wme_product(
-        sources.wme_ledger,
-        product_name,
-        period=None,
-    )
+    if source_index is not None:
+        wme_all_rows, wme_ids = source_index.read_wme_product(
+            product_name,
+            period=None,
+        )
+    else:
+        wme_all_rows, wme_ids = read_wme_product(
+            sources.wme_ledger,
+            product_name,
+            period=None,
+        )
     wme_rows = filter_by_period(wme_all_rows, period)
 
     if not wms_rows.empty:
@@ -525,6 +574,68 @@ def investigate_product(
         movement_system_difference = None
         reconstructed_difference = None
 
+    stock_zone_match = reconcile_stock_report_zones(
+        stock_rows,
+        final_wme_by_warehouse,
+    )
+    result.details["stock_report_zone_matching"] = {
+        "rows": stock_zone_match.rows,
+        "confirmed_report_mapping_rows": len(
+            stock_zone_match.confirmed_report_mapping_rows
+        ),
+        "unresolved_rows": len(stock_zone_match.unresolved_rows),
+        "mapping_effect_total": round(
+            stock_zone_match.mapping_effect_total,
+            decimals,
+        ),
+        "applied_to_explanation": bool(
+            stock_zone_match.confirmed_report_mapping_rows
+        ),
+    }
+
+    if stock_zone_match.confirmed_report_mapping_rows:
+        mapping_effect = round(
+            stock_zone_match.mapping_effect_total,
+            decimals,
+        )
+        result.explained_difference = round(
+            result.explained_difference + mapping_effect,
+            decimals,
+        )
+        result.unexplained_difference = round(
+            result.initial_difference - result.explained_difference,
+            decimals,
+        )
+        result.findings.append(
+            {
+                "type": "STOCK_REPORT_ERP_ZERO_MAPPING",
+                "description": (
+                    f"{len(stock_zone_match.confirmed_report_mapping_rows)} "
+                    f"rânduri de raport cu QuantityERP=0 au fost confirmate ca "
+                    f"artefacte de mapare deoarece soldul WMS este egal cu "
+                    f"soldul WME. Efect total asupra diferenței raportate: "
+                    f"{mapping_effect:.3f} {result.unit}."
+                ),
+                "evidence": "SRC-STOCK-REPORT + SRC-WME + GST-02/GST-03",
+            }
+        )
+        result.cause_code = "CAUSE-REPORT-MAPPING-PARTIAL"
+        result.cause_description = (
+            "O parte din diferența raportată provine din logica de mapare a "
+            "raportului: QuantityERP=0 pentru o gestiune în care WMS și WME "
+            "au același sold. Restul diferenței se investighează operațional."
+        )
+        result.cause_status = "CONFIRMATA"
+        result.evidence_level = "A"
+        result.verdict = "REVIEW"
+
+    if stock_zone_match.unresolved_rows:
+        result.technical_warnings.append(
+            f"{len(stock_zone_match.unresolved_rows)} rânduri de gestiune din "
+            "raport nu au putut fi validate automat față de soldurile WME și "
+            "rămân REVIEW."
+        )
+
     result.technical_warnings.append(
         "Reconstrucția WMS pe gestiuni/locații rămâne suspendată până la validarea "
         "mapării locațiilor WMS către gestiunile raportului. Reconstrucția totală pe "
@@ -538,8 +649,38 @@ def investigate_product(
         "wms_net_total": round(delivery_match.wms_net_total, decimals),
         "wme_ae_total": round(delivery_match.wme_ae_total, decimals),
         "residual_documents": len(delivery_match.residual_documents),
+        "wme_only_documents": len(delivery_match.wme_only_documents),
+        "derived_receipt_documents": (
+            delivery_match.derived_receipt_documents
+        ),
+        "net_zero_derived_documents": (
+            delivery_match.net_zero_derived_documents
+        ),
         "residual_total": round(delivery_match.residual_total, decimals),
+        "applied_to_explanation": False,
     }
+
+    if delivery_match.wme_only_documents:
+        for item in delivery_match.wme_only_documents:
+            result.unmatched_operations.append(
+                {
+                    "date": "-",
+                    "system": "WME",
+                    "document": item["document"],
+                    "operation_type": "AE_WME_ONLY",
+                    "quantity": item["wme_ae_quantity"],
+                    "reason": (
+                        "AE WME fără document WMS candidat de livrare/retur "
+                        "în perioada analizată"
+                    ),
+                    "status": item["status"],
+                }
+            )
+        result.technical_warnings.append(
+            f"{len(delivery_match.wme_only_documents)} documente AE WME-only "
+            "au fost păstrate separat și nu modifică automat rezidualul "
+            "DELIVERY."
+        )
 
     if delivery_match.residual_documents:
         for item in delivery_match.residual_documents:
@@ -568,6 +709,193 @@ def investigate_product(
                 ),
                 "evidence": "SRC-WMS + SRC-WME(AE)",
             }
+        )
+
+    has_transfer_mose = False
+    if "Numar comanda" in wms_rows.columns:
+        has_transfer_mose = (
+            wms_rows["Numar comanda"]
+            .fillna("")
+            .astype(str)
+            .str.strip()
+            .str.upper()
+            .str.startswith("TRANSFER_MOSE")
+            .any()
+        )
+
+    transfer_mose_scope = "PRODUCT_FALLBACK"
+    if source_index is not None and has_transfer_mose:
+        transfer_mose_match = match_transfer_mose_baskets(
+            source_index.read_wms_transfer_mose(period=period),
+            source_index.read_wme_mose_nt(period=period),
+            product_name=product_name,
+        )
+        transfer_mose_scope = "BASKET_INDEXED"
+    else:
+        transfer_mose_match = match_transfer_mose(
+            wms_rows,
+            wme_rows,
+        )
+
+    result.details["transfer_mose_matching"] = {
+        "scope": transfer_mose_scope,
+        "matches": len(transfer_mose_match.matches),
+        "cancelled_orders": len(
+            transfer_mose_match.cancelled_orders
+        ),
+        "residual_wms_transfers": len(
+            transfer_mose_match.residual_wms_transfers
+        ),
+        "wme_only_nt": len(
+            transfer_mose_match.wme_only_nt
+        ),
+        "matched_wms_total": round(
+            transfer_mose_match.matched_wms_total,
+            decimals,
+        ),
+        "residual_wms_total": round(
+            transfer_mose_match.residual_wms_total,
+            decimals,
+        ),
+    }
+
+    if transfer_mose_match.matches:
+        result.findings.append(
+            {
+                "type": "TRANSFER_MOSE_MATCHING",
+                "description": (
+                    f"TRANSFER_MOSE: "
+                    f"{len(transfer_mose_match.matches)} transferuri WMS "
+                    f"au corespondent NT WME; "
+                    f"{len(transfer_mose_match.cancelled_orders)} ordine "
+                    f"au fost anulate complet după netarea _DEL_. "
+                    "Transferurile sunt tratate ca flux intern și nu modifică "
+                    "automat diferența totală WMS-WME."
+                ),
+                "evidence": "SRC-WMS(TRANSFER_MOSE) + SRC-WME(NT)",
+            }
+        )
+
+    for item in transfer_mose_match.residual_wms_transfers:
+        result.unmatched_operations.append(
+            {
+                "date": (
+                    str(item.get("first_date"))
+                    if item.get("first_date") is not None
+                    else "-"
+                ),
+                "system": "WMS↔WME",
+                "document": item.get("order", "-"),
+                "operation_type": "TRANSFER_MOSE_VS_NT",
+                "quantity": item.get("net_quantity", 0.0),
+                "reason": (
+                    f"TRANSFER_MOSE fără corespondent NT univoc; "
+                    f"status={item.get('status', 'REVIEW')}; "
+                    f"Document intrare={item.get('document_in', [])}; "
+                    f"Document comanda={item.get('document_order', [])}."
+                ),
+                "status": item.get("status", "REVIEW"),
+            }
+        )
+
+    for item in transfer_mose_match.wme_only_nt:
+        result.unmatched_operations.append(
+            {
+                "date": (
+                    str(item.get("date"))
+                    if item.get("date") is not None
+                    else "-"
+                ),
+                "system": "WME",
+                "document": item.get("document", "-"),
+                "operation_type": "NT_MOSE_WME_ONLY",
+                "quantity": item.get("signed_quantity", 0.0),
+                "reason": (
+                    "NT WME între MOSE și DEPOZIT PRINCIPAL fără "
+                    "TRANSFER_MOSE WMS univoc identificat."
+                ),
+                "status": item.get("status", "WME_ONLY_NT_REVIEW"),
+            }
+        )
+
+    if (
+        transfer_mose_match.residual_wms_transfers
+        or transfer_mose_match.wme_only_nt
+    ):
+        result.technical_warnings.append(
+            "Excepțiile TRANSFER_MOSE/NT rămân REVIEW; matcherul nu forțează "
+            "corespondenta pe simpla coincidență de cantitate."
+        )
+
+    receipt_match = match_inbound_receipts(wms_rows, wme_rows)
+    result.details["receipt_matching"] = {
+        "supported_documents": len(receipt_match.documents),
+        "residual_documents": len(receipt_match.residual_documents),
+        "unsupported_receipts": len(receipt_match.unsupported_receipts),
+        "wms_supported_total": round(
+            receipt_match.wms_supported_total,
+            decimals,
+        ),
+        "wme_supported_total": round(
+            receipt_match.wme_supported_total,
+            decimals,
+        ),
+        "residual_total": round(
+            receipt_match.residual_total,
+            decimals,
+        ),
+    }
+
+    if receipt_match.documents:
+        matched_count = sum(
+            1 for item in receipt_match.documents
+            if item["status"] == "MATCH"
+        )
+        result.findings.append(
+            {
+                "type": "INBOUND_RECEIPT_MATCHING",
+                "description": (
+                    f"Recepții inbound validate documentar: "
+                    f"{matched_count}/{len(receipt_match.documents)} "
+                    f"documente sunt concordante pentru familiile "
+                    f"IN→FE și TRANSFER_CG→NT; rezidual total "
+                    f"{receipt_match.residual_total:.3f} {result.unit}."
+                ),
+                "evidence": "SRC-WMS(Receptie) + SRC-WME(FE/NT)",
+            }
+        )
+
+    if receipt_match.residual_documents:
+        for item in receipt_match.residual_documents:
+            result.unmatched_operations.append(
+                {
+                    "date": "-",
+                    "system": "WMS↔WME",
+                    "document": item["document"],
+                    "operation_type": (
+                        f"RECEIPT_{item['family']}_VS_"
+                        f"{item['wme_operation_type']}"
+                    ),
+                    "quantity": item["difference"],
+                    "reason": (
+                        f"WMS {item['wms_quantity']:.3f} vs "
+                        f"WME {item['wme_quantity']:.3f}"
+                    ),
+                    "status": "QTY_DIFF",
+                }
+            )
+
+        result.technical_warnings.append(
+            "Diferențele reziduale RECEIPT sunt raportate ca dovezi, "
+            "dar nu sunt încă adăugate automat la diferența explicată "
+            "până la validarea pe cazuri reale suplimentare."
+        )
+
+    if receipt_match.unsupported_receipts:
+        result.technical_warnings.append(
+            f"{len(receipt_match.unsupported_receipts)} recepții WMS aparțin "
+            "familiilor neacoperite de matcherul inbound (de ex. retururi, "
+            "TRANSFER_MOSE sau lanțuri -1/-2) și rămân în regulile dedicate."
         )
 
     production_input_match = match_production_inputs(wms_rows, wme_rows)
@@ -637,6 +965,7 @@ def investigate_product(
         "reversal_pairs": len(production_match.reversal_pairs),
         "residual_adjustments": len(production_match.residual_wms_adjustments),
         "residual_total": round(production_match.residual_total, decimals),
+        "applied_to_explanation": False,
     }
 
     if production_match.reversal_pairs:
@@ -694,6 +1023,9 @@ def investigate_product(
         bounded = abs(residual_total) <= abs(result.initial_difference) + 10 ** (-decimals)
         if same_sign and bounded:
             result.explained_difference = residual_total
+            result.details["production_matching"][
+                "applied_to_explanation"
+            ] = True
             result.unexplained_difference = round(
                 result.initial_difference - residual_total,
                 decimals,
@@ -719,20 +1051,35 @@ def investigate_product(
             decimals,
         )
         if abs(candidate_explained) <= abs(result.initial_difference) + 10 ** (-decimals):
+            previous_cause_code = result.cause_code
             result.explained_difference = candidate_explained
+            result.details["delivery_matching"][
+                "applied_to_explanation"
+            ] = True
             result.unexplained_difference = round(
                 result.initial_difference - result.explained_difference,
                 decimals,
             )
-            if result.cause_code == "CAUSE-OPERATIONAL-MATCHING-PENDING":
-                result.cause_code = "CAUSE-MULTI-PARTIAL"
-            elif result.cause_code == "CAUSE-WMS-ONLY-ADJUSTMENT-PARTIAL":
-                result.cause_code = "CAUSE-MULTI-PARTIAL"
-            result.cause_description = (
-                "Diferența este explicată parțial de operațiuni WMS fără "
-                "corespondent și/sau diferențe cantitative reziduale după "
-                "netarea documentelor de livrare/retur. Restul rămâne în investigație."
-            )
+            result.cause_code = "CAUSE-MULTI-PARTIAL"
+            if previous_cause_code == "CAUSE-REPORT-MAPPING-PARTIAL":
+                result.cause_description = (
+                    "Diferența este explicată prin combinația dintre un efect "
+                    "confirmat de mapare al raportului de stoc și o diferență "
+                    "reziduală de livrare/retur WMS față de AE WME."
+                )
+            elif abs(result.unexplained_difference) <= 10 ** (-decimals):
+                result.cause_description = (
+                    "Diferența este explicată integral prin combinația "
+                    "componentelor operaționale validate și a diferențelor "
+                    "reziduale după netarea documentelor de livrare/retur."
+                )
+            else:
+                result.cause_description = (
+                    "Diferența este explicată parțial de operațiuni WMS fără "
+                    "corespondent și/sau diferențe cantitative reziduale după "
+                    "netarea documentelor de livrare/retur. Diferența rămasă "
+                    "este păstrată separat pentru investigație."
+                )
             result.cause_status = "PROBABILA"
             result.evidence_level = "B"
 
@@ -804,6 +1151,7 @@ def investigate_product(
             generic_correction_match.residual_total,
             decimals,
         ),
+        "applied_to_explanation": False,
     }
 
     if generic_correction_match.residual_corrections:
@@ -864,6 +1212,9 @@ def investigate_product(
                 <= abs(result.initial_difference) + 10 ** (-decimals)
             ):
                 result.explained_difference = candidate_explained
+                result.details["generic_stock_corrections"][
+                    "applied_to_explanation"
+                ] = True
                 result.unexplained_difference = round(
                     result.initial_difference
                     - result.explained_difference,
@@ -888,6 +1239,7 @@ def investigate_product(
             special_status_match.explained_total,
             decimals,
         ),
+        "applied_to_explanation": False,
     }
 
     if special_status_match.matched_groups:
@@ -928,6 +1280,9 @@ def investigate_product(
                 <= abs(result.initial_difference) + 10 ** (-decimals)
             ):
                 result.explained_difference = candidate_explained
+                result.details["special_status_matching"][
+                    "applied_to_explanation"
+                ] = True
                 result.unexplained_difference = round(
                     result.initial_difference
                     - result.explained_difference,
@@ -1047,9 +1402,9 @@ def investigate_product(
             "priority": "P4",
             "action_type": "AUTOMATIZARE_CONTROL",
             "recommendation": (
-                "Activarea următorului strat v0.3: matching operațional "
-                "WMS↔WME pentru RECEIPT / DELIVERY / RETURN_IN / TRANSFER / "
-                "PRODUCTION și identificarea diferenței explicate."
+                "Continuarea validării automate pentru familiile operaționale "
+                "încă neacoperite sau rămase în REVIEW, cu promovarea regulilor "
+                "candidate numai după confirmare pe cazuri reale independente."
             ),
             "proposed_owner": "TraceAI Control",
             "precondition": "Maparea locațiilor și regulile de semn validate",

@@ -13,6 +13,8 @@ class InvestigationSources:
     wme_ledger: Path
     production: Path
     nomenclature: Path
+    cache_dir: Path | None = None
+    use_source_index: bool = False
 
 
 @dataclass(slots=True)

@@ -6,7 +6,12 @@ import json
 from pathlib import Path
 
 from . import __version__
-from .investigation import InvestigationSources, build_case_report, investigate_product
+from .investigation import (
+    InvestigationSources,
+    build_case_report,
+    build_registry_update,
+    investigate_product,
+)
 from .loaders import read_table
 from .product_audit import summarize_stock_report
 from .reports import generate_docx_report, load_case_report_json
@@ -21,6 +26,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--case-json", help="Structured CaseReport JSON input")
     parser.add_argument("--output-docx", help="DOCX output path")
     parser.add_argument("--output-json", help="Technical JSON output path")
+    parser.add_argument(
+        "--output-registry-json",
+        help=(
+            "Optional deterministic REGISTRU_CAZURI upsert payload JSON. "
+            "No Google credentials are stored or used by the engine."
+        ),
+    )
     parser.add_argument("--case-id", help="CASE_ID for product investigation")
     parser.add_argument("--period", help="Investigation period label")
     parser.add_argument("--report-date", help="Report date")
@@ -30,13 +42,28 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--production", help="Production CSV/XLSX")
     parser.add_argument("--nomenclature", help="WME-WMS nomenclature XLSX")
     parser.add_argument(
+        "--indexed-cache",
+        action="store_true",
+        help=(
+            "Build/reuse a local SQLite index for large WMS/WME/production "
+            "sources. Recommended for repeated product investigations."
+        ),
+    )
+    parser.add_argument(
+        "--cache-dir",
+        help=(
+            "Optional local cache directory. Defaults to .traceai_cache "
+            "beside --output-docx for real investigations."
+        ),
+    )
+    parser.add_argument(
         "--engine-commit-sha",
         default="LOCAL_OR_UNSET",
         help="Git commit SHA recorded in the generated report",
     )
     parser.add_argument(
         "--rules-version",
-        default="0.2",
+        default="0.3",
         help="Rules version recorded in the generated report",
     )
     return parser
@@ -71,6 +98,13 @@ def _run_real_product_investigation(args: argparse.Namespace) -> None:
             "Real product investigation requires: " + ", ".join(missing)
         )
 
+    output_docx = Path(args.output_docx)
+    cache_dir = (
+        Path(args.cache_dir)
+        if args.cache_dir
+        else output_docx.parent / ".traceai_cache"
+    )
+
     sources = InvestigationSources(
         stock_report=Path(args.stock_report),
         opening_stock_wms=Path(args.opening_stock_wms),
@@ -78,6 +112,8 @@ def _run_real_product_investigation(args: argparse.Namespace) -> None:
         wme_ledger=Path(args.wme_ledger),
         production=Path(args.production),
         nomenclature=Path(args.nomenclature),
+        cache_dir=cache_dir,
+        use_source_index=args.indexed_cache,
     )
 
     result = investigate_product(
@@ -94,13 +130,21 @@ def _run_real_product_investigation(args: argparse.Namespace) -> None:
         rules_version=args.rules_version,
     )
 
+    registry_update = build_registry_update(
+        result,
+        case_report,
+    )
     technical_payload = {
         "investigation": asdict(result),
         "case_report": asdict(case_report),
+        "registry_update": registry_update,
     }
 
     if args.output_json:
         _write_json(args.output_json, technical_payload)
+
+    if args.output_registry_json:
+        _write_json(args.output_registry_json, registry_update)
 
     output = generate_docx_report(case_report, args.output_docx)
     print(str(output))
