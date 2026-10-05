@@ -110,3 +110,37 @@ def test_ret_wme_receipt_matches_positive_ae() -> None:
 
     assert result.residual_total == 0.0
     assert result.residual_documents == []
+
+
+
+def test_supplier_receipt_is_not_treated_as_delivery_return() -> None:
+    wms = pd.DataFrame(
+        [
+            {
+                "Tip operatiune": "Livrare",
+                "Cantitate": -100.0,
+                "Numar comanda": "WME120000",
+            },
+            {
+                "Tip operatiune": "Receptie",
+                "Cantitate": 500.0,
+                "Numar comanda": "IN3969",
+            },
+        ]
+    )
+    wme = pd.DataFrame(
+        [
+            {
+                "OperationType": "AE",
+                "Document": "120000",
+                "SignedQuantity": -100.0,
+            }
+        ]
+    )
+
+    result = match_deliveries_and_returns(wms, wme)
+
+    assert result.wms_net_total == -100.0
+    assert result.wme_ae_total == -100.0
+    assert result.residual_total == 0.0
+    assert result.residual_documents == []
