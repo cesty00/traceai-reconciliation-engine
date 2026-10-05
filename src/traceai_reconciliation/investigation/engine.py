@@ -10,6 +10,7 @@ from .models import InvestigationSources, ProductInvestigationResult
 from .production_matching import match_production_adjustments
 from .delivery_matching import match_deliveries_and_returns
 from .special_status_matching import match_special_status_flow
+from .production_input_matching import match_production_inputs
 from .source_readers import (
     filter_by_period,
     first_non_empty,
@@ -564,6 +565,66 @@ def investigate_product(
                     f"{delivery_match.residual_total:.3f} {result.unit}."
                 ),
                 "evidence": "SRC-WMS + SRC-WME(AE)",
+            }
+        )
+
+    production_input_match = match_production_inputs(wms_rows, wme_rows)
+    result.details["production_input_matching"] = {
+        "wms_total": round(production_input_match.wms_total, decimals),
+        "wme_bc_total": round(production_input_match.wme_bc_total, decimals),
+        "residual_documents": len(
+            production_input_match.residual_documents
+        ),
+        "residual_total": round(
+            production_input_match.residual_total,
+            decimals,
+        ),
+    }
+
+    if production_input_match.residual_documents:
+        for item in production_input_match.residual_documents:
+            result.unmatched_operations.append(
+                {
+                    "date": "-",
+                    "system": "WMS↔WME",
+                    "document": item["document"],
+                    "operation_type": "PRODUCTION_IN_VS_BC",
+                    "quantity": item["difference"],
+                    "reason": (
+                        f"WMS PRODUCTION-IN "
+                        f"{item['wms_production_in']:.3f} vs "
+                        f"WME BC {item['wme_bc']:.3f}"
+                    ),
+                    "status": "QTY_DIFF",
+                }
+            )
+        result.findings.append(
+            {
+                "type": "PRODUCTION_INPUT_RESIDUAL",
+                "description": (
+                    f"PRODUCTION-IN WMS vs BC WME are "
+                    f"{len(production_input_match.residual_documents)} "
+                    f"documente cu diferență, total "
+                    f"{production_input_match.residual_total:.3f} "
+                    f"{result.unit}."
+                ),
+                "evidence": "SRC-WMS(PRODUCTION-IN) + SRC-WME(BC)",
+            }
+        )
+    elif production_input_match.documents:
+        result.findings.append(
+            {
+                "type": "PRODUCTION_INPUT_MATCH",
+                "description": (
+                    f"Toate cele "
+                    f"{len(production_input_match.documents)} documente "
+                    f"PRODUCTION-IN WMS sunt concordante cu BC WME; "
+                    f"total WMS "
+                    f"{production_input_match.wms_total:.3f} "
+                    f"și total WME "
+                    f"{production_input_match.wme_bc_total:.3f}."
+                ),
+                "evidence": "SRC-WMS(PRODUCTION-IN) + SRC-WME(BC)",
             }
         )
 
