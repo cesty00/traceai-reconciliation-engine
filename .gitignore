@@ -27,3 +27,6 @@ data/output/
 # Local logs / temp
 *.log
 tmp/
+
+# TraceAI local caches
+.traceai_cache/
