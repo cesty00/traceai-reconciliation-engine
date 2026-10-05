@@ -87,8 +87,27 @@ def match_deliveries_and_returns(
     work["_qty"] = pd.to_numeric(work["Cantitate"], errors="coerce").fillna(0.0)
     work["_doc"] = work["Numar comanda"].map(normalize_delivery_document)
 
-    delivery = work[work["_op"].eq("Livrare") & work["_doc"].ne("")].copy()
-    receipt = work[work["_op"].eq("Receptie") & work["_doc"].ne("")].copy()
+    delivery = work[
+        work["_op"].eq("Livrare") & work["_doc"].ne("")
+    ].copy()
+
+    raw_document = (
+        work["Numar comanda"]
+        .fillna("")
+        .astype(str)
+        .str.strip()
+        .str.upper()
+    )
+    return_like_receipt = (
+        raw_document.str.startswith("RET_WME")
+        | raw_document.str.startswith("RET_SFA")
+        | raw_document.str.match(r"^(?:WME|WMS|AV_WMS)\d+-(?:1|2)(?:-|$)")
+    )
+    receipt = work[
+        work["_op"].eq("Receptie")
+        & work["_doc"].ne("")
+        & return_like_receipt
+    ].copy()
 
     wms_delivery = delivery.groupby("_doc")["_qty"].sum()
     wms_returns = receipt.groupby("_doc")["_qty"].sum()
