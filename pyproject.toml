@@ -4,13 +4,14 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "traceai-reconciliation-engine"
-version = "0.1.0"
+version = "0.2.0"
 description = "WMS-WME reconciliation and stock difference investigation engine"
 requires-python = ">=3.11"
 dependencies = [
   "pandas>=2.2,<3",
   "openpyxl>=3.1,<4",
   "PyYAML>=6.0,<7",
+  "python-docx>=1.1,<2",
 ]
 
 [project.optional-dependencies]
