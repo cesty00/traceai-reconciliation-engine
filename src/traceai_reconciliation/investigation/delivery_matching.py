@@ -136,12 +136,54 @@ def match_deliveries_and_returns(
         cancellation_adjustment = work[cancellation_mask].copy()
 
     wms_delivery = delivery.groupby("_doc")["_qty"].sum()
+    positive_delivery = (
+        delivery.loc[delivery["_qty"].gt(0)]
+        .groupby("_doc")["_qty"]
+        .sum()
+        .rename("positive_delivery")
+    )
+    negative_delivery = (
+        delivery.loc[delivery["_qty"].lt(0)]
+        .groupby("_doc")["_qty"]
+        .sum()
+        .rename("negative_delivery")
+    )
     wms_returns = receipt.groupby("_doc")["_qty"].sum()
-    wms_cancellations = (
+    raw_cancellations = (
         cancellation_adjustment.groupby("_doc")["_qty"].sum()
         if not cancellation_adjustment.empty
         else pd.Series(dtype=float)
     )
+
+    cancellation_frame = pd.concat(
+        [
+            raw_cancellations.rename("raw_cancellation"),
+            positive_delivery,
+            negative_delivery,
+        ],
+        axis=1,
+    ).fillna(0.0)
+
+    cancellation_frame["eligible_cancellation"] = 0.0
+    has_negative_delivery = cancellation_frame["negative_delivery"].lt(0)
+    uncovered_cancellation = (
+        cancellation_frame["raw_cancellation"]
+        - cancellation_frame["positive_delivery"]
+    ).clip(lower=0.0)
+    remaining_negative = (
+        -cancellation_frame["negative_delivery"]
+        - cancellation_frame["positive_delivery"]
+    ).clip(lower=0.0)
+    cancellation_frame.loc[
+        has_negative_delivery,
+        "eligible_cancellation",
+    ] = pd.concat(
+        [uncovered_cancellation, remaining_negative],
+        axis=1,
+    ).min(axis=1)
+
+    wms_cancellations = cancellation_frame["eligible_cancellation"]
+
     wms_net = pd.concat(
         [
             wms_delivery.rename("delivery"),
