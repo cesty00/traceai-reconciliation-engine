@@ -28,3 +28,38 @@ jobs:
 
       - name: Run tests
         run: pytest -q
+
+      - name: Package tested source
+        if: success()
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import zipfile
+
+          root = Path(".")
+          output = Path("traceai-tested-source.zip")
+          include = [
+              Path("src"),
+              Path("config"),
+              Path("pyproject.toml"),
+              Path("requirements.txt"),
+          ]
+
+          with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED) as archive:
+              for item in include:
+                  if item.is_file():
+                      archive.write(item, item.as_posix())
+                  elif item.is_dir():
+                      for path in item.rglob("*"):
+                          if path.is_file():
+                              archive.write(path, path.as_posix())
+          PY
+
+      - name: Upload tested source
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: traceai-tested-source
+          path: traceai-tested-source.zip
+          if-no-files-found: error
+          retention-days: 3
