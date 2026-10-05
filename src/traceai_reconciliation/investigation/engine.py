@@ -11,6 +11,7 @@ from .production_matching import match_production_adjustments
 from .delivery_matching import match_deliveries_and_returns
 from .special_status_matching import match_special_status_flow
 from .production_input_matching import match_production_inputs
+from .stock_correction_matching import match_generic_wms_stock_corrections
 from .source_readers import (
     filter_by_period,
     first_non_empty,
@@ -733,6 +734,82 @@ def investigate_product(
             )
             result.cause_status = "PROBABILA"
             result.evidence_level = "B"
+
+    generic_correction_match = match_generic_wms_stock_corrections(
+        wms_rows,
+        excluded_locations={"INS.DET"},
+    )
+    result.details["generic_stock_corrections"] = {
+        "residual_corrections": len(
+            generic_correction_match.residual_corrections
+        ),
+        "residual_total": round(
+            generic_correction_match.residual_total,
+            decimals,
+        ),
+    }
+
+    if generic_correction_match.residual_corrections:
+        for item in generic_correction_match.residual_corrections:
+            result.unmatched_operations.append(
+                {
+                    "date": item["date"],
+                    "system": "WMS",
+                    "document": item["document"] or "-",
+                    "operation_type": "COR STOC",
+                    "quantity": item["quantity"],
+                    "reason": item["reason"],
+                    "status": item["status"],
+                }
+            )
+        result.findings.append(
+            {
+                "type": "GENERIC_WMS_STOCK_CORRECTION",
+                "description": (
+                    f"Au rămas "
+                    f"{len(generic_correction_match.residual_corrections)} "
+                    f"corecții WMS COR STOC fără document, în afara "
+                    f"producției și fluxurilor speciale, total "
+                    f"{generic_correction_match.residual_total:.3f} "
+                    f"{result.unit}."
+                ),
+                "evidence": "SRC-WMS(COR STOC)",
+            }
+        )
+
+        generic_residual = round(
+            generic_correction_match.residual_total,
+            decimals,
+        )
+        if (
+            generic_residual != 0
+            and result.initial_difference != 0
+            and (generic_residual > 0)
+            == (result.initial_difference > 0)
+        ):
+            candidate_explained = round(
+                result.explained_difference + generic_residual,
+                decimals,
+            )
+            if (
+                abs(candidate_explained)
+                <= abs(result.initial_difference) + 10 ** (-decimals)
+            ):
+                result.explained_difference = candidate_explained
+                result.unexplained_difference = round(
+                    result.initial_difference
+                    - result.explained_difference,
+                    decimals,
+                )
+                result.cause_code = "CAUSE-MULTI-PARTIAL"
+                result.cause_description = (
+                    "Diferența este explicată parțial prin operațiuni WMS "
+                    "fără corespondent și corecții de stoc reziduale. "
+                    "Diferența de deschidere rămâne separată."
+                )
+                result.cause_status = "PROBABILA"
+                result.evidence_level = "B"
+                result.verdict = "REVIEW"
 
     special_status_match = match_special_status_flow(wms_rows, wme_rows)
     result.details["special_status_matching"] = {
