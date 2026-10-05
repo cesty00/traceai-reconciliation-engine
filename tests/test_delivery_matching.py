@@ -294,3 +294,75 @@ def test_wme_only_ae_is_reported_separately_without_changing_delivery_residual()
             "status": "WME_ONLY_REVIEW",
         }
     ]
+
+
+
+def test_positive_delivery_reversal_prevents_double_counting_cancellation_adjustment() -> None:
+    wms = pd.DataFrame(
+        [
+            {
+                "Tip operatiune": "Livrare",
+                "Cantitate": -100.0,
+                "Numar comanda": "WME108386",
+                "Cod-motiv": None,
+            },
+            {
+                "Tip operatiune": "Livrare",
+                "Cantitate": 100.0,
+                "Numar comanda": "WME108386",
+                "Cod-motiv": None,
+            },
+            {
+                "Tip operatiune": "Livrare",
+                "Cantitate": -500.0,
+                "Numar comanda": "WME108386",
+                "Cod-motiv": None,
+            },
+            {
+                "Tip operatiune": "Ajustare pozitiva",
+                "Cantitate": 100.0,
+                "Numar comanda": (
+                    "108386_DEL_3D578F7B-AB04-4CB5-8C1E-6677BB1CE138"
+                ),
+                "Cod-motiv": "ANULARE COMANDA",
+            },
+        ]
+    )
+    wme = pd.DataFrame(
+        [
+            {
+                "OperationType": "AE",
+                "Document": "108386",
+                "SignedQuantity": -500.0,
+            }
+        ]
+    )
+
+    result = match_deliveries_and_returns(wms, wme)
+
+    assert result.wms_net_total == -500.0
+    assert result.wme_ae_total == -500.0
+    assert result.residual_total == 0.0
+
+
+def test_cancellation_without_negative_delivery_is_not_counted_as_delivery() -> None:
+    wms = pd.DataFrame(
+        [
+            {
+                "Tip operatiune": "Ajustare pozitiva",
+                "Cantitate": 3.0,
+                "Numar comanda": (
+                    "21078_DEL_BF40F622-C199-4739-BD4F-054B0778F74A"
+                ),
+                "Cod-motiv": "ANULARE COMANDA",
+            }
+        ]
+    )
+    wme = pd.DataFrame(
+        columns=["OperationType", "Document", "SignedQuantity"]
+    )
+
+    result = match_deliveries_and_returns(wms, wme)
+
+    assert result.wms_net_total == 0.0
+    assert result.residual_total == 0.0
