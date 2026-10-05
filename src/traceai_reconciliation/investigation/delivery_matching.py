@@ -23,8 +23,8 @@ def normalize_delivery_document(value: object) -> str:
     if not text:
         return ""
 
-    text = re.sub(r"^RET_?WME", "", text)
-    text = re.sub(r"^(WME|WMS)", "", text)
+    text = re.sub(r"^RET_?(?:WME|SFA)", "", text)
+    text = re.sub(r"^(?:AV_WMS|WME|WMS|SFA)", "", text)
     text = re.sub(r"^R(?=\d)", "", text)
 
     # Keep only the leading base document number. WMS cancellation chains may
@@ -87,8 +87,19 @@ def match_deliveries_and_returns(
     work["_qty"] = pd.to_numeric(work["Cantitate"], errors="coerce").fillna(0.0)
     work["_doc"] = work["Numar comanda"].map(normalize_delivery_document)
 
+    raw_document = (
+        work["Numar comanda"]
+        .fillna("")
+        .astype(str)
+        .str.strip()
+        .str.upper()
+    )
+    transfer_delivery = raw_document.str.startswith("TRANSFER_")
+
     delivery = work[
-        work["_op"].eq("Livrare") & work["_doc"].ne("")
+        work["_op"].eq("Livrare")
+        & work["_doc"].ne("")
+        & ~transfer_delivery
     ].copy()
 
     raw_document = (
