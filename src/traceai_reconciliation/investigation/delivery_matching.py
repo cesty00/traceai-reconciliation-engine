@@ -15,6 +15,8 @@ class DeliveryMatchResult:
     wms_net_total: float
     wme_ae_total: float
     residual_total: float
+    derived_receipt_documents: int = 0
+    net_zero_derived_documents: int = 0
 
 
 def normalize_delivery_document(value: object) -> str:
@@ -120,6 +122,18 @@ def match_deliveries_and_returns(
         & work["_doc"].ne("")
         & return_like_receipt
     ].copy()
+
+    derived_receipt_mask = (
+        raw_document.str.match(
+            r"^(?:WME|WMS|AV_WMS)\d+-(?:1|2)(?:-\d+)*$"
+        )
+    )
+    derived_receipt = work[
+        work["_op"].eq("Receptie")
+        & work["_doc"].ne("")
+        & derived_receipt_mask
+    ].copy()
+    derived_documents = set(derived_receipt["_doc"].tolist())
 
     cancellation_adjustment = pd.DataFrame(columns=work.columns)
     if "Cod-motiv" in work.columns:
@@ -251,6 +265,13 @@ def match_deliveries_and_returns(
         if abs(difference) > tolerance:
             residual_documents.append(item)
 
+    net_zero_derived_documents = sum(
+        1
+        for document in derived_documents
+        if document in wms_net.index
+        and abs(float(wms_net.loc[document, "wms_net"])) <= tolerance
+    )
+
     return DeliveryMatchResult(
         documents=documents,
         residual_documents=residual_documents,
@@ -258,4 +279,6 @@ def match_deliveries_and_returns(
         wms_net_total=float(comparison["wms_net"].sum()),
         wme_ae_total=float(comparison["wme_ae"].sum()),
         residual_total=float(comparison["difference"].sum()),
+        derived_receipt_documents=len(derived_documents),
+        net_zero_derived_documents=net_zero_derived_documents,
     )
