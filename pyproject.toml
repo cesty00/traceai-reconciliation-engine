@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "traceai-reconciliation-engine"
-version = "0.3.0"
+version = "0.4.0"
 description = "WMS-WME reconciliation and stock difference investigation engine"
 requires-python = ">=3.11"
 dependencies = [
