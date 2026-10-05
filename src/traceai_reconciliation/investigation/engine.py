@@ -1048,9 +1048,7 @@ def investigate_product(
                 result.initial_difference - result.explained_difference,
                 decimals,
             )
-            if result.cause_code == "CAUSE-OPERATIONAL-MATCHING-PENDING":
-                result.cause_code = "CAUSE-MULTI-PARTIAL"
-            elif result.cause_code == "CAUSE-WMS-ONLY-ADJUSTMENT-PARTIAL":
+            if result.cause_code != "CAUSE-MULTI-PARTIAL":
                 result.cause_code = "CAUSE-MULTI-PARTIAL"
             result.cause_description = (
                 "Diferența este explicată parțial de operațiuni WMS fără "
