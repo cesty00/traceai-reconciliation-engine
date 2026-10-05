@@ -1,0 +1,40 @@
+{
+  "case_id": "CASE-2026-000001",
+  "product_code": "DS000000000",
+  "product_name": "PRODUS EXEMPLU",
+  "period": "01.01.2026-04.10.2026",
+  "report_date": "05.10.2026",
+  "initial_difference": -10.0,
+  "explained_difference": -7.0,
+  "unexplained_difference": -3.0,
+  "unit": "kg",
+  "verdict": "REVIEW",
+  "evidence_level": "C",
+  "cause_code": "CAUSE-020",
+  "cause_description": "Cauza necesita investigatie suplimentara.",
+  "cause_status": "NEDETERMINATA",
+  "executive_summary": "Exemplu de payload pentru generatorul automat DOCX.",
+  "sources_used": [],
+  "findings": [],
+  "recommendations": [
+    {
+      "priority": "P1",
+      "action_type": "IMEDIATA",
+      "recommendation": "Verificarea documentelor sursa inaintea oricarei corectii.",
+      "proposed_owner": "Responsabil verificare",
+      "precondition": "Dovezi complete"
+    }
+  ],
+  "operation_timeline": [],
+  "unmatched_operations": [],
+  "conclusion_traceability": [],
+  "case_status": "IN_ANALIZA",
+  "human_intervention_required": true,
+  "execution_id": "RUN-EXAMPLE",
+  "engine_version": "0.2.0",
+  "engine_commit_sha": "TO_BE_FILLED",
+  "rules_version": "0.1",
+  "rules_hash": null,
+  "source_hashes": {},
+  "technical_warnings": []
+}
