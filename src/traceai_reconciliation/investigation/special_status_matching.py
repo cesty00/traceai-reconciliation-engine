@@ -21,7 +21,7 @@ def match_special_status_flow(
     wms_rows: pd.DataFrame,
     wme_rows: pd.DataFrame,
     wms_destination: str = "INS.DET",
-    wme_counter_warehouse: str = "DETERIORATE",
+    wme_warehouse: str = "DETERIORATE",
     tolerance: float = 0.001,
 ) -> SpecialStatusMatchResult:
     """
@@ -77,7 +77,7 @@ def match_special_status_flow(
         return SpecialStatusMatchResult([], [], 0.0)
 
     wme = wme_rows.copy()
-    required_wme = {"Date", "OperationType", "SignedQuantity", "CounterWarehouse"}
+    required_wme = {"Date", "OperationType", "SignedQuantity", "Warehouse"}
     if not required_wme.issubset(wme.columns):
         return SpecialStatusMatchResult([], [], 0.0)
 
@@ -87,8 +87,8 @@ def match_special_status_flow(
 
     nt = wme[
         wme["OperationType"].astype(str).str.strip().str.upper().eq("NT")
-        & wme["CounterWarehouse"].astype(str).str.strip().str.upper().eq(
-            wme_counter_warehouse.upper()
+        & wme["Warehouse"].astype(str).str.strip().str.upper().eq(
+            wme_warehouse.upper()
         )
         & wme["_qty"].gt(0)
     ].copy()
@@ -123,7 +123,7 @@ def match_special_status_flow(
             {
                 "transfer_date": str(transfer_day),
                 "wms_destination": wms_destination,
-                "wme_counter_warehouse": wme_counter_warehouse,
+                "wme_warehouse": wme_warehouse,
                 "lots": sorted(transferred_lots),
                 "wms_transfer_total": transfer_total,
                 "wme_nt_total": wme_total,
