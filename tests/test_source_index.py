@@ -172,3 +172,70 @@ def test_sqlite_source_index_invalidates_when_source_changes(
 
     assert index.is_current(wms, wme, production) is False
     assert index.ensure_index(wms, wme, production) is True
+
+
+
+def test_sqlite_source_index_reads_transfer_mose_and_mose_nt(
+    tmp_path: Path,
+) -> None:
+    wms, wme, production = _write_sources(tmp_path)
+
+    wms_frame = pd.read_csv(wms, sep=";")
+    transfer_row = wms_frame.iloc[0].copy()
+    transfer_row["Data"] = "04/01/2026 10:00:00"
+    transfer_row["Cod articol"] = "DST"
+    transfer_row["Denumire articol"] = "Produs transfer"
+    transfer_row["Numar comanda"] = "TRANSFER_MOSE-TEST001"
+    transfer_row["Tip operatiune"] = "Livrare"
+    transfer_row["Cantitate"] = -5.0
+    transfer_row["Partener"] = "DP->MOSE"
+    transfer_row["Document intrare"] = None
+    transfer_row["Document comanda"] = "40001"
+    pd.concat(
+        [wms_frame, pd.DataFrame([transfer_row])],
+        ignore_index=True,
+    ).to_csv(wms, sep=";", index=False)
+
+    wme_frame = pd.read_excel(wme, header=None)
+    nt_row = [
+        3,
+        "NT",
+        9001,
+        "04.01.2026",
+        0.0,
+        5.0,
+        3.0,
+        0.0,
+        "345",
+        "MOSE",
+        "Produs transfer",
+        "",
+        3003,
+        "DEPOZIT PRINCIPAL",
+        "BUC",
+        "",
+        3,
+    ]
+    pd.concat(
+        [wme_frame, pd.DataFrame([nt_row])],
+        ignore_index=True,
+    ).to_excel(wme, index=False, header=False)
+
+    index = SQLiteSourceIndex(tmp_path / "cache")
+    assert index.ensure_index(wms, wme, production) is True
+
+    transfer_rows = index.read_wms_transfer_mose(
+        period="01.01.2026-31.01.2026",
+    )
+    assert len(transfer_rows) == 1
+    assert (
+        transfer_rows.iloc[0]["Numar comanda"]
+        == "TRANSFER_MOSE-TEST001"
+    )
+
+    nt_rows = index.read_wme_mose_nt(
+        period="01.01.2026-31.01.2026",
+    )
+    assert len(nt_rows) == 1
+    assert nt_rows.iloc[0]["OperationType"] == "NT"
+    assert nt_rows.iloc[0]["Partner"] == "MOSE"
