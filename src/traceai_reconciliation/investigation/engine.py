@@ -582,8 +582,31 @@ def investigate_product(
         "wms_net_total": round(delivery_match.wms_net_total, decimals),
         "wme_ae_total": round(delivery_match.wme_ae_total, decimals),
         "residual_documents": len(delivery_match.residual_documents),
+        "wme_only_documents": len(delivery_match.wme_only_documents),
         "residual_total": round(delivery_match.residual_total, decimals),
     }
+
+    if delivery_match.wme_only_documents:
+        for item in delivery_match.wme_only_documents:
+            result.unmatched_operations.append(
+                {
+                    "date": "-",
+                    "system": "WME",
+                    "document": item["document"],
+                    "operation_type": "AE_WME_ONLY",
+                    "quantity": item["wme_ae_quantity"],
+                    "reason": (
+                        "AE WME fără document WMS candidat de livrare/retur "
+                        "în perioada analizată"
+                    ),
+                    "status": item["status"],
+                }
+            )
+        result.technical_warnings.append(
+            f"{len(delivery_match.wme_only_documents)} documente AE WME-only "
+            "au fost păstrate separat și nu modifică automat rezidualul "
+            "DELIVERY."
+        )
 
     if delivery_match.residual_documents:
         for item in delivery_match.residual_documents:
