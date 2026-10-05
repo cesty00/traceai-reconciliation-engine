@@ -14,6 +14,7 @@ from .special_status_matching import match_special_status_flow
 from .production_input_matching import match_production_inputs
 from .stock_correction_matching import match_generic_wms_stock_corrections
 from .stock_report_zone_matching import reconcile_stock_report_zones
+from .transfer_mose_matching import match_transfer_mose
 from .wme_residual_matching import match_wme_residual_movements
 from .source_readers import (
     filter_by_period,
@@ -695,6 +696,99 @@ def investigate_product(
                 ),
                 "evidence": "SRC-WMS + SRC-WME(AE)",
             }
+        )
+
+    transfer_mose_match = match_transfer_mose(
+        wms_rows,
+        wme_rows,
+    )
+    result.details["transfer_mose_matching"] = {
+        "matches": len(transfer_mose_match.matches),
+        "cancelled_orders": len(
+            transfer_mose_match.cancelled_orders
+        ),
+        "residual_wms_transfers": len(
+            transfer_mose_match.residual_wms_transfers
+        ),
+        "wme_only_nt": len(
+            transfer_mose_match.wme_only_nt
+        ),
+        "matched_wms_total": round(
+            transfer_mose_match.matched_wms_total,
+            decimals,
+        ),
+        "residual_wms_total": round(
+            transfer_mose_match.residual_wms_total,
+            decimals,
+        ),
+    }
+
+    if transfer_mose_match.matches:
+        result.findings.append(
+            {
+                "type": "TRANSFER_MOSE_MATCHING",
+                "description": (
+                    f"TRANSFER_MOSE: "
+                    f"{len(transfer_mose_match.matches)} transferuri WMS "
+                    f"au corespondent NT WME; "
+                    f"{len(transfer_mose_match.cancelled_orders)} ordine "
+                    f"au fost anulate complet după netarea _DEL_. "
+                    "Transferurile sunt tratate ca flux intern și nu modifică "
+                    "automat diferența totală WMS-WME."
+                ),
+                "evidence": "SRC-WMS(TRANSFER_MOSE) + SRC-WME(NT)",
+            }
+        )
+
+    for item in transfer_mose_match.residual_wms_transfers:
+        result.unmatched_operations.append(
+            {
+                "date": (
+                    str(item.get("first_date"))
+                    if item.get("first_date") is not None
+                    else "-"
+                ),
+                "system": "WMS↔WME",
+                "document": item.get("order", "-"),
+                "operation_type": "TRANSFER_MOSE_VS_NT",
+                "quantity": item.get("net_quantity", 0.0),
+                "reason": (
+                    f"TRANSFER_MOSE fără corespondent NT univoc; "
+                    f"status={item.get('status', 'REVIEW')}; "
+                    f"Document intrare={item.get('document_in', [])}; "
+                    f"Document comanda={item.get('document_order', [])}."
+                ),
+                "status": item.get("status", "REVIEW"),
+            }
+        )
+
+    for item in transfer_mose_match.wme_only_nt:
+        result.unmatched_operations.append(
+            {
+                "date": (
+                    str(item.get("date"))
+                    if item.get("date") is not None
+                    else "-"
+                ),
+                "system": "WME",
+                "document": item.get("document", "-"),
+                "operation_type": "NT_MOSE_WME_ONLY",
+                "quantity": item.get("signed_quantity", 0.0),
+                "reason": (
+                    "NT WME între MOSE și DEPOZIT PRINCIPAL fără "
+                    "TRANSFER_MOSE WMS univoc identificat."
+                ),
+                "status": item.get("status", "WME_ONLY_NT_REVIEW"),
+            }
+        )
+
+    if (
+        transfer_mose_match.residual_wms_transfers
+        or transfer_mose_match.wme_only_nt
+    ):
+        result.technical_warnings.append(
+            "Excepțiile TRANSFER_MOSE/NT rămân REVIEW; matcherul nu forțează "
+            "corespondenta pe simpla coincidență de cantitate."
         )
 
     receipt_match = match_inbound_receipts(wms_rows, wme_rows)
