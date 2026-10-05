@@ -21,6 +21,10 @@ evidence_levels:
 active_rules:
   - id: GST-01
     description: "Se neteaza diferentele pe produs intre zone/gestiuni inainte de verdict."
+  - id: GST-02
+    description: "QuantityERP=0 intr-o zona nu dovedeste automat lipsa in WME; se verifica soldul WME si logica raportului."
+  - id: GST-03
+    description: "Zonele/statusurile WMS se separa de gestiunile contabile WME; un efect de mapare al raportului se confirma numai cu dovada cantitativa."
   - id: MAP-04
     description: "NEDEFINIT IN WMS nu se trateaza ca diferenta reala pana la rezolvarea maparii."
   - id: INT-01
