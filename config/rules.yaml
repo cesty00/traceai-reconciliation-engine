@@ -1,4 +1,4 @@
-version: "0.1"
+version: "0.2"
 principles:
   force_match: false
   quantity_rounding_decimals: 3
@@ -26,4 +26,16 @@ active_rules:
   - id: INT-01
     description: "Document WMS lipsa in WME nu este automat NOT_MATCH; se verifica NEOPERAT/respingere."
 
-candidate_rules: []
+candidate_rules:
+  - id: PROD-02
+    description: "Predarile de productie se compara WMS PRODUCTION-OUT cu WME NP dupa document normalizat si cantitate; reversarile WMS se separa de ajustarile negative reziduale."
+    status: "CANDIDAT"
+  - id: DEL-02
+    description: "Livrarile WMS se neteaza cu receptiile/retururile -1/-2/RET_WME inainte de compararea cu AE WME."
+    status: "CANDIDAT"
+  - id: GST-04
+    description: "Fluxurile catre INS.DET pot fi corelate cu DETERIORATE WME numai cand transferul WMS, NT-ul WME si corectia WMS ulterioara se inchid cantitativ exact."
+    status: "CANDIDAT"
+  - id: OPEN-01
+    description: "Diferenta existenta la inceputul perioadei se pastreaza separat si nu se atribuie automat operatiunilor din perioada analizata."
+    status: "CANDIDAT"
