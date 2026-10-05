@@ -173,3 +173,24 @@ def test_missing_wme_mapping_remains_review(tmp_path: Path) -> None:
     assert result.cause_status == "PROBABILA"
     assert result.evidence_level == "C"
     assert result.details["wme_rows"] == 0
+
+
+
+def test_component_math_keeps_opening_difference_separate() -> None:
+    # Regression math from the first real-case pattern, without RAW data.
+    initial_difference = -1419.0
+    opening_difference = -17.0
+    production_residual = -768.0
+    delivery_residual = -16.0
+    special_status_residual = -618.0
+
+    period_explained = (
+        production_residual
+        + delivery_residual
+        + special_status_residual
+    )
+    unexplained = initial_difference - period_explained
+
+    assert period_explained == -1402.0
+    assert unexplained == opening_difference
+    assert initial_difference == period_explained + unexplained
