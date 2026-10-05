@@ -78,11 +78,16 @@ def _write_fixture_sources(tmp_path: Path) -> InvestigationSources:
     pd.DataFrame(
         [
             {
-                "Data": "2026-01-04",
-                "Cod produs": "DS001",
-                "Tip": "PREDARE",
+                "TipLinie": "PREDARE",
                 "Numar Comanda": "P1",
-                "Cantitate": 1.0,
+                "Data Start": "04/01/2026 08:00:00",
+                "PRE_Cod Articol": "DS001",
+                "PRE_Cantitate Predare": 1.0,
+                "PRE_U.M.": "BUCATA",
+                "CON_Cod Articol": None,
+                "CON_Cantitate Consumata": None,
+                "CON_U.M.": None,
+                "Utilaj Productie": "ULMA",
             }
         ]
     ).to_csv(production, index=False)
