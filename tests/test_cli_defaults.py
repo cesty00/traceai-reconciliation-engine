@@ -54,3 +54,24 @@ def test_cli_registry_manifest_arguments_parse() -> None:
     assert args.registry_status == ["DESCHIS", "IN_ANALIZA"]
     assert args.exclude_case_id == ["CASE-OLD"]
     assert args.exclude_product == ["DS999"]
+
+
+
+def test_cli_registry_apply_plan_arguments_parse() -> None:
+    args = build_parser().parse_args(
+        [
+            "--registry-export",
+            "registry.csv",
+            "--batch-summary",
+            "batch_summary.json",
+            "--registry-plan-output",
+            "apply_plan.json",
+            "--minimum-evidence",
+            "B",
+        ]
+    )
+
+    assert args.registry_export == "registry.csv"
+    assert args.batch_summary == "batch_summary.json"
+    assert args.registry_plan_output == "apply_plan.json"
+    assert args.minimum_evidence == "B"
