@@ -32,72 +32,42 @@ REGISTRY_COLUMNS = [
 def infer_applied_rules(
     result: ProductInvestigationResult,
 ) -> list[str]:
-    """Infer only rules for which the investigation contains evidence."""
+    """
+    Return only rules that materially contributed to the case explanation.
+
+    Operational controls can still appear in findings, warnings and the full
+    JSON payload, but they are not written to REGISTRU_CAZURI as
+    Regula_aplicata unless the engine marked their component with
+    applied_to_explanation=True.
+    """
     details = result.details
     rules: list[str] = []
 
     zone = details.get("stock_report_zone_matching", {})
-    if zone.get("confirmed_report_mapping_rows", 0):
+    if zone.get("applied_to_explanation", False):
         rules.extend(["GST-02", "GST-03"])
 
-    receipt = details.get("receipt_matching", {})
-    if receipt.get("supported_documents", 0):
-        rules.extend(["REC-01", "REC-02"])
-
     delivery = details.get("delivery_matching", {})
-    if delivery.get("derived_receipt_documents", 0):
-        rules.append("R-DER-001")
-    if (
-        delivery.get("residual_documents", 0)
-        or delivery.get("wme_only_documents", 0)
-    ):
+    if delivery.get("applied_to_explanation", False):
         rules.append("DEL-02")
-
-    transfer = details.get("transfer_mose_matching", {})
-    if (
-        transfer.get("matches", 0)
-        or transfer.get("cancelled_orders", 0)
-        or transfer.get("residual_wms_transfers", 0)
-        or transfer.get("wme_only_nt", 0)
-    ):
-        rules.append("TR-MOSE-01")
+        if delivery.get("derived_receipt_documents", 0):
+            rules.append("R-DER-001")
 
     production = details.get("production_matching", {})
-    if (
-        production.get("matched_documents", 0)
-        or production.get("reversal_pairs", 0)
-        or production.get("residual_adjustments", 0)
-    ):
+    if production.get("applied_to_explanation", False):
         rules.append("PROD-02")
 
-    production_input = details.get("production_input_matching", {})
-    if (
-        production_input.get("wms_total", 0)
-        or production_input.get("wme_bc_total", 0)
-        or production_input.get("residual_documents", 0)
-    ):
-        rules.append("PROD-03")
-
     special = details.get("special_status_matching", {})
-    if (
-        special.get("matched_groups", 0)
-        or special.get("residual_corrections", 0)
-    ):
+    if special.get("applied_to_explanation", False):
         rules.append("GST-04")
 
     correction = details.get("generic_stock_corrections", {})
-    if (
-        correction.get("residual_corrections", 0)
-        and (
-            "WMS-ONLY" in result.cause_code.upper()
-            or "MULTI" in result.cause_code.upper()
-        )
-    ):
+    if correction.get("applied_to_explanation", False):
         rules.append("ADJ-01")
 
-    # WME-01 is evidence-only by design and never auto-explains a difference,
-    # so it is deliberately excluded from Regula_aplicata.
-
+    # OPEN-01 explains the preserved residual opening difference rather than
+    # increasing explained_difference. Keep it when the unexplained remainder
+    # is exactly the independently reconstructed opening gap.
     if (
         result.opening_stock_wms is not None
         and result.opening_stock_wme is not None
@@ -114,7 +84,6 @@ def infer_applied_rules(
         ):
             rules.append("OPEN-01")
 
-    # Preserve stable order and remove duplicates.
     return list(dict.fromkeys(rules))
 
 
