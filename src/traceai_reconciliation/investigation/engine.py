@@ -909,6 +909,21 @@ def investigate_product(
         if item.get("residual_kind") == "WME_BC_MISSING"
         and item.get("production_confirmed", False)
     ]
+    production_input_whole_document_missing = 0
+    if source_index is not None:
+        for item in production_input_confirmed_missing:
+            global_bc_rows = source_index.count_wme_operation_document(
+                "BC",
+                str(item["document"]),
+            )
+            item["global_wme_bc_rows"] = global_bc_rows
+            item["document_event"] = (
+                "WHOLE_BC_DOCUMENT_MISSING"
+                if global_bc_rows == 0
+                else "PRODUCT_BC_LINE_MISSING"
+            )
+            if global_bc_rows == 0:
+                production_input_whole_document_missing += 1
     result.details["production_input_matching"] = {
         "wms_total": round(production_input_match.wms_total, decimals),
         "wme_bc_total": round(production_input_match.wme_bc_total, decimals),
@@ -918,6 +933,12 @@ def investigate_product(
         "production_confirmed_missing_bc": len(
             production_input_confirmed_missing
         ),
+        "whole_bc_document_missing": (
+            production_input_whole_document_missing
+            if source_index is not None
+            else None
+        ),
+        "global_document_check_performed": source_index is not None,
         "residual_total": round(
             production_input_match.residual_total,
             decimals,
@@ -939,11 +960,27 @@ def investigate_product(
                         f"{item['wms_production_in']:.3f} vs "
                         f"WME BC {item['wme_bc']:.3f}; "
                         f"producție {item.get('production_consumption', 0.0):.3f}; "
-                        f"tip={item.get('residual_kind', 'QTY_DIFF')}"
+                        f"tip={item.get('residual_kind', 'QTY_DIFF')}; "
+                        f"eveniment={item.get('document_event', 'NEVERIFICAT_GLOBAL')}"
                     ),
                     "status": "QTY_DIFF",
                 }
             )
+        if source_index is not None and production_input_confirmed_missing:
+            result.findings.append(
+                {
+                    "type": "PRODUCTION_INPUT_DOCUMENT_EVENT",
+                    "description": (
+                        f"Dintre {len(production_input_confirmed_missing)} "
+                        f"documente BC lipsă pentru produs, "
+                        f"{production_input_whole_document_missing} au 0 rânduri "
+                        f"BC la nivel global în WME. Verificarea globală este "
+                        f"doar evidență de cauză și nu închide automat cazul."
+                    ),
+                    "evidence": "SRC-WME global OperationType=BC + PROD-04",
+                }
+            )
+
         result.findings.append(
             {
                 "type": "PRODUCTION_INPUT_RESIDUAL",

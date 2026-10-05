@@ -244,6 +244,10 @@ class SQLiteSourceIndex:
                 "CREATE INDEX idx_wme_product "
                 "ON wme(ProductName)"
             )
+            connection.execute(
+                "CREATE INDEX idx_wme_operation_document "
+                "ON wme(OperationType, Document)"
+            )
 
             connection.execute(
                 """
@@ -506,6 +510,32 @@ class SQLiteSourceIndex:
         if period and not frame.empty:
             frame = filter_by_period(frame, period)
         return frame, ids
+
+    def count_wme_operation_document(
+        self,
+        operation_type: str,
+        document: str,
+    ) -> int:
+        """
+        Count WME rows for one operation type and one document number.
+
+        This is used as evidence only. A document number may be reused by
+        other WME operation families, so the operation type is mandatory.
+        """
+        with sqlite3.connect(self.db_path) as connection:
+            row = connection.execute(
+                """
+                SELECT COUNT(*)
+                FROM wme
+                WHERE UPPER(TRIM(CAST(OperationType AS TEXT))) = ?
+                  AND TRIM(CAST(Document AS TEXT)) = ?
+                """,
+                (
+                    str(operation_type).strip().upper(),
+                    str(document).strip(),
+                ),
+            ).fetchone()
+        return int(row[0]) if row else 0
 
     def read_wms_transfer_mose(
         self,
