@@ -11,6 +11,8 @@ from .investigation import (
     build_case_report,
     build_registry_update,
     investigate_product,
+    load_batch_manifest,
+    run_batch,
 )
 from .loaders import read_table
 from .product_audit import summarize_stock_report
@@ -34,6 +36,23 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument("--case-id", help="CASE_ID for product investigation")
+    parser.add_argument(
+        "--batch-manifest",
+        help="JSON/CSV manifest for controlled multi-case execution",
+    )
+    parser.add_argument(
+        "--batch-output-dir",
+        help="Output directory for batch case folders and batch_summary.json",
+    )
+    parser.add_argument(
+        "--batch-id",
+        help="Deterministic batch execution identifier",
+    )
+    parser.add_argument(
+        "--no-reuse-completed",
+        action="store_true",
+        help="Force re-execution even when a complete case signature can be reused",
+    )
     parser.add_argument("--period", help="Investigation period label")
     parser.add_argument("--report-date", help="Report date")
     parser.add_argument("--opening-stock-wms", help="Opening stock WMS XLSX")
@@ -77,6 +96,61 @@ def _write_json(path: str | Path, payload: dict) -> Path:
         encoding="utf-8",
     )
     return output
+
+
+def _run_batch_investigation(args: argparse.Namespace) -> None:
+    required = {
+        "--batch-manifest": args.batch_manifest,
+        "--batch-output-dir": args.batch_output_dir,
+        "--batch-id": args.batch_id,
+        "--stock-report": args.stock_report,
+        "--opening-stock-wms": args.opening_stock_wms,
+        "--wms-movements": args.wms_movements,
+        "--wme-ledger": args.wme_ledger,
+        "--production": args.production,
+        "--nomenclature": args.nomenclature,
+    }
+    missing = [name for name, value in required.items() if not value]
+    if missing:
+        raise SystemExit(
+            "Batch investigation requires: " + ", ".join(missing)
+        )
+
+    output_dir = Path(args.batch_output_dir)
+    cache_dir = (
+        Path(args.cache_dir)
+        if args.cache_dir
+        else output_dir / ".traceai_cache"
+    )
+    sources = InvestigationSources(
+        stock_report=Path(args.stock_report),
+        opening_stock_wms=Path(args.opening_stock_wms),
+        wms_movements=Path(args.wms_movements),
+        wme_ledger=Path(args.wme_ledger),
+        production=Path(args.production),
+        nomenclature=Path(args.nomenclature),
+        cache_dir=cache_dir,
+        use_source_index=True,
+    )
+
+    cases = load_batch_manifest(args.batch_manifest)
+    summary = run_batch(
+        cases,
+        sources,
+        output_dir,
+        batch_id=args.batch_id,
+        rules_version=args.rules_version,
+        engine_commit_sha=args.engine_commit_sha,
+        reuse_completed=not args.no_reuse_completed,
+    )
+    print(
+        json.dumps(
+            asdict(summary),
+            ensure_ascii=False,
+            indent=2,
+            default=str,
+        )
+    )
 
 
 def _run_real_product_investigation(args: argparse.Namespace) -> None:
@@ -152,6 +226,10 @@ def _run_real_product_investigation(args: argparse.Namespace) -> None:
 
 def main() -> None:
     args = build_parser().parse_args()
+
+    if args.batch_manifest:
+        _run_batch_investigation(args)
+        return
 
     if args.case_json:
         if not args.output_docx:
