@@ -72,6 +72,7 @@ def test_registry_payload_preserves_external_fields_and_updates_case() -> None:
             "derived_receipt_documents": 11,
             "residual_documents": 2,
             "wme_only_documents": 0,
+            "applied_to_explanation": True,
         },
         "transfer_mose_matching": {
             "matches": 4,
@@ -81,6 +82,7 @@ def test_registry_payload_preserves_external_fields_and_updates_case() -> None:
         },
         "stock_report_zone_matching": {
             "confirmed_report_mapping_rows": 1,
+            "applied_to_explanation": True,
         },
     }
     result.unmatched_operations = [
@@ -112,7 +114,7 @@ def test_registry_payload_preserves_external_fields_and_updates_case() -> None:
     assert "GST-03" in rules
     assert "R-DER-001" in rules
     assert "DEL-02" in rules
-    assert "TR-MOSE-01" in rules
+    assert "TR-MOSE-01" not in rules
     assert "OPEN-01" in rules
 
     assert "Data_deschidere" in payload["preserve_if_empty"]
@@ -121,7 +123,7 @@ def test_registry_payload_preserves_external_fields_and_updates_case() -> None:
     assert payload["values"]["Link_dovezi_Drive"] is None
 
 
-def test_rule_inference_uses_only_present_evidence() -> None:
+def test_rule_inference_excludes_evidence_only_controls() -> None:
     result = _result(0.0)
     result.opening_stock_wms = 10.0
     result.opening_stock_wme = 10.0
@@ -134,8 +136,52 @@ def test_rule_inference_uses_only_present_evidence() -> None:
             "wme_bc_total": -100.0,
             "residual_documents": 0,
         },
+        "transfer_mose_matching": {
+            "matches": 10,
+            "residual_wms_transfers": 0,
+        },
+        "production_matching": {
+            "residual_adjustments": 2,
+            "applied_to_explanation": False,
+        },
     }
 
     rules = infer_applied_rules(result)
 
-    assert rules == ["REC-01", "REC-02", "PROD-03"]
+    assert rules == []
+
+
+def test_rule_inference_uses_applied_component_flags() -> None:
+    result = _result(0.0)
+    result.opening_stock_wms = 10.0
+    result.opening_stock_wme = 10.0
+    result.details = {
+        "stock_report_zone_matching": {
+            "applied_to_explanation": True,
+        },
+        "delivery_matching": {
+            "applied_to_explanation": True,
+            "derived_receipt_documents": 4,
+        },
+        "production_matching": {
+            "applied_to_explanation": True,
+        },
+        "generic_stock_corrections": {
+            "applied_to_explanation": True,
+        },
+        "special_status_matching": {
+            "applied_to_explanation": True,
+        },
+    }
+
+    rules = infer_applied_rules(result)
+
+    assert rules == [
+        "GST-02",
+        "GST-03",
+        "DEL-02",
+        "R-DER-001",
+        "PROD-02",
+        "GST-04",
+        "ADJ-01",
+    ]
