@@ -157,29 +157,12 @@ def investigate_product(
         wme_rows = pd.DataFrame()
 
     if result.opening_stock_wms is not None:
-        try:
-            movement_total = numeric_sum(wms_rows, "quantity")
-            result.calculated_stock_wms = round(
-                result.opening_stock_wms + movement_total, decimals
-            )
-            reconstruction_gap = round(
-                (result.reported_stock_wms or 0.0) - result.calculated_stock_wms,
-                decimals,
-            )
-            result.findings.append(
-                {
-                    "type": "WMS_RECONSTRUCTION",
-                    "description": (
-                        f"Stoc WMS calculat din stoc inițial + mișcări: "
-                        f"{result.calculated_stock_wms:.3f}; stoc WMS raportat: "
-                        f"{(result.reported_stock_wms or 0.0):.3f}; abatere: "
-                        f"{reconstruction_gap:.3f}."
-                    ),
-                    "evidence": "SRC-OPENING-WMS + SRC-WMS + SRC-STOCK-REPORT",
-                }
-            )
-        except ValueError as exc:
-            result.technical_warnings.append(f"Reconstrucția WMS nu a putut fi calculată: {exc}")
+        result.technical_warnings.append(
+            "Reconstrucția cantitativă WMS este suspendată în acest checkpoint până la "
+            "validarea semnului/direcției pentru fiecare tip de operațiune WMS. "
+            "Rândurile WMS sunt extrase integral pentru produs, dar nu sunt însumate "
+            "ca sold final fără o regulă operațională validată."
+        )
 
     if not wme_rows.empty:
         balance_col = resolve_column(wme_rows.columns, "running_balance", required=False)
