@@ -30,6 +30,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--production", help="Production CSV/XLSX")
     parser.add_argument("--nomenclature", help="WME-WMS nomenclature XLSX")
     parser.add_argument(
+        "--cache-dir",
+        help=(
+            "Optional local cache directory. Defaults to .traceai_cache "
+            "beside --output-docx for real investigations."
+        ),
+    )
+    parser.add_argument(
         "--engine-commit-sha",
         default="LOCAL_OR_UNSET",
         help="Git commit SHA recorded in the generated report",
@@ -71,6 +78,13 @@ def _run_real_product_investigation(args: argparse.Namespace) -> None:
             "Real product investigation requires: " + ", ".join(missing)
         )
 
+    output_docx = Path(args.output_docx)
+    cache_dir = (
+        Path(args.cache_dir)
+        if args.cache_dir
+        else output_docx.parent / ".traceai_cache"
+    )
+
     sources = InvestigationSources(
         stock_report=Path(args.stock_report),
         opening_stock_wms=Path(args.opening_stock_wms),
@@ -78,6 +92,7 @@ def _run_real_product_investigation(args: argparse.Namespace) -> None:
         wme_ledger=Path(args.wme_ledger),
         production=Path(args.production),
         nomenclature=Path(args.nomenclature),
+        cache_dir=cache_dir,
     )
 
     result = investigate_product(
