@@ -13,6 +13,7 @@ from .receipt_matching import match_inbound_receipts
 from .special_status_matching import match_special_status_flow
 from .production_input_matching import match_production_inputs
 from .stock_correction_matching import match_generic_wms_stock_corrections
+from .stock_report_zone_matching import reconcile_stock_report_zones
 from .wme_residual_matching import match_wme_residual_movements
 from .source_readers import (
     filter_by_period,
@@ -568,6 +569,65 @@ def investigate_product(
         initial_system_difference = None
         movement_system_difference = None
         reconstructed_difference = None
+
+    stock_zone_match = reconcile_stock_report_zones(
+        stock_rows,
+        final_wme_by_warehouse,
+    )
+    result.details["stock_report_zone_matching"] = {
+        "rows": stock_zone_match.rows,
+        "confirmed_report_mapping_rows": len(
+            stock_zone_match.confirmed_report_mapping_rows
+        ),
+        "unresolved_rows": len(stock_zone_match.unresolved_rows),
+        "mapping_effect_total": round(
+            stock_zone_match.mapping_effect_total,
+            decimals,
+        ),
+    }
+
+    if stock_zone_match.confirmed_report_mapping_rows:
+        mapping_effect = round(
+            stock_zone_match.mapping_effect_total,
+            decimals,
+        )
+        result.explained_difference = round(
+            result.explained_difference + mapping_effect,
+            decimals,
+        )
+        result.unexplained_difference = round(
+            result.initial_difference - result.explained_difference,
+            decimals,
+        )
+        result.findings.append(
+            {
+                "type": "STOCK_REPORT_ERP_ZERO_MAPPING",
+                "description": (
+                    f"{len(stock_zone_match.confirmed_report_mapping_rows)} "
+                    f"rânduri de raport cu QuantityERP=0 au fost confirmate ca "
+                    f"artefacte de mapare deoarece soldul WMS este egal cu "
+                    f"soldul WME. Efect total asupra diferenței raportate: "
+                    f"{mapping_effect:.3f} {result.unit}."
+                ),
+                "evidence": "SRC-STOCK-REPORT + SRC-WME + GST-02/GST-03",
+            }
+        )
+        result.cause_code = "CAUSE-REPORT-MAPPING-PARTIAL"
+        result.cause_description = (
+            "O parte din diferența raportată provine din logica de mapare a "
+            "raportului: QuantityERP=0 pentru o gestiune în care WMS și WME "
+            "au același sold. Restul diferenței se investighează operațional."
+        )
+        result.cause_status = "CONFIRMATA"
+        result.evidence_level = "A"
+        result.verdict = "REVIEW"
+
+    if stock_zone_match.unresolved_rows:
+        result.technical_warnings.append(
+            f"{len(stock_zone_match.unresolved_rows)} rânduri de gestiune din "
+            "raport nu au putut fi validate automat față de soldurile WME și "
+            "rămân REVIEW."
+        )
 
     result.technical_warnings.append(
         "Reconstrucția WMS pe gestiuni/locații rămâne suspendată până la validarea "
