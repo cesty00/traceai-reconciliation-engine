@@ -17,6 +17,10 @@ from .registry_backlog import (
     select_registry_cases,
     write_manifest,
 )
+from .registry_apply_plan import (
+    build_registry_apply_plan,
+    write_registry_apply_plan,
+)
 
 __all__ = [
     "InvestigationSources",
@@ -35,4 +39,6 @@ __all__ = [
     "select_registry_cases",
     "manifest_payload",
     "write_manifest",
+    "build_registry_apply_plan",
+    "write_registry_apply_plan",
 ]
