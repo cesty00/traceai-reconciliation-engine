@@ -194,3 +194,19 @@ def test_component_math_keeps_opening_difference_separate() -> None:
     assert period_explained == -1402.0
     assert unexplained == opening_difference
     assert initial_difference == period_explained + unexplained
+
+
+
+def test_second_real_case_pattern_keeps_only_opening_difference_unexplained() -> None:
+    # Regression math from DS099904230 pattern, without business RAW.
+    final_difference = -617.0
+    opening_difference = -9.0
+    production_residual = -600.0
+    generic_stock_correction = -8.0
+
+    period_explained = production_residual + generic_stock_correction
+    unexplained = final_difference - period_explained
+
+    assert period_explained == -608.0
+    assert unexplained == opening_difference
+    assert final_difference == period_explained + unexplained
