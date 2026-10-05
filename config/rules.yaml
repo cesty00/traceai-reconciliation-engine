@@ -39,3 +39,9 @@ candidate_rules:
   - id: OPEN-01
     description: "Diferenta existenta la inceputul perioadei se pastreaza separat si nu se atribuie automat operatiunilor din perioada analizata."
     status: "CANDIDAT"
+  - id: PROD-03
+    description: "Ajustarile negative WMS PRODUCTION-IN se compara cu WME BC dupa numarul de comanda normalizat si cantitatea agregata."
+    status: "CANDIDAT"
+  - id: ADJ-01
+    description: "Corectiile WMS COR STOC fara document, ramase in afara productiei si fluxurilor speciale deja clasificate, se pastreaza ca WMS_ONLY_REVIEW si pot explica doar probabil o parte din diferenta."
+    status: "CANDIDAT"
