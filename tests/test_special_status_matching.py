@@ -73,25 +73,25 @@ def test_ins_det_deteriorate_candidate_matches_exact_chain() -> None:
                 "Date": "03.02.2026",
                 "OperationType": "NT",
                 "SignedQuantity": 64.0,
-                "CounterWarehouse": "DETERIORATE",
+                "Warehouse": "DETERIORATE",
             },
             {
                 "Date": "03.02.2026",
                 "OperationType": "NT",
                 "SignedQuantity": 8.0,
-                "CounterWarehouse": "DETERIORATE",
+                "Warehouse": "DETERIORATE",
             },
             {
                 "Date": "03.02.2026",
                 "OperationType": "NT",
                 "SignedQuantity": 538.0,
-                "CounterWarehouse": "DETERIORATE",
+                "Warehouse": "DETERIORATE",
             },
             {
                 "Date": "03.02.2026",
                 "OperationType": "NT",
                 "SignedQuantity": 8.0,
-                "CounterWarehouse": "DETERIORATE",
+                "Warehouse": "DETERIORATE",
             },
         ]
     )
@@ -136,7 +136,7 @@ def test_special_status_requires_wme_quantity_confirmation() -> None:
                 "Date": "03.02.2026",
                 "OperationType": "NT",
                 "SignedQuantity": 600.0,
-                "CounterWarehouse": "DETERIORATE",
+                "Warehouse": "DETERIORATE",
             }
         ]
     )
