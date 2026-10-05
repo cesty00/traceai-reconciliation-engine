@@ -86,21 +86,33 @@ def infer_applied_rules(
         rules.append("GST-04")
 
     correction = details.get("generic_stock_corrections", {})
-    if correction.get("residual_corrections", 0):
+    if (
+        correction.get("residual_corrections", 0)
+        and (
+            "WMS-ONLY" in result.cause_code.upper()
+            or "MULTI" in result.cause_code.upper()
+        )
+    ):
         rules.append("ADJ-01")
 
-    wme_residual = details.get("wme_residual_movements", {})
-    if wme_residual.get("residual_movements", 0):
-        rules.append("WME-01")
+    # WME-01 is evidence-only by design and never auto-explains a difference,
+    # so it is deliberately excluded from Regula_aplicata.
 
     if (
         result.opening_stock_wms is not None
         and result.opening_stock_wme is not None
-        and abs(
-            result.opening_stock_wms - result.opening_stock_wme
-        ) > 0.001
     ):
-        rules.append("OPEN-01")
+        opening_difference = round(
+            result.opening_stock_wms - result.opening_stock_wme,
+            3,
+        )
+        if (
+            abs(opening_difference) > 0.001
+            and abs(
+                result.unexplained_difference - opening_difference
+            ) <= 0.001
+        ):
+            rules.append("OPEN-01")
 
     # Preserve stable order and remove duplicates.
     return list(dict.fromkeys(rules))
@@ -123,10 +135,26 @@ def _observation_text(
     if rules:
         parts.append("Reguli: " + ", ".join(rules) + ".")
 
-    if result.unmatched_operations:
+    priority_types = {
+        "DELIVERY_RETURN_NET_VS_AE",
+        "AE_WME_ONLY",
+        "TRANSFER_MOSE_VS_NT",
+        "NT_MOSE_WME_ONLY",
+        "RECEIPT_SUPPLIER_IN_VS_FE",
+        "RECEIPT_TRANSFER_CG_VS_NT",
+        "PRODUCTION_IN_VS_BC",
+        "COR STOC",
+    }
+    priority_exceptions = [
+        item
+        for item in result.unmatched_operations
+        if item.get("operation_type") in priority_types
+    ]
+    if priority_exceptions:
         parts.append(
-            f"Operațiuni REVIEW/necorelate: "
-            f"{len(result.unmatched_operations)}."
+            f"Excepții operaționale prioritare: "
+            f"{len(priority_exceptions)}. "
+            "Dovezile auxiliare complete rămân în JSON."
         )
 
     if result.technical_warnings:
