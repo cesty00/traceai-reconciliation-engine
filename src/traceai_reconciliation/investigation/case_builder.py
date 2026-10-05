@@ -60,7 +60,14 @@ def build_case_report(
         operation_timeline=result.operation_timeline,
         unmatched_operations=result.unmatched_operations,
         conclusion_traceability=result.conclusion_traceability,
-        case_status="IN_ANALIZA" if result.verdict == "REVIEW" else "ASTEPTARE_VALIDARE",
+        case_status=(
+            "IN_ANALIZA"
+            if (
+                result.verdict == "REVIEW"
+                and abs(result.unexplained_difference) > 0.001
+            )
+            else "ASTEPTARE_VALIDARE"
+        ),
         human_intervention_required=True,
         execution_id=execution_id,
         engine_version=engine_version,
