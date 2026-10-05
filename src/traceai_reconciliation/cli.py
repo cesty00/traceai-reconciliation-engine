@@ -3,7 +3,10 @@ from __future__ import annotations
 import argparse
 from dataclasses import asdict
 import json
+from pathlib import Path
 
+from . import __version__
+from .investigation import InvestigationSources, build_case_report, investigate_product
 from .loaders import read_table
 from .product_audit import summarize_stock_report
 from .reports import generate_docx_report, load_case_report_json
@@ -16,8 +19,91 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--stock-report", help="Local XLSX/CSV stock report")
     parser.add_argument("--product", help="Product code to investigate")
     parser.add_argument("--case-json", help="Structured CaseReport JSON input")
-    parser.add_argument("--output-docx", help="DOCX output path for --case-json")
+    parser.add_argument("--output-docx", help="DOCX output path")
+    parser.add_argument("--output-json", help="Technical JSON output path")
+    parser.add_argument("--case-id", help="CASE_ID for product investigation")
+    parser.add_argument("--period", help="Investigation period label")
+    parser.add_argument("--report-date", help="Report date")
+    parser.add_argument("--opening-stock-wms", help="Opening stock WMS XLSX")
+    parser.add_argument("--wms-movements", help="WMS movements CSV/XLSX")
+    parser.add_argument("--wme-ledger", help="WME stock ledger XLSX")
+    parser.add_argument("--production", help="Production CSV/XLSX")
+    parser.add_argument("--nomenclature", help="WME-WMS nomenclature XLSX")
+    parser.add_argument(
+        "--engine-commit-sha",
+        default="LOCAL_OR_UNSET",
+        help="Git commit SHA recorded in the generated report",
+    )
+    parser.add_argument(
+        "--rules-version",
+        default="0.2",
+        help="Rules version recorded in the generated report",
+    )
     return parser
+
+
+def _write_json(path: str | Path, payload: dict) -> Path:
+    output = Path(path)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2, default=str),
+        encoding="utf-8",
+    )
+    return output
+
+
+def _run_real_product_investigation(args: argparse.Namespace) -> None:
+    required = {
+        "--product": args.product,
+        "--case-id": args.case_id,
+        "--period": args.period,
+        "--stock-report": args.stock_report,
+        "--opening-stock-wms": args.opening_stock_wms,
+        "--wms-movements": args.wms_movements,
+        "--wme-ledger": args.wme_ledger,
+        "--production": args.production,
+        "--nomenclature": args.nomenclature,
+        "--output-docx": args.output_docx,
+    }
+    missing = [name for name, value in required.items() if not value]
+    if missing:
+        raise SystemExit(
+            "Real product investigation requires: " + ", ".join(missing)
+        )
+
+    sources = InvestigationSources(
+        stock_report=Path(args.stock_report),
+        opening_stock_wms=Path(args.opening_stock_wms),
+        wms_movements=Path(args.wms_movements),
+        wme_ledger=Path(args.wme_ledger),
+        production=Path(args.production),
+        nomenclature=Path(args.nomenclature),
+    )
+
+    result = investigate_product(
+        product_code=args.product,
+        case_id=args.case_id,
+        sources=sources,
+        period=args.period,
+        report_date=args.report_date,
+    )
+    case_report = build_case_report(
+        result,
+        engine_version=__version__,
+        engine_commit_sha=args.engine_commit_sha,
+        rules_version=args.rules_version,
+    )
+
+    technical_payload = {
+        "investigation": asdict(result),
+        "case_report": asdict(case_report),
+    }
+
+    if args.output_json:
+        _write_json(args.output_json, technical_payload)
+
+    output = generate_docx_report(case_report, args.output_docx)
+    print(str(output))
 
 
 def main() -> None:
@@ -31,10 +117,25 @@ def main() -> None:
         print(str(output))
         return
 
+    real_investigation_requested = any(
+        [
+            args.opening_stock_wms,
+            args.wms_movements,
+            args.wme_ledger,
+            args.production,
+            args.nomenclature,
+            args.case_id,
+        ]
+    )
+    if real_investigation_requested:
+        _run_real_product_investigation(args)
+        return
+
     if not args.stock_report or not args.product:
         raise SystemExit(
             "Use --stock-report and --product for stock audit, "
-            "or --case-json and --output-docx for DOCX generation."
+            "--case-json and --output-docx for DOCX generation, "
+            "or provide all v0.3 investigation source arguments."
         )
 
     stock_report = read_table(args.stock_report)

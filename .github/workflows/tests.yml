@@ -1,0 +1,65 @@
+name: tests
+
+on:
+  push:
+    branches:
+      - main
+      - "feature/**"
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install package and test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Run tests
+        run: pytest -q
+
+      - name: Package tested source
+        if: success()
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import zipfile
+
+          root = Path(".")
+          output = Path("traceai-tested-source.zip")
+          include = [
+              Path("src"),
+              Path("config"),
+              Path("pyproject.toml"),
+              Path("requirements.txt"),
+          ]
+
+          with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED) as archive:
+              for item in include:
+                  if item.is_file():
+                      archive.write(item, item.as_posix())
+                  elif item.is_dir():
+                      for path in item.rglob("*"):
+                          if path.is_file():
+                              archive.write(path, path.as_posix())
+          PY
+
+      - name: Upload tested source
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: traceai-tested-source
+          path: traceai-tested-source.zip
+          if-no-files-found: error
+          retention-days: 3
