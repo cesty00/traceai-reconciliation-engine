@@ -64,6 +64,22 @@ Generatorul validează înainte de salvare că:
 
 în toleranța configurată.
 
+
+## v0.3
+
+Motorul include investigația reală end-to-end pe produs:
+
+- filtrare eficientă a surselor WMS/WME/producție;
+- reconstrucția soldurilor și separarea diferenței de deschidere;
+- matching producție `PRODUCTION-OUT ↔ NP` și `PRODUCTION-IN ↔ BC`;
+- netarea livrărilor/retururilor înainte de comparația cu AE;
+- identificarea reversărilor și a corecțiilor WMS reziduale;
+- fluxuri speciale candidate tratate conservator;
+- raportarea mișcărilor WME non-standard fără a forța legături documentare;
+- `ProductInvestigationResult → CaseReport → JSON + DOCX` într-o singură execuție CLI.
+
+v0.3 a fost validat end-to-end pe trei cazuri reale independente. Datele reale nu sunt versionate în repository; testele păstrează doar tipare sintetice/regresii scrubbed.
+
 ## Obiectivul fluxului pe produs
 
 `stoc inițial → mișcări WMS → mișcări WME → producție → sold calculat → sold raportat → diferențe → cauză → recomandări → DOCX`
