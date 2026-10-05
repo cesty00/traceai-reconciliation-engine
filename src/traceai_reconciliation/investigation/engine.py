@@ -25,6 +25,7 @@ from .source_readers import (
     resolve_column,
     sha256_file,
 )
+from .source_hash_cache import hash_sources
 
 
 def _row_value(
@@ -338,15 +339,17 @@ def investigate_product(
         ]
     )
 
-    for key, path in {
+    source_paths = {
         "stock_report": sources.stock_report,
         "opening_stock_wms": sources.opening_stock_wms,
         "wms_movements": sources.wms_movements,
         "wme_ledger": sources.wme_ledger,
         "production": sources.production,
         "nomenclature": sources.nomenclature,
-    }.items():
-        result.source_hashes[key] = sha256_file(path)
+    }
+    result.source_hashes.update(
+        hash_sources(source_paths, cache_dir=sources.cache_dir)
+    )
 
     opening_rows = read_filtered(
         sources.opening_stock_wms,
