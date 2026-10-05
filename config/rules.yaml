@@ -44,12 +44,16 @@ candidate_rules:
     description: "Diferenta existenta la inceputul perioadei se pastreaza separat si nu se atribuie automat operatiunilor din perioada analizata."
     status: "CANDIDAT"
   - id: PROD-03
-    description: "Ajustarile negative WMS PRODUCTION-IN se compara cu WME BC dupa numarul de comanda normalizat si cantitatea agregata."
-    status: "TESTARE_VALIDARE"
+    description: "Ajustarile negative WMS PRODUCTION-IN se compara cu WME BC dupa numarul de comanda normalizat si cantitatea agregata, dupa excluderea consumurilor reversate explicit in WMS prin PROD-05."
+    status: "TESTARE_REPARATIE"
 
   - id: PROD-04
-    description: "Pentru un rezidual PROD-03 de tip BC lipsa confirmat de productie, se verifica global OperationType=BC + document. Zero randuri BC clasifica evenimentul ca WHOLE_BC_DOCUMENT_MISSING; detectorul este evidentiary-only si nu forteaza verdictul produsului."
-    status: "TESTARE_VALIDARE"
+    description: "Pentru un rezidual PROD-03 de tip BC lipsa confirmat de productie, se verifica global OperationType=BC + document numai dupa excluderea comenzilor reversate prin PROD-05. Zero randuri BC este evidenta de document lipsa, nu dovada automata de eroare de integrare."
+    status: "TESTARE_REPARATIE"
+
+  - id: PROD-05
+    description: "Un PRODUCTION-IN WMS este exclus din ipoteza BC lipsa daca exista ulterior o Ajustare pozitiva COR STOC care referentiaza explicit aceeasi comanda in Detalii si inverseaza integral cantitatea produsului. Reversarea este evidentiary-only si nu explica automat diferenta finala."
+    status: "TESTARE_CI"
   - id: ADJ-01
     description: "Corectiile WMS COR STOC fara document, ramase in afara productiei si fluxurilor speciale deja clasificate, se pastreaza ca WMS_ONLY_REVIEW si pot explica doar probabil o parte din diferenta."
     status: "CANDIDAT"

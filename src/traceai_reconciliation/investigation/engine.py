@@ -926,7 +926,18 @@ def investigate_product(
                 production_input_whole_document_missing += 1
     result.details["production_input_matching"] = {
         "wms_total": round(production_input_match.wms_total, decimals),
+        "wms_reversal_total": round(
+            production_input_match.wms_reversal_total,
+            decimals,
+        ),
+        "wms_effective_total": round(
+            production_input_match.wms_effective_total,
+            decimals,
+        ),
         "wme_bc_total": round(production_input_match.wme_bc_total, decimals),
+        "reversed_documents": len(
+            production_input_match.reversed_documents or []
+        ),
         "residual_documents": len(
             production_input_match.residual_documents
         ),
@@ -945,6 +956,26 @@ def investigate_product(
         ),
         "applied_to_explanation": False,
     }
+
+    if production_input_match.reversed_documents:
+        reversed_total = sum(
+            abs(float(item["wms_production_in"]))
+            for item in production_input_match.reversed_documents
+        )
+        result.findings.append(
+            {
+                "type": "PRODUCTION_INPUT_WMS_REVERSAL",
+                "description": (
+                    f"{len(production_input_match.reversed_documents)} "
+                    f"documente PRODUCTION-IN au fost reversate explicit in "
+                    f"WMS prin COR STOC cu referinta la aceeasi comanda, total "
+                    f"{reversed_total:.3f} {result.unit}. Aceste documente nu "
+                    f"sunt tratate ca BC lipsa si nu pot explica automat "
+                    f"diferenta fata de WME."
+                ),
+                "evidence": "SRC-WMS(PRODUCTION-IN + COR STOC) + PROD-05",
+            }
+        )
 
     if production_input_match.residual_documents:
         for item in production_input_match.residual_documents:
