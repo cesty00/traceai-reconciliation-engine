@@ -11,6 +11,12 @@ from .batch import (
     load_batch_manifest,
     run_batch,
 )
+from .registry_backlog import (
+    load_registry_export,
+    manifest_payload,
+    select_registry_cases,
+    write_manifest,
+)
 
 __all__ = [
     "InvestigationSources",
@@ -25,4 +31,8 @@ __all__ = [
     "BatchSummary",
     "load_batch_manifest",
     "run_batch",
+    "load_registry_export",
+    "select_registry_cases",
+    "manifest_payload",
+    "write_manifest",
 ]
