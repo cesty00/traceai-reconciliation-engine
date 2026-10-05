@@ -45,3 +45,7 @@ candidate_rules:
   - id: ADJ-01
     description: "Corectiile WMS COR STOC fara document, ramase in afara productiei si fluxurilor speciale deja clasificate, se pastreaza ca WMS_ONLY_REVIEW si pot explica doar probabil o parte din diferenta."
     status: "CANDIDAT"
+
+  - id: WME-01
+    description: "Miscarile WME non-standard din afara gestiunilor speciale se raporteaza ca dovezi reziduale, dar nu se adauga automat la diferenta explicata fara o legatura documentara validata."
+    status: "CANDIDAT"
