@@ -119,6 +119,12 @@ def _repeat_table_header(row) -> None:
     tr_pr.append(tbl_header)
 
 
+def _prevent_row_split(row) -> None:
+    tr_pr = row._tr.get_or_add_trPr()
+    if tr_pr.find(qn("w:cantSplit")) is None:
+        tr_pr.append(OxmlElement("w:cantSplit"))
+
+
 def _set_landscape(section) -> None:
     section.orientation = WD_ORIENT.LANDSCAPE
     section.page_width, section.page_height = section.page_height, section.page_width
@@ -195,7 +201,9 @@ def _add_key_value_table(doc: DocumentObject, rows: Sequence[tuple[str, str]], w
     table.alignment = WD_TABLE_ALIGNMENT.CENTER
     table.style = "Table Grid"
     for label, value in rows:
-        cells = table.add_row().cells
+        row = table.add_row()
+        _prevent_row_split(row)
+        cells = row.cells
         cells[0].text = label
         cells[1].text = value
         cells[0].width = Cm(widths[0])
@@ -234,9 +242,12 @@ def _add_table(
                 run.font.name = "Arial"
                 run.font.size = Pt(font_size)
     _repeat_table_header(table.rows[0])
+    _prevent_row_split(table.rows[0])
 
     for row in rows:
-        cells = table.add_row().cells
+        table_row = table.add_row()
+        _prevent_row_split(table_row)
+        cells = table_row.cells
         for i, value in enumerate(row):
             cells[i].text = _text(value)
             _set_cell_margins(cells[i], top=45, bottom=45, start=45, end=45)
