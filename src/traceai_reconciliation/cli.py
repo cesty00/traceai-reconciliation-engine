@@ -51,7 +51,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--rules-version",
-        default="0.2",
+        default="0.3",
         help="Rules version recorded in the generated report",
     )
     return parser
