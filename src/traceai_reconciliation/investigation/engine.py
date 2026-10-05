@@ -1031,19 +1031,26 @@ def investigate_product(
             }
         )
     elif production_input_match.documents:
+        active_documents = (
+            len(production_input_match.documents)
+            - len(production_input_match.reversed_documents or [])
+        )
         result.findings.append(
             {
                 "type": "PRODUCTION_INPUT_MATCH",
                 "description": (
-                    f"Toate cele "
-                    f"{len(production_input_match.documents)} documente "
-                    f"PRODUCTION-IN WMS sunt concordante cu BC WME; "
-                    f"total WMS "
-                    f"{production_input_match.wms_total:.3f} "
+                    f"După excluderea a "
+                    f"{len(production_input_match.reversed_documents or [])} "
+                    f"documente PRODUCTION-IN reversate explicit în WMS, "
+                    f"cele {active_documents} documente active sunt "
+                    f"concordante cu BC WME; total WMS efectiv "
+                    f"{production_input_match.wms_effective_total:.3f} "
                     f"și total WME "
                     f"{production_input_match.wme_bc_total:.3f}."
                 ),
-                "evidence": "SRC-WMS(PRODUCTION-IN) + SRC-WME(BC)",
+                "evidence": (
+                    "SRC-WMS(PRODUCTION-IN + COR STOC) + SRC-WME(BC)"
+                ),
             }
         )
 
