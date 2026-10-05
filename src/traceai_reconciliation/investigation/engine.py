@@ -790,6 +790,8 @@ def investigate_product(
             "legătură documentară validată."
         )
 
+    special_status_match = match_special_status_flow(wms_rows, wme_rows)
+
     generic_correction_match = match_generic_wms_stock_corrections(
         wms_rows,
         excluded_locations={"INS.DET"},
@@ -846,8 +848,19 @@ def investigate_product(
                 result.explained_difference + generic_residual,
                 decimals,
             )
+            pending_special = round(
+                special_status_match.explained_total,
+                decimals,
+            )
             if (
-                abs(candidate_explained)
+                pending_special == 0
+                or (pending_special > 0)
+                != (result.initial_difference > 0)
+            ):
+                pending_special = 0.0
+
+            if (
+                abs(candidate_explained + pending_special)
                 <= abs(result.initial_difference) + 10 ** (-decimals)
             ):
                 result.explained_difference = candidate_explained
@@ -866,7 +879,6 @@ def investigate_product(
                 result.evidence_level = "B"
                 result.verdict = "REVIEW"
 
-    special_status_match = match_special_status_flow(wms_rows, wme_rows)
     result.details["special_status_matching"] = {
         "matched_groups": len(special_status_match.matched_groups),
         "residual_corrections": len(
