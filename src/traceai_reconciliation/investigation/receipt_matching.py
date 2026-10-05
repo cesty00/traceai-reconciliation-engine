@@ -38,7 +38,9 @@ def match_inbound_receipts(
     Match validated inbound receipt families without mixing them with returns.
 
     Supported mappings:
-    - WMS IN... Receptie -> WME FE positive, key = Document intrare.
+    - WMS IN... Receptie -> WME FE positive, with WME F positive as a
+      document-level fallback only when FE is absent for that document;
+      key = Document intrare.
     - WMS TRANSFER_CG... Receptie -> WME NT positive,
       key = Document intrare.
 
@@ -145,14 +147,14 @@ def match_inbound_receipts(
     residual_documents: list[dict[str, Any]] = []
 
     family_specs = {
-        "SUPPLIER_IN": "FE",
-        "TRANSFER_CG": "NT",
+        "SUPPLIER_IN": ("FE", "F"),
+        "TRANSFER_CG": ("NT",),
     }
 
     wms_supported_total = 0.0
     wme_supported_total = 0.0
 
-    for family_name, wme_type in family_specs.items():
+    for family_name, wme_types in family_specs.items():
         wms_family = supported[
             supported["_family"].eq(family_name)
         ]
@@ -167,39 +169,39 @@ def match_inbound_receipts(
 
         relevant_docs = set(wms_by_doc.index)
         wme_family = wme[
-            wme["_op"].eq(wme_type)
+            wme["_op"].isin(wme_types)
             & wme["_qty"].gt(0)
             & wme["_doc"].isin(relevant_docs)
         ]
-        wme_by_doc = (
-            wme_family.groupby("_doc")["_qty"]
+        wme_by_type_doc = (
+            wme_family.groupby(["_op", "_doc"])["_qty"]
             .sum()
-            .rename("wme_qty")
+            .to_dict()
         )
 
-        comparison = pd.concat(
-            [wms_by_doc, wme_by_doc],
-            axis=1,
-        ).fillna(0.0)
-        comparison["difference"] = (
-            comparison["wms_qty"] - comparison["wme_qty"]
-        )
+        for document, wms_qty_value in wms_by_doc.sort_index().items():
+            wms_qty = float(wms_qty_value)
+            selected_type = wme_types[0]
+            wme_qty = 0.0
+            for candidate_type in wme_types:
+                candidate_qty = float(
+                    wme_by_type_doc.get((candidate_type, document), 0.0)
+                )
+                if candidate_qty > 0.0:
+                    selected_type = candidate_type
+                    wme_qty = candidate_qty
+                    break
 
-        wms_supported_total += float(
-            comparison["wms_qty"].sum()
-        )
-        wme_supported_total += float(
-            comparison["wme_qty"].sum()
-        )
+            difference = wms_qty - wme_qty
+            wms_supported_total += wms_qty
+            wme_supported_total += wme_qty
 
-        for document, row in comparison.sort_index().iterrows():
-            difference = float(row["difference"])
             item = {
                 "family": family_name,
                 "document": str(document),
-                "wme_operation_type": wme_type,
-                "wms_quantity": float(row["wms_qty"]),
-                "wme_quantity": float(row["wme_qty"]),
+                "wme_operation_type": selected_type,
+                "wms_quantity": wms_qty,
+                "wme_quantity": wme_qty,
                 "difference": difference,
                 "status": (
                     "MATCH"
