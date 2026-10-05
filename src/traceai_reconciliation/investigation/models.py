@@ -28,6 +28,7 @@ class ProductInvestigationResult:
     reported_stock_wms: float | None = None
     reported_stock_wme: float | None = None
     opening_stock_wms: float | None = None
+    opening_stock_wme: float | None = None
     calculated_stock_wms: float | None = None
     calculated_stock_wme: float | None = None
 
