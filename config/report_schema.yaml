@@ -1,0 +1,47 @@
+version: "1.0"
+
+required_fields:
+  - case_id
+  - product_code
+  - product_name
+  - period
+  - report_date
+  - initial_difference
+  - explained_difference
+  - unexplained_difference
+  - verdict
+  - evidence_level
+  - cause_code
+  - cause_description
+  - sources_used
+  - rules_applied
+  - recommendations
+  - case_status
+  - engine_version
+  - engine_commit_sha
+  - rules_version
+  - execution_id
+
+cause_status_values:
+  - CONFIRMATA
+  - PROBABILA
+  - NEDETERMINATA
+
+recommendation_types:
+  - IMEDIATA
+  - CORECTIVA
+  - PREVENTIVA
+  - AUTOMATIZARE_CONTROL
+
+human_validation:
+  required_for:
+    - stock_adjustment
+    - accounting_regularization
+    - document_reoperation
+    - master_data_change
+
+annexes:
+  - operation_timeline
+  - unmatched_operations
+  - conclusion_traceability
+  - execution_parameters
