@@ -181,3 +181,116 @@ def test_transfer_delivery_is_not_compared_to_ae() -> None:
     assert result.wme_ae_total == -100.0
     assert result.residual_total == 0.0
     assert result.residual_documents == []
+
+
+
+def test_delivery_cancellation_adjustment_nets_same_base_document() -> None:
+    wms = pd.DataFrame(
+        [
+            {
+                "Tip operatiune": "Livrare",
+                "Cantitate": -100.0,
+                "Numar comanda": "WME115354",
+                "Cod-motiv": None,
+            },
+            {
+                "Tip operatiune": "Ajustare pozitiva",
+                "Cantitate": 100.0,
+                "Numar comanda": (
+                    "115354_DEL_233B8F72-6FDE-4227-AABA-FBAA5ADE6C73"
+                ),
+                "Cod-motiv": "ANULARE COMANDA",
+            },
+        ]
+    )
+    wme = pd.DataFrame(
+        columns=["OperationType", "Document", "SignedQuantity"]
+    )
+
+    result = match_deliveries_and_returns(wms, wme)
+
+    assert result.wms_net_total == 0.0
+    assert result.residual_total == 0.0
+    assert result.residual_documents == []
+
+
+def test_duplicate_delivery_plus_cancellation_matches_ae_net() -> None:
+    wms = pd.DataFrame(
+        [
+            {
+                "Tip operatiune": "Livrare",
+                "Cantitate": -10.0,
+                "Numar comanda": "WME109254",
+                "Cod-motiv": None,
+            },
+            {
+                "Tip operatiune": "Livrare",
+                "Cantitate": -10.0,
+                "Numar comanda": "WME109254",
+                "Cod-motiv": None,
+            },
+            {
+                "Tip operatiune": "Ajustare pozitiva",
+                "Cantitate": 10.0,
+                "Numar comanda": (
+                    "109254_DEL_4673C091-EB3C-4A08-BB25-86C158280093"
+                ),
+                "Cod-motiv": "ANULARE COMANDA",
+            },
+        ]
+    )
+    wme = pd.DataFrame(
+        [
+            {
+                "OperationType": "AE",
+                "Document": "109254",
+                "SignedQuantity": -10.0,
+            }
+        ]
+    )
+
+    result = match_deliveries_and_returns(wms, wme)
+
+    assert result.wms_net_total == -10.0
+    assert result.wme_ae_total == -10.0
+    assert result.residual_total == 0.0
+    assert result.residual_documents == []
+
+
+def test_wme_only_ae_is_reported_separately_without_changing_delivery_residual() -> None:
+    wms = pd.DataFrame(
+        [
+            {
+                "Tip operatiune": "Livrare",
+                "Cantitate": -10.0,
+                "Numar comanda": "WME120000",
+                "Cod-motiv": None,
+            }
+        ]
+    )
+    wme = pd.DataFrame(
+        [
+            {
+                "OperationType": "AE",
+                "Document": "120000",
+                "SignedQuantity": -10.0,
+            },
+            {
+                "OperationType": "AE",
+                "Document": "1025",
+                "SignedQuantity": 1.0,
+            },
+        ]
+    )
+
+    result = match_deliveries_and_returns(wms, wme)
+
+    assert result.residual_total == 0.0
+    assert result.residual_documents == []
+    assert result.wme_only_documents == [
+        {
+            "document": "1025",
+            "wme_ae_quantity": 1.0,
+            "status": "WME_ONLY_REVIEW",
+        }
+    ]
