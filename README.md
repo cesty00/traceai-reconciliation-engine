@@ -29,7 +29,7 @@ investigație pe produs
    ↓
 cauză + nivel de probă
    ↓
-rezultate / registru cazuri
+rezultate / registru cazuri + DOCX
 ```
 
 Google Drive rămâne sursa oficială pentru fișierele brute și dovezi. Acest repository conține doar cod, reguli, teste și documentație tehnică.
@@ -42,16 +42,37 @@ Google Drive rămâne sursa oficială pentru fișierele brute și dovezi. Acest 
 - Regulile candidate nu devin active fără validare.
 - Nu se forțează MATCH.
 
-## v0.1
+## v0.2
 
-Obiectivul primei versiuni este un audit reproductibil pentru un singur cod de produs:
+Motorul include generatorul automat DOCX pentru fiecare caz verificat. Raportul conține:
 
-`stoc inițial → mișcări WMS → mișcări WME → producție → sold calculat → sold raportat → diferențe → operațiuni fără corespondent`
+- rezumat executiv;
+- diferență inițială / explicată / neexplicată;
+- surse și dovezi;
+- rezultat reconciliere;
+- constatări și cauză;
+- recomandări;
+- verdict și validare umană;
+- jurnal cronologic;
+- operațiuni fără corespondent;
+- trasabilitatea concluziei;
+- parametri tehnici ai execuției.
+
+Generatorul validează înainte de salvare că:
+
+`diferență inițială = diferență explicată + diferență neexplicată`
+
+în toleranța configurată.
+
+## Obiectivul fluxului pe produs
+
+`stoc inițial → mișcări WMS → mișcări WME → producție → sold calculat → sold raportat → diferențe → cauză → recomandări → DOCX`
 
 ## Structură
 
 - `src/traceai_reconciliation/` — codul motorului
-- `config/` — reguli și configurări
+- `src/traceai_reconciliation/reports/` — model și generator DOCX
+- `config/` — reguli și schema raportului
 - `tests/` — teste unitare și de regresie
 - `data/` — doar instrucțiuni; datele reale nu se versioneză
-- `docs/` — arhitectură și decizii tehnice
+- `docs/` — arhitectură și șablonul oficial de raport
