@@ -9,6 +9,7 @@ import pandas as pd
 from .models import InvestigationSources, ProductInvestigationResult
 from .production_matching import match_production_adjustments
 from .delivery_matching import match_deliveries_and_returns
+from .special_status_matching import match_special_status_flow
 from .source_readers import (
     filter_by_period,
     first_non_empty,
@@ -671,6 +672,72 @@ def investigate_product(
             )
             result.cause_status = "PROBABILA"
             result.evidence_level = "B"
+
+    special_status_match = match_special_status_flow(wms_rows, wme_rows)
+    result.details["special_status_matching"] = {
+        "matched_groups": len(special_status_match.matched_groups),
+        "residual_corrections": len(
+            special_status_match.residual_wms_corrections
+        ),
+        "explained_total": round(
+            special_status_match.explained_total,
+            decimals,
+        ),
+    }
+
+    if special_status_match.matched_groups:
+        for group in special_status_match.matched_groups:
+            result.findings.append(
+                {
+                    "type": "SPECIAL_STATUS_CANDIDATE_MATCH",
+                    "description": (
+                        f"Flux special candidat: WMS transfer "
+                        f"{group['wms_transfer_total']:.3f} {result.unit} către "
+                        f"{group['wms_destination']}, WME NT "
+                        f"{group['wme_nt_total']:.3f} către "
+                        f"{group['wme_counter_warehouse']}, urmat de corecții "
+                        f"WMS {group['wms_correction_total']:.3f}. "
+                        "Corelarea este tratată drept cauză probabilă, nu regulă "
+                        "generală activă."
+                    ),
+                    "evidence": "SRC-WMS + SRC-WME(NT) + SPECIAL_STATUS_CANDIDATE",
+                }
+            )
+
+        special_residual = round(
+            special_status_match.explained_total,
+            decimals,
+        )
+        if (
+            special_residual != 0
+            and result.initial_difference != 0
+            and (special_residual > 0)
+            == (result.initial_difference > 0)
+        ):
+            candidate_explained = round(
+                result.explained_difference + special_residual,
+                decimals,
+            )
+            if (
+                abs(candidate_explained)
+                <= abs(result.initial_difference) + 10 ** (-decimals)
+            ):
+                result.explained_difference = candidate_explained
+                result.unexplained_difference = round(
+                    result.initial_difference
+                    - result.explained_difference,
+                    decimals,
+                )
+                result.cause_code = "CAUSE-MULTI-PARTIAL"
+                result.cause_description = (
+                    "Diferența este explicată parțial prin combinația dintre "
+                    "ajustări WMS fără corespondent, diferențe reziduale după "
+                    "netarea livrărilor/retururilor și un flux special candidat "
+                    "INS.DET↔DETERIORATE. Diferența rămasă este păstrată separat."
+                )
+                result.cause_status = "PROBABILA"
+                result.evidence_level = "B"
+                result.verdict = "REVIEW"
 
     result.operation_timeline.extend(_timeline_from_wms(wms_rows))
     result.operation_timeline.extend(_timeline_from_wme(wme_rows))
