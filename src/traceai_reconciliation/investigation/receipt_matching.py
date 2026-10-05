@@ -48,11 +48,12 @@ def match_inbound_receipts(
     if wms_rows.empty:
         return ReceiptMatchResult([], [], [], 0.0, 0.0, 0.0)
 
-    required = {"Tip operatiune", "Cantitate", "Numar comanda"}
-    missing = required - set(wms_rows.columns)
-    if missing:
+    minimum = {"Tip operatiune", "Cantitate"}
+    missing_minimum = minimum - set(wms_rows.columns)
+    if missing_minimum:
         raise ValueError(
-            f"WMS receipt matching: coloane lipsă {sorted(missing)}"
+            f"WMS receipt matching: coloane de bază lipsă "
+            f"{sorted(missing_minimum)}"
         )
 
     receipts = wms_rows[
@@ -61,10 +62,35 @@ def match_inbound_receipts(
     if receipts.empty:
         return ReceiptMatchResult([], [], [], 0.0, 0.0, 0.0)
 
-    if "Document intrare" not in receipts.columns:
-        raise ValueError(
-            "WMS receipt matching: există recepții, dar coloana "
-            "'Document intrare' lipsește."
+    linkage_columns = {"Numar comanda", "Document intrare"}
+    if not linkage_columns.issubset(receipts.columns):
+        unsupported = [
+            {
+                "document": str(
+                    row.get("Document", row.get("Numar comanda", "-"))
+                ),
+                "quantity": float(
+                    pd.to_numeric(
+                        pd.Series([row.get("Cantitate", 0.0)]),
+                        errors="coerce",
+                    ).fillna(0.0).iloc[0]
+                ),
+                "link_document": "",
+                "reason": (
+                    "Recepție WMS fără coloanele de legătură necesare "
+                    "pentru clasificarea inbound"
+                ),
+                "status": "REVIEW",
+            }
+            for _, row in receipts.iterrows()
+        ]
+        return ReceiptMatchResult(
+            [],
+            [],
+            unsupported,
+            0.0,
+            0.0,
+            0.0,
         )
 
     receipts["_qty"] = pd.to_numeric(
