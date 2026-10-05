@@ -647,6 +647,12 @@ def investigate_product(
         "wme_ae_total": round(delivery_match.wme_ae_total, decimals),
         "residual_documents": len(delivery_match.residual_documents),
         "wme_only_documents": len(delivery_match.wme_only_documents),
+        "derived_receipt_documents": (
+            delivery_match.derived_receipt_documents
+        ),
+        "net_zero_derived_documents": (
+            delivery_match.net_zero_derived_documents
+        ),
         "residual_total": round(delivery_match.residual_total, decimals),
     }
 
