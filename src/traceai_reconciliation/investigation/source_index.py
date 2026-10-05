@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 import os
+import re
 import sqlite3
 from datetime import date, datetime
 from pathlib import Path
 from typing import Iterator
+from zipfile import ZipFile
 
 import pandas as pd
-from openpyxl import load_workbook
+from lxml import etree
 
 from .source_readers import (
     WME_STANDARD_COLUMNS,
@@ -282,6 +284,14 @@ class SQLiteSourceIndex:
         path: Path,
         batch_size: int = 5000,
     ) -> None:
+        """
+        Stream the first XLSX worksheet directly from XML.
+
+        The WME export is large enough that openpyxl row iteration dominates
+        index-build time. Direct XML streaming preserves the same raw values
+        while avoiding workbook object creation for hundreds of thousands of
+        rows.
+        """
         connection.execute(
             """
             CREATE TABLE wme (
@@ -316,71 +326,139 @@ class SQLiteSourceIndex:
             + ")"
         )
 
-        workbook = load_workbook(
-            path,
-            read_only=True,
-            data_only=True,
+        xml_ns = (
+            "{http://schemas.openxmlformats.org/"
+            "spreadsheetml/2006/main}"
         )
-        worksheet = workbook[workbook.sheetnames[0]]
-        batch: list[tuple[object, ...]] = []
+        column_pattern = re.compile(r"([A-Z]+)")
+        accepted_columns = set("ABCDEFGHIJKLMNOPQ")
 
-        try:
-            for row in worksheet.iter_rows(values_only=True):
-                if len(row) < 15:
-                    continue
+        def to_float(value: object) -> float:
+            try:
+                return float(value)
+            except (TypeError, ValueError):
+                return 0.0
 
-                product_name = str(row[10] or "").strip()
-                item_id = str(row[12] or "").strip()
-                if not product_name or not item_id:
-                    continue
-
-                incoming = pd.to_numeric(
-                    pd.Series([row[4]]),
-                    errors="coerce",
-                ).iloc[0]
-                outgoing = pd.to_numeric(
-                    pd.Series([row[5]]),
-                    errors="coerce",
-                ).iloc[0]
-                incoming = (
-                    0.0 if pd.isna(incoming) else float(incoming)
+        with ZipFile(path) as archive:
+            shared_strings: list[str] = []
+            if "xl/sharedStrings.xml" in archive.namelist():
+                root = etree.fromstring(
+                    archive.read("xl/sharedStrings.xml")
                 )
-                outgoing = (
-                    0.0 if pd.isna(outgoing) else float(outgoing)
-                )
+                shared_strings = [
+                    "".join(
+                        (node.text or "")
+                        for node in item.iter(xml_ns + "t")
+                    )
+                    for item in root.findall(xml_ns + "si")
+                ]
 
-                values = (
-                    row[0],
-                    row[1],
-                    row[2],
-                    row[3],
-                    incoming,
-                    outgoing,
-                    row[6],
-                    row[7],
-                    row[8],
-                    row[9],
-                    product_name,
-                    row[11],
-                    item_id,
-                    row[13],
-                    row[14],
-                    row[15] if len(row) > 15 else None,
-                    row[16] if len(row) > 16 else None,
-                    incoming - outgoing,
-                )
-                batch.append(
-                    tuple(_sqlite_value(value) for value in values)
+            worksheet_names = sorted(
+                name
+                for name in archive.namelist()
+                if name.startswith("xl/worksheets/sheet")
+                and name.endswith(".xml")
+            )
+            if not worksheet_names:
+                raise ValueError(
+                    f"Index WME: nu găsesc worksheet XML în {path.name}."
                 )
 
-                if len(batch) >= batch_size:
+            batch: list[tuple[object, ...]] = []
+            with archive.open(worksheet_names[0]) as handle:
+                context = etree.iterparse(
+                    handle,
+                    events=("end",),
+                    tag=xml_ns + "row",
+                )
+                for _, row_element in context:
+                    values: dict[str, object] = {}
+
+                    for cell in row_element.findall(xml_ns + "c"):
+                        reference = cell.get("r") or ""
+                        match = column_pattern.match(reference)
+                        if match is None:
+                            continue
+                        column = match.group(1)
+                        if column not in accepted_columns:
+                            continue
+
+                        cell_type = cell.get("t")
+                        value_node = cell.find(xml_ns + "v")
+                        value: object = (
+                            value_node.text
+                            if value_node is not None
+                            else None
+                        )
+
+                        if (
+                            cell_type == "s"
+                            and value is not None
+                            and shared_strings
+                        ):
+                            value = shared_strings[int(value)]
+                        elif cell_type == "inlineStr":
+                            inline = cell.find(xml_ns + "is")
+                            if inline is not None:
+                                value = "".join(
+                                    (node.text or "")
+                                    for node in inline.iter(
+                                        xml_ns + "t"
+                                    )
+                                )
+
+                        values[column] = value
+
+                    product_name = str(
+                        values.get("K") or ""
+                    ).strip()
+                    item_id = str(values.get("M") or "").strip()
+                    if product_name and item_id:
+                        incoming = to_float(values.get("E"))
+                        outgoing = to_float(values.get("F"))
+
+                        record = (
+                            values.get("A"),
+                            values.get("B"),
+                            values.get("C"),
+                            values.get("D"),
+                            incoming,
+                            outgoing,
+                            to_float(values.get("G")),
+                            to_float(values.get("H")),
+                            values.get("I"),
+                            values.get("J"),
+                            product_name,
+                            values.get("L"),
+                            item_id,
+                            values.get("N"),
+                            values.get("O"),
+                            values.get("P"),
+                            values.get("Q"),
+                            incoming - outgoing,
+                        )
+                        batch.append(
+                            tuple(
+                                _sqlite_value(value)
+                                for value in record
+                            )
+                        )
+
+                        if len(batch) >= batch_size:
+                            connection.executemany(
+                                insert_sql,
+                                batch,
+                            )
+                            batch.clear()
+
+                    row_element.clear()
+                    parent = row_element.getparent()
+                    if parent is not None:
+                        while row_element.getprevious() is not None:
+                            del parent[0]
+
+                if batch:
                     connection.executemany(insert_sql, batch)
-                    batch.clear()
-
-            if batch:
-                connection.executemany(insert_sql, batch)
-        finally:
-            workbook.close()
 
     def read_wms_product(
         self,
