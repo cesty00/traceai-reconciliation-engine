@@ -49,3 +49,10 @@ candidate_rules:
   - id: WME-01
     description: "Miscarile WME non-standard din afara gestiunilor speciale se raporteaza ca dovezi reziduale, dar nu se adauga automat la diferenta explicata fara o legatura documentara validata."
     status: "CANDIDAT"
+
+  - id: REC-01
+    description: "Receptiile WMS cu Numar comanda IN... se compara cu FE pozitive WME dupa Document intrare si cantitatea agregata."
+    status: "CANDIDAT"
+  - id: REC-02
+    description: "Receptiile WMS TRANSFER_CG... se compara cu NT pozitive WME dupa Document intrare; TRANSFER_MOSE ramane in familia dedicata de transfer."
+    status: "CANDIDAT"
