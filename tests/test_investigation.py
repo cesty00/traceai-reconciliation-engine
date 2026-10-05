@@ -58,26 +58,22 @@ def _write_fixture_sources(tmp_path: Path) -> InvestigationSources:
         ]
     ).to_csv(wms, index=False)
 
-    pd.DataFrame(
+    # WME real export is a report-style workbook without an operational header.
+    wme_rows = [
+        ["Oceanis Seafood Europa S.R.L."] + [None] * 16,
+        ["Fisa de magazie"] + [None] * 16,
         [
-            {
-                "ID articol": "1001",
-                "Data": "2026-01-02",
-                "Tip document": "F",
-                "Nr document": "IN1",
-                "Cantitate": 5.0,
-                "Stoc": 8.0,
-            },
-            {
-                "ID articol": "9999",
-                "Data": "2026-01-02",
-                "Tip document": "F",
-                "Nr document": "X",
-                "Cantitate": 1.0,
-                "Stoc": 1.0,
-            },
-        ]
-    ).to_excel(wme, index=False)
+            1, "F", "IN1", "02.01.2026", 5.0, 0.0, 8.0, 0.0,
+            "345", "FURNIZOR TEST", "Produs test", "", 1001,
+            "DEPOZIT PESTE PROASPAT", "BUC", "TEST", 1,
+        ],
+        [
+            2, "F", "X", "02.01.2026", 1.0, 0.0, 1.0, 0.0,
+            "345", "FURNIZOR TEST", "Alt produs", "", 9999,
+            "DEPOZIT PESTE PROASPAT", "BUC", "TEST", 2,
+        ],
+    ]
+    pd.DataFrame(wme_rows).to_excel(wme, index=False, header=False)
 
     pd.DataFrame(
         [
@@ -94,9 +90,11 @@ def _write_fixture_sources(tmp_path: Path) -> InvestigationSources:
     pd.DataFrame(
         [
             {
-                "ID articol WME": "1001",
-                "Cod produs WMS/DS": "DS001",
-                "Denumire articol": "Produs test",
+                "Cod articol": "DS001",
+                "Denumire": "Produs test",
+                "Greutate:": 1,
+                "U.M.": "BUCATA",
+                "Bucati in Bax": 0,
             }
         ]
     ).to_excel(nomenclature, index=False)
@@ -146,9 +144,16 @@ def test_real_product_pipeline_builds_case_report(tmp_path: Path) -> None:
 
 def test_missing_wme_mapping_remains_review(tmp_path: Path) -> None:
     sources = _write_fixture_sources(tmp_path)
-    pd.DataFrame(
-        [{"ID articol WME": "2000", "Cod produs WMS/DS": "OTHER"}]
-    ).to_excel(sources.nomenclature, index=False)
+    # Make the WME product name non-matching so exact-name mapping cannot be established.
+    wme_rows = [
+        ["Oceanis Seafood Europa S.R.L."] + [None] * 16,
+        [
+            1, "F", "IN1", "02.01.2026", 5.0, 0.0, 8.0, 0.0,
+            "345", "FURNIZOR TEST", "Alt produs", "", 2000,
+            "DEPOZIT PESTE PROASPAT", "BUC", "TEST", 1,
+        ],
+    ]
+    pd.DataFrame(wme_rows).to_excel(sources.wme_ledger, index=False, header=False)
 
     result = investigate_product(
         product_code="DS001",
