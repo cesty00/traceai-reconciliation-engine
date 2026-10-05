@@ -146,6 +146,8 @@ def match_inbound_receipts(
     documents: list[dict[str, Any]] = []
     residual_documents: list[dict[str, Any]] = []
 
+    # C-REC-003: FE has priority; F is a document-level fallback only
+    # when FE is absent for the same supplier receipt document.
     family_specs = {
         "SUPPLIER_IN": ("FE", "F"),
         "TRANSFER_CG": ("NT",),

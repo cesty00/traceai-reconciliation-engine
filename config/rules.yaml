@@ -61,6 +61,10 @@ candidate_rules:
     description: "Receptiile WMS TRANSFER_CG... se compara cu NT pozitive WME dupa Document intrare; TRANSFER_MOSE ramane in familia dedicata de transfer."
     status: "CANDIDAT"
 
+  - id: C-REC-003
+    description: "Pentru WMS IN... Receptie, FE pozitiv WME ramane prioritar; daca FE lipseste pe acelasi Document intrare, se permite fallback la F pozitiv pe acelasi document. Fallback-ul nu inlocuieste un FE existent si nu forteaza MATCH."
+    status: "TESTARE_CI"
+
   - id: TR-MOSE-01
     description: "TRANSFER_MOSE se reconciliaza cu NT WME ca flux intern DP<->MOSE; _DEL_ se neteaza in ordinul de baza, Document intrare are prioritate, iar fallback-ul pe cantitate+directie+data se accepta numai daca este univoc."
     status: "CANDIDAT"
