@@ -25,12 +25,15 @@ def normalize_delivery_document(value: object) -> str:
 
     text = re.sub(r"^RET_?WME", "", text)
     text = re.sub(r"^(WME|WMS)", "", text)
-    text = re.sub(r"-[12]$", "", text)
     text = re.sub(r"^R(?=\d)", "", text)
 
-    digits = re.sub(r"\D", "", text)
-    if digits:
-        return str(int(digits))
+    # Keep only the leading base document number. WMS cancellation chains may
+    # append suffixes such as -1/-2 or _DEL_<UUID>; UUID digits must not become
+    # part of the normalized document.
+    match = re.match(r"^(\d+)", text)
+    if match:
+        return str(int(match.group(1)))
+
     return text
 
 
