@@ -93,9 +93,16 @@ def match_production_adjustments(
     work["_location"] = work["Locatie sursa"].map(_text)
     work["_lot"] = work["Lot"].map(_text)
 
-    positives = work[
+    positive_mask = (
         work["Tip operatiune"].astype(str).str.strip().eq("Ajustare pozitiva")
-    ].copy()
+    )
+    if "Cod-motiv" in work.columns:
+        reason = work["Cod-motiv"].astype(str).str.strip().str.upper()
+        production_out = reason.eq("PRODUCTION-OUT")
+        if production_out.any():
+            positive_mask &= production_out
+
+    positives = work[positive_mask].copy()
     negatives = work[
         work["Tip operatiune"].astype(str).str.strip().eq("Ajustare negativa")
     ].copy()
