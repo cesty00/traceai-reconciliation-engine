@@ -80,6 +80,23 @@ Motorul include investigația reală end-to-end pe produs:
 
 v0.3 a fost validat end-to-end pe trei cazuri reale independente. Datele reale nu sunt versionate în repository; testele păstrează doar tipare sintetice/regresii scrubbed.
 
+
+## v0.4
+
+v0.4 stabilizează motorul pentru utilizare repetată pe produse reale și extinde matching-ul operațional fără a forța închiderea cazurilor:
+
+- cache SHA-256 pentru sursele mari și index SQLite reutilizabil;
+- parser XML streaming pentru fișa WME XLSX;
+- indexare reală validată pe 343.070 rânduri WMS, 243.151 WME și 72.255 producție;
+- RECEIPT: `IN → FE` și `TRANSFER_CG → NT`;
+- DELIVERY: normalizare `SFA/RET_SFA/AV_WMS`, excluderea transferurilor, netarea `ANULARE COMANDA` și a lanțurilor `-1/-2/-1-1`;
+- reconcilierea rândurilor raportului de stoc cu gestiunile WME, inclusiv GST-02/GST-03 pentru zone cu `QuantityERP=0`;
+- matcher `TRANSFER_MOSE ↔ NT WME` la nivel de coș complet multi-produs, cu netare `_DEL_` și fallback conservator;
+- contract determinist `registry_update` pentru sincronizarea cu `REGISTRU_CAZURI`, fără credențiale Google în motor;
+- status diferențiat: `IN_ANALIZA` pentru cazuri cu rezidual neexplicat și `ASTEPTARE_VALIDARE` pentru cazuri explicate integral dar încă în REVIEW uman.
+
+v0.4 păstrează regulile de siguranță: RAW-urile nu sunt versionate, MATCH nu este forțat, iar regulile care nu contribuie efectiv la explicație rămân doar dovezi tehnice și nu sunt scrise ca `Regula_aplicata` în registru.
+
 ## Obiectivul fluxului pe produs
 
 `stoc inițial → mișcări WMS → mișcări WME → producție → sold calculat → sold raportat → diferențe → cauză → recomandări → DOCX`
