@@ -1162,9 +1162,9 @@ def investigate_product(
             "priority": "P4",
             "action_type": "AUTOMATIZARE_CONTROL",
             "recommendation": (
-                "Activarea următorului strat v0.3: matching operațional "
-                "WMS↔WME pentru RECEIPT / DELIVERY / RETURN_IN / TRANSFER / "
-                "PRODUCTION și identificarea diferenței explicate."
+                "Continuarea validării automate pentru familiile operaționale "
+                "încă neacoperite sau rămase în REVIEW, cu promovarea regulilor "
+                "candidate numai după confirmare pe cazuri reale independente."
             ),
             "proposed_owner": "TraceAI Control",
             "precondition": "Maparea locațiilor și regulile de semn validate",
