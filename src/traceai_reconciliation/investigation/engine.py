@@ -784,39 +784,11 @@ def investigate_product(
             }
         )
 
-        wme_residual_effect = round(
-            wme_residual_match.system_difference_effect,
-            decimals,
+        result.technical_warnings.append(
+            "Mișcările WME non-standard sunt raportate ca dovezi reziduale, "
+            "dar nu sunt adăugate automat la diferența explicată fără o "
+            "legătură documentară validată."
         )
-        if (
-            wme_residual_effect != 0
-            and result.initial_difference != 0
-            and (wme_residual_effect > 0)
-            == (result.initial_difference > 0)
-        ):
-            candidate_explained = round(
-                result.explained_difference + wme_residual_effect,
-                decimals,
-            )
-            if (
-                abs(candidate_explained)
-                <= abs(result.initial_difference) + 10 ** (-decimals)
-            ):
-                result.explained_difference = candidate_explained
-                result.unexplained_difference = round(
-                    result.initial_difference
-                    - result.explained_difference,
-                    decimals,
-                )
-                result.cause_code = "CAUSE-MULTI-PARTIAL"
-                result.cause_description = (
-                    "Diferența este explicată parțial prin operațiuni WMS/WME "
-                    "reziduale identificate separat; legătura documentară dintre "
-                    "aceste operațiuni nu este presupusă automat."
-                )
-                result.cause_status = "PROBABILA"
-                result.evidence_level = "B"
-                result.verdict = "REVIEW"
 
     generic_correction_match = match_generic_wms_stock_corrections(
         wms_rows,
