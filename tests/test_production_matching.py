@@ -131,3 +131,43 @@ def test_matched_np_positive_is_not_consumed_by_blank_negative() -> None:
     assert residual["lot"] == "127.26S1"
     assert residual["location"] == "ULMA"
     assert result.residual_total == -768.0
+
+
+def test_non_production_positive_adjustment_is_not_compared_to_np() -> None:
+    wms = pd.DataFrame(
+        [
+            {
+                "Data": "2026-02-05 20:18:34",
+                "Tip operatiune": "Ajustare pozitiva",
+                "Cantitate": 640.0,
+                "Numar comanda": "109129",
+                "Locatie sursa": "INS.DPP",
+                "Lot": "036.26",
+                "Cod-motiv": "COR STOC",
+            },
+            {
+                "Data": "2026-05-06 17:43:02",
+                "Tip operatiune": "Ajustare pozitiva",
+                "Cantitate": 768.0,
+                "Numar comanda": "0031979_AE",
+                "Locatie sursa": "ULMA",
+                "Lot": "127.26S1",
+                "Cod-motiv": "PRODUCTION-OUT",
+            },
+        ]
+    )
+    wme = pd.DataFrame(
+        [
+            {
+                "OperationType": "NP",
+                "Document": "31979",
+                "SignedQuantity": 768.0,
+            }
+        ]
+    )
+
+    result = match_production_adjustments(wms, wme)
+
+    assert result.wms_positive_total == 768.0
+    assert result.wme_np_total == 768.0
+    assert all(item["document"] != "109129" for item in result.matched_documents)
