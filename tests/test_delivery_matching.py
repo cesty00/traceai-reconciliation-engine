@@ -14,6 +14,12 @@ def test_normalize_delivery_documents() -> None:
     assert normalize_delivery_document("WMS111828-1") == "111828"
     assert normalize_delivery_document("RET_WME109598") == "109598"
     assert normalize_delivery_document("R15311") == "15311"
+    assert (
+        normalize_delivery_document(
+            "WME108480_DEL_2EB1C6F2-A7A7-4127-8F98-9165E29BD188"
+        )
+        == "108480"
+    )
 
 
 def test_full_delivery_return_chain_nets_before_ae_comparison() -> None:
