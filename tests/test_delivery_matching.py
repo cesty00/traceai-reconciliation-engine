@@ -16,6 +16,7 @@ def test_normalize_delivery_documents() -> None:
     assert normalize_delivery_document("SFA24164") == "24164"
     assert normalize_delivery_document("RET_SFA109598") == "109598"
     assert normalize_delivery_document("AV_WMS108432-1") == "108432"
+    assert normalize_delivery_document("WME114936-1-1") == "114936"
     assert normalize_delivery_document("R15311") == "15311"
     assert (
         normalize_delivery_document(
@@ -366,3 +367,64 @@ def test_cancellation_without_negative_delivery_is_not_counted_as_delivery() -> 
 
     assert result.wms_net_total == 0.0
     assert result.residual_total == 0.0
+
+
+
+def test_derived_receipt_partial_chain_matches_base_ae() -> None:
+    wms = pd.DataFrame(
+        [
+            {
+                "Tip operatiune": "Livrare",
+                "Cantitate": -10.0,
+                "Numar comanda": "WME120100",
+            },
+            {
+                "Tip operatiune": "Receptie",
+                "Cantitate": 3.0,
+                "Numar comanda": "WME120100-1",
+            },
+        ]
+    )
+    wme = pd.DataFrame(
+        [
+            {
+                "OperationType": "AE",
+                "Document": "120100",
+                "SignedQuantity": -7.0,
+            }
+        ]
+    )
+
+    result = match_deliveries_and_returns(wms, wme)
+
+    assert result.residual_total == 0.0
+    assert result.residual_documents == []
+    assert result.derived_receipt_documents == 1
+    assert result.net_zero_derived_documents == 0
+
+
+def test_derived_receipt_full_chain_without_ae_is_net_zero() -> None:
+    wms = pd.DataFrame(
+        [
+            {
+                "Tip operatiune": "Livrare",
+                "Cantitate": -250.0,
+                "Numar comanda": "WME114936",
+            },
+            {
+                "Tip operatiune": "Receptie",
+                "Cantitate": 250.0,
+                "Numar comanda": "WME114936-1-1",
+            },
+        ]
+    )
+    wme = pd.DataFrame(
+        columns=["OperationType", "Document", "SignedQuantity"]
+    )
+
+    result = match_deliveries_and_returns(wms, wme)
+
+    assert result.residual_total == 0.0
+    assert result.residual_documents == []
+    assert result.derived_receipt_documents == 1
+    assert result.net_zero_derived_documents == 1
