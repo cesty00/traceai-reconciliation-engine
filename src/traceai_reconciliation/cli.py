@@ -16,6 +16,8 @@ from .investigation import (
     load_registry_export,
     select_registry_cases,
     write_manifest,
+    build_registry_apply_plan,
+    write_registry_apply_plan,
 )
 from .loaders import read_table
 from .product_audit import summarize_stock_report
@@ -39,6 +41,20 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument("--case-id", help="CASE_ID for product investigation")
+    parser.add_argument(
+        "--batch-summary",
+        help="Existing batch_summary.json used to stage registry updates",
+    )
+    parser.add_argument(
+        "--registry-plan-output",
+        help="Output JSON path for a staged registry apply plan",
+    )
+    parser.add_argument(
+        "--minimum-evidence",
+        default="B",
+        choices=["A", "B", "C", "D"],
+        help="Minimum evidence level accepted by registry apply-plan staging",
+    )
     parser.add_argument(
         "--registry-export",
         help="CSV/JSON export of REGISTRU_CAZURI used to build a batch manifest",
@@ -130,6 +146,44 @@ def _write_json(path: str | Path, payload: dict) -> Path:
         encoding="utf-8",
     )
     return output
+
+
+def _run_registry_apply_plan_generation(
+    args: argparse.Namespace,
+) -> None:
+    required = {
+        "--registry-export": args.registry_export,
+        "--batch-summary": args.batch_summary,
+        "--registry-plan-output": args.registry_plan_output,
+    }
+    missing = [name for name, value in required.items() if not value]
+    if missing:
+        raise SystemExit(
+            "Registry apply-plan generation requires: "
+            + ", ".join(missing)
+        )
+
+    rows = load_registry_export(args.registry_export)
+    plan = build_registry_apply_plan(
+        rows,
+        args.batch_summary,
+        minimum_evidence=args.minimum_evidence,
+    )
+    output = write_registry_apply_plan(
+        args.registry_plan_output,
+        plan,
+    )
+    print(
+        json.dumps(
+            {
+                "registry_apply_plan": str(output),
+                "batch_id": plan.get("batch_id"),
+                "counts": plan.get("counts", {}),
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+    )
 
 
 def _run_registry_manifest_generation(
@@ -296,6 +350,10 @@ def _run_real_product_investigation(args: argparse.Namespace) -> None:
 
 def main() -> None:
     args = build_parser().parse_args()
+
+    if args.registry_export and args.batch_summary:
+        _run_registry_apply_plan_generation(args)
+        return
 
     if args.registry_export:
         _run_registry_manifest_generation(args)
