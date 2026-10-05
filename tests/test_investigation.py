@@ -210,3 +210,20 @@ def test_second_real_case_pattern_keeps_only_opening_difference_unexplained() ->
     assert period_explained == -608.0
     assert unexplained == opening_difference
     assert final_difference == period_explained + unexplained
+
+
+
+def test_third_real_case_pattern_keeps_unlinked_wme_residual_unexplained() -> None:
+    # Regression math from DS099904370 pattern, without business RAW.
+    final_difference = -935.0
+    production_residual = -934.0
+    delivery_residual = -0.5
+    unlinked_wme_residual_effect = -0.5
+
+    explained = production_residual + delivery_residual
+    unexplained = final_difference - explained
+
+    assert explained == -934.5
+    assert unexplained == -0.5
+    assert unlinked_wme_residual_effect == -0.5
+    # WME residual evidence is intentionally not auto-added to explained.
