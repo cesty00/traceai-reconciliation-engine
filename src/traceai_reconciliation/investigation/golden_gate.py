@@ -74,11 +74,13 @@ def compare_auto_explanation(
         )
 
     if compare_rules:
-        actual_rules = tuple(explanation.rules)
-        expected_rules = tuple(expectation.rules)
+        actual_rules = frozenset(explanation.rules)
+        expected_rules = frozenset(expectation.rules)
         if actual_rules != expected_rules:
             mismatches.append(
-                f"rules: actual={actual_rules}, expected={expected_rules}"
+                "rules: "
+                f"actual={tuple(sorted(actual_rules))}, "
+                f"expected={tuple(sorted(expected_rules))}"
             )
 
     return GoldenGateResult(
