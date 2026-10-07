@@ -171,3 +171,60 @@ def test_non_production_positive_adjustment_is_not_compared_to_np() -> None:
     assert result.wms_positive_total == 768.0
     assert result.wme_np_total == 768.0
     assert all(item["document"] != "109129" for item in result.matched_documents)
+
+
+def test_document_residual_excludes_fully_reversed_wms_only_order() -> None:
+    wms = pd.DataFrame(
+        [
+            {
+                "Data": "2026-01-23 10:00:00",
+                "Tip operatiune": "Ajustare pozitiva",
+                "Cantitate": 16.0,
+                "Numar comanda": "0024707_EV",
+                "Locatie sursa": "ULMA",
+                "Lot": "023.26",
+                "Cod-motiv": "PRODUCTION-OUT",
+            },
+            {
+                "Data": "2026-07-20 22:40:00",
+                "Tip operatiune": "Ajustare pozitiva",
+                "Cantitate": 16.0,
+                "Numar comanda": "0035666_EV",
+                "Locatie sursa": "ULMA",
+                "Lot": "202.26",
+                "Cod-motiv": "PRODUCTION-OUT",
+            },
+            {
+                "Data": "2026-07-20 22:47:11",
+                "Tip operatiune": "Ajustare negativa",
+                "Cantitate": -16.0,
+                "Numar comanda": None,
+                "Locatie sursa": "ULMA",
+                "Lot": "202.26",
+                "Cod-motiv": "COR STOC",
+            },
+        ]
+    )
+    wme = pd.DataFrame(
+        [
+            {
+                "OperationType": "NP",
+                "Document": "24707",
+                "SignedQuantity": 53.0,
+            }
+        ]
+    )
+
+    result = match_production_adjustments(wms, wme)
+
+    assert len(result.reversal_pairs) == 1
+    assert result.document_residuals == [
+        {
+            "document": "24707",
+            "raw_difference": -37.0,
+            "reversed_wms_positive": 0.0,
+            "effective_difference": -37.0,
+            "status": "QTY_DIFF_AFTER_REVERSALS",
+        }
+    ]
+    assert result.document_residual_total == -37.0
