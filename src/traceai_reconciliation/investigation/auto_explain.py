@@ -283,8 +283,36 @@ def components_from_investigation(
             )
 
     delivery = details.get("delivery_matching", {})
-    if delivery.get("applied_to_explanation", False):
-        effect = round(float(delivery.get("residual_total", 0.0)), decimals)
+    wme_residual = details.get("wme_residual_movements", {})
+    wme_movements = list(wme_residual.get("movements", []) or [])
+    neutralized_wme_indices: set[int] = set()
+    suppress_delivery = False
+    delivery_effect = round(float(delivery.get("residual_total", 0.0)), decimals)
+    tolerance = 10 ** (-decimals)
+
+    # Conservative bridge: an exact one-to-one opposite PV WME can neutralize
+    # a delivery residual as document-family/timing evidence. F movements are
+    # intentionally excluded and multiple candidates remain REVIEW.
+    if delivery_effect:
+        opposite_pv = [
+            index
+            for index, item in enumerate(wme_movements)
+            if str(item.get("operation_type", "")).strip().upper() == "PV"
+            and abs(
+                round(
+                    float(item.get("system_difference_effect", 0.0)),
+                    decimals,
+                )
+                + delivery_effect
+            )
+            <= tolerance
+        ]
+        if len(opposite_pv) == 1:
+            neutralized_wme_indices.add(opposite_pv[0])
+            suppress_delivery = True
+
+    if delivery.get("applied_to_explanation", False) and not suppress_delivery:
+        effect = delivery_effect
         if effect:
             components.append(
                 ExplanationComponent(
@@ -338,6 +366,58 @@ def components_from_investigation(
                     status="CONFIRMED",
                 )
             )
+
+    # WME-02: after stronger components and exact delivery/PV
+    # neutralizations, a single remaining PV may contribute only when its
+    # system-difference effect closes the current residual exactly.
+    current_explained = round(
+        sum(float(item.effect) for item in components),
+        decimals,
+    )
+    current_residual = round(
+        float(result.initial_difference) - current_explained,
+        decimals,
+    )
+    pv_closure_candidates = [
+        (index, item)
+        for index, item in enumerate(wme_movements)
+        if index not in neutralized_wme_indices
+        and str(item.get("operation_type", "")).strip().upper() == "PV"
+        and abs(
+            round(
+                float(item.get("system_difference_effect", 0.0)),
+                decimals,
+            )
+            - current_residual
+        )
+        <= tolerance
+        and abs(current_residual) > tolerance
+    ]
+    if len(pv_closure_candidates) == 1:
+        _, item = pv_closure_candidates[0]
+        effect = round(
+            float(item.get("system_difference_effect", 0.0)),
+            decimals,
+        )
+        components.append(
+            ExplanationComponent(
+                component_id=(
+                    "wme_pv_exact_closure_"
+                    + str(item.get("document", "-"))
+                    + "_"
+                    + str(item.get("warehouse", "-"))
+                ),
+                rule_id="WME-02",
+                effect=effect,
+                description=(
+                    "PV WME rezidual, unic după neutralizările exacte, al cărui "
+                    "efect WMS-WME închide exact rezidualul curent."
+                ),
+                evidence_level="B",
+                source="wme_residual_movements",
+                status="CONFIRMED",
+            )
+        )
 
     return components
 
