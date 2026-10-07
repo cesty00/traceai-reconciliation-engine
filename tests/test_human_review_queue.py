@@ -257,3 +257,61 @@ def test_rejected_decision_never_proposes_registry_action() -> None:
 
     assert decided.review_status == "REJECTED"
     assert decided.registry_action == "NONE"
+
+
+
+def test_tolerance_match_can_be_approved_without_registry_proposal() -> None:
+    investigation = result(diff=0.001)
+    explanation = auto_explanation_from_investigation(investigation)
+    assessment = assess_auto_explain_promotion(investigation, explanation)
+    item = build_human_review_queue_item(
+        investigation,
+        explanation,
+        assessment,
+        staged_at="2026-10-07T18:00:00+00:00",
+    )
+
+    decided = apply_human_review_decision(
+        item,
+        decision="APROBAT",
+        reviewer="Cezar",
+        reason="Toleranta numerica verificata si acceptata.",
+        reviewed_at="2026-10-07T18:45:00+00:00",
+    )
+
+    assert assessment.status == "TOLERANCE_MATCH"
+    assert decided.review_status == "APPROVED"
+    assert decided.human_decision == "APROBAT"
+    assert decided.registry_action == "NONE"
+
+
+def test_hold_still_cannot_be_approved_after_tolerance_extension() -> None:
+    investigation = result(
+        diff=-10.0,
+        details={
+            "delivery_matching": {
+                "residual_total": -10.0,
+                "applied_to_explanation": True,
+            }
+        },
+    )
+    explanation = auto_explanation_from_investigation(investigation)
+    assessment = assess_auto_explain_promotion(investigation, explanation)
+    item = build_human_review_queue_item(
+        investigation,
+        explanation,
+        assessment,
+        staged_at="2026-10-07T18:00:00+00:00",
+    )
+
+    try:
+        apply_human_review_decision(
+            item,
+            decision="APROBAT",
+            reviewer="Cezar",
+            reason="Nu trebuie permis.",
+        )
+    except ValueError as exc:
+        assert "ELIGIBLE_FOR_HUMAN_REVIEW sau TOLERANCE_MATCH" in str(exc)
+    else:
+        raise AssertionError("HOLD item was incorrectly approved")
