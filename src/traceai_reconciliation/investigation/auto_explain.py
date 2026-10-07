@@ -245,15 +245,50 @@ def components_from_investigation(
     if production.get("applied_to_explanation", False):
         effect = round(float(production.get("residual_total", 0.0)), decimals)
         if effect:
+            residual_items = list(
+                production.get("residual_adjustment_items", []) or []
+            )
+            production_tokens = (
+                "PRODUCTIE",
+                "PRODUCTIE!",
+                "PROD",
+                "PREDARE",
+                "COMANDA PRODUCTIE",
+                "CMD",
+            )
+            texts = [
+                " ".join(
+                    [
+                        str(item.get("cod_motiv", "")),
+                        str(item.get("details", "")),
+                    ]
+                ).upper()
+                for item in residual_items
+            ]
+            clearly_production = bool(texts) and all(
+                any(token in text for token in production_tokens)
+                for text in texts
+            )
+            rule_id = "PROD-02" if clearly_production else "ADJ-01"
+            component_id = (
+                "production_residual"
+                if clearly_production
+                else "production_location_generic_adjustment"
+            )
+            description = (
+                "Ajustare reziduală WMS legată explicit de predarea/comanda "
+                "de producție."
+                if clearly_production
+                else "COR STOC WMS rezidual în locație de producție, fără "
+                "legătură explicită cu o predare/comandă de producție; "
+                "clasificat conservator ca ADJ-01."
+            )
             components.append(
                 ExplanationComponent(
-                    component_id="production_residual",
-                    rule_id="PROD-02",
+                    component_id=component_id,
+                    rule_id=rule_id,
                     effect=effect,
-                    description=(
-                        "Ajustare reziduală WMS din fluxul de predare producție, "
-                        "deja aplicată de motor la diferența explicată."
-                    ),
+                    description=description,
                     evidence_level="B",
                     source="production_matching",
                     status="CONFIRMED",
@@ -310,21 +345,31 @@ def components_from_investigation(
             float(production_input.get("residual_total", 0.0)),
             decimals,
         )
-        if effect:
-            components.append(
-                ExplanationComponent(
-                    component_id="production_input_residual",
-                    rule_id="PROD-03",
-                    effect=effect,
-                    description=(
-                        "Consum PRODUCTION-IN confirmat de producție și "
-                        "aplicat de motor ca diferență față de BC WME."
-                    ),
-                    evidence_level="A",
-                    source="production_input_matching",
-                    status="CONFIRMED",
-                )
+    elif production_input.get("safe_to_auto_explain", False):
+        effect = round(
+            float(production_input.get("persistent_residual_total", 0.0)),
+            decimals,
+        )
+    else:
+        effect = 0.0
+
+    if effect:
+        components.append(
+            ExplanationComponent(
+                component_id="production_input_persistent_residual",
+                rule_id="PROD-03",
+                effect=effect,
+                description=(
+                    "Rezidual persistent PRODUCTION-IN↔BC după excluderea "
+                    "reversărilor PROD-05, a diferențelor anterioare ultimului "
+                    "checkpoint de inventar și a neutralizărilor COR STOC "
+                    "explicite; consumul este confirmat de raportul de producție."
+                ),
+                evidence_level="A",
+                source="production_input_matching.persistent_residual_total",
+                status="CONFIRMED",
             )
+        )
 
     delivery = details.get("delivery_matching", {})
     wme_residual = details.get("wme_residual_movements", {})
