@@ -6,6 +6,7 @@ from traceai_reconciliation.investigation.auto_explain import (
     auto_explanation_from_investigation,
 )
 from traceai_reconciliation.investigation.human_review_queue import (
+    apply_human_review_decision,
     build_human_review_queue_item,
     build_review_queue_payload,
     review_queue_values,
@@ -144,3 +145,115 @@ def test_queue_values_keep_human_fields_empty_until_manual_review() -> None:
     assert values["Decizie_umana"] is None
     assert values["Reviewed_at"] is None
     assert values["Registry_Action"] == "NONE"
+
+
+
+def test_approved_decision_only_proposes_registry_action() -> None:
+    investigation = result(diff=-1.0)
+    investigation.opening_stock_wms = 0.0
+    investigation.opening_stock_wme = 1.0
+    explanation = auto_explanation_from_investigation(investigation)
+    assessment = assess_auto_explain_promotion(investigation, explanation)
+    item = build_human_review_queue_item(
+        investigation,
+        explanation,
+        assessment,
+        staged_at="2026-10-07T18:00:00+00:00",
+    )
+
+    decided = apply_human_review_decision(
+        item,
+        decision="APROBAT",
+        reviewer="Cezar",
+        reason="Documentele sustin integral OPEN-01.",
+        reviewed_at="2026-10-07T18:30:00+00:00",
+    )
+
+    assert decided.review_status == "APPROVED"
+    assert decided.registry_action == "PROPOSE_ONLY"
+    assert decided.human_decision == "APROBAT"
+    assert decided.reviewer == "Cezar"
+    assert item.review_status == "STAGED"
+    assert item.registry_action == "NONE"
+
+
+def test_hold_item_cannot_be_approved() -> None:
+    investigation = result(
+        diff=-10.0,
+        details={
+            "delivery_matching": {
+                "residual_total": -10.0,
+                "applied_to_explanation": True,
+            }
+        },
+    )
+    explanation = auto_explanation_from_investigation(investigation)
+    assessment = assess_auto_explain_promotion(investigation, explanation)
+    item = build_human_review_queue_item(
+        investigation,
+        explanation,
+        assessment,
+        staged_at="2026-10-07T18:00:00+00:00",
+    )
+
+    try:
+        apply_human_review_decision(
+            item,
+            decision="APROBAT",
+            reviewer="Cezar",
+            reason="Nu ar trebui acceptat.",
+        )
+    except ValueError as exc:
+        assert "ELIGIBLE_FOR_HUMAN_REVIEW" in str(exc)
+    else:
+        raise AssertionError("HOLD item was incorrectly approved")
+
+
+def test_needs_documents_moves_to_hold_without_registry_action() -> None:
+    investigation = result(diff=-1.0)
+    investigation.opening_stock_wms = 0.0
+    investigation.opening_stock_wme = 1.0
+    explanation = auto_explanation_from_investigation(investigation)
+    assessment = assess_auto_explain_promotion(investigation, explanation)
+    item = build_human_review_queue_item(
+        investigation,
+        explanation,
+        assessment,
+        staged_at="2026-10-07T18:00:00+00:00",
+    )
+
+    decided = apply_human_review_decision(
+        item,
+        decision="NECESITA_DOCUMENTE",
+        reviewer="Cezar",
+        reason="Lipseste documentul justificativ.",
+        reviewed_at="2026-10-07T18:30:00+00:00",
+    )
+
+    assert decided.review_status == "HOLD"
+    assert decided.registry_action == "NONE"
+    assert decided.human_decision == "NECESITA_DOCUMENTE"
+
+
+def test_rejected_decision_never_proposes_registry_action() -> None:
+    investigation = result(diff=-1.0)
+    investigation.opening_stock_wms = 0.0
+    investigation.opening_stock_wme = 1.0
+    explanation = auto_explanation_from_investigation(investigation)
+    assessment = assess_auto_explain_promotion(investigation, explanation)
+    item = build_human_review_queue_item(
+        investigation,
+        explanation,
+        assessment,
+        staged_at="2026-10-07T18:00:00+00:00",
+    )
+
+    decided = apply_human_review_decision(
+        item,
+        decision="RESPINS",
+        reviewer="Cezar",
+        reason="Cauza propusa nu este sustinuta documentar.",
+    )
+
+    assert decided.review_status == "REJECTED"
+    assert decided.registry_action == "NONE"
