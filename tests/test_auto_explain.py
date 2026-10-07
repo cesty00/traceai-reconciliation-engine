@@ -250,3 +250,117 @@ def test_adapter_extracts_opening_only() -> None:
     assert components[0].rule_id == "OPEN-01"
     assert explanation.status == "EXACT"
     assert explanation.residual_difference == 0.0
+
+
+def test_wme02_unique_pv_can_close_current_residual() -> None:
+    result = investigation_result(
+        initial_difference=-17.0,
+        opening_wms=0.0,
+        opening_wme=17.32,
+        details={
+            "production_matching": {
+                "residual_total": -16.0,
+                "applied_to_explanation": True,
+            },
+            "wme_residual_movements": {
+                "movements": [
+                    {
+                        "operation_type": "PV",
+                        "document": "2252",
+                        "warehouse": "DEPOZIT PESTE PROASPAT",
+                        "system_difference_effect": 16.32,
+                    }
+                ]
+            },
+        },
+    )
+
+    explanation = auto_explanation_from_investigation(result)
+
+    assert explanation.status == "EXACT"
+    assert explanation.explained_difference == pytest.approx(-17.0)
+    assert explanation.rules == ("OPEN-01", "PROD-02", "WME-02")
+
+
+def test_exact_opposite_pv_neutralizes_delivery_residual() -> None:
+    result = investigation_result(
+        initial_difference=-38.0,
+        opening_wms=0.0,
+        opening_wme=1.0,
+        details={
+            "delivery_matching": {
+                "residual_total": -16.0,
+                "applied_to_explanation": True,
+            },
+            "wme_residual_movements": {
+                "movements": [
+                    {
+                        "operation_type": "PV",
+                        "document": "2617",
+                        "warehouse": "DEPOZIT PESTE PROASPAT",
+                        "system_difference_effect": 16.0,
+                    }
+                ]
+            },
+        },
+    )
+
+    explanation = auto_explanation_from_investigation(result)
+
+    assert explanation.status == "PARTIAL"
+    assert explanation.explained_difference == pytest.approx(-1.0)
+    assert explanation.residual_difference == pytest.approx(-37.0)
+    assert explanation.rules == ("OPEN-01",)
+
+
+def test_wme02_does_not_sum_multiple_pv_candidates() -> None:
+    result = investigation_result(
+        initial_difference=3.0,
+        details={
+            "wme_residual_movements": {
+                "movements": [
+                    {
+                        "operation_type": "PV",
+                        "document": "A",
+                        "warehouse": "X",
+                        "system_difference_effect": 1.0,
+                    },
+                    {
+                        "operation_type": "PV",
+                        "document": "B",
+                        "warehouse": "X",
+                        "system_difference_effect": 2.0,
+                    },
+                ]
+            },
+        },
+    )
+
+    explanation = auto_explanation_from_investigation(result)
+
+    assert explanation.status == "NONE"
+    assert explanation.explained_difference == 0.0
+    assert explanation.residual_difference == 3.0
+
+
+def test_wme02_ignores_f_even_if_it_would_close_residual() -> None:
+    result = investigation_result(
+        initial_difference=5.0,
+        details={
+            "wme_residual_movements": {
+                "movements": [
+                    {
+                        "operation_type": "F",
+                        "document": "F1",
+                        "warehouse": "X",
+                        "system_difference_effect": 5.0,
+                    }
+                ]
+            },
+        },
+    )
+
+    explanation = auto_explanation_from_investigation(result)
+
+    assert explanation.status == "NONE"
+    assert explanation.rules == ()
