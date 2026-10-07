@@ -480,3 +480,86 @@ def test_exact_special_flow_has_priority_over_overlapping_generic_correction() -
         "GST-04",
     )
     assert "ADJ-01" not in explanation.rules
+
+
+
+def test_prod02_can_cross_target_only_with_unique_exact_pv_bridge() -> None:
+    result = investigation_result(
+        initial_difference=-70.0,
+        opening_wms=76.0,
+        opening_wme=77.0,
+        details={
+            "production_matching": {
+                "document_residuals": [
+                    {"effective_difference": -202.0}
+                ],
+                "document_residual_total": -202.0,
+                "applied_to_explanation": False,
+            },
+            "delivery_matching": {
+                "residual_total": -7.0,
+                "applied_to_explanation": True,
+            },
+            "wme_residual_movements": {
+                "movements": [
+                    {
+                        "operation_type": "PV",
+                        "document": "2301",
+                        "warehouse": "DEPOZIT PESTE PROASPAT",
+                        "system_difference_effect": 140.0,
+                    }
+                ]
+            },
+        },
+    )
+
+    explanation = auto_explanation_from_investigation(result)
+
+    assert explanation.status == "EXACT"
+    assert explanation.explained_difference == -70.0
+    assert explanation.rules == (
+        "OPEN-01",
+        "PROD-02",
+        "DEL-02",
+        "WME-02",
+    )
+
+
+def test_prod02_cross_target_is_blocked_when_pv_bridge_is_ambiguous() -> None:
+    result = investigation_result(
+        initial_difference=-70.0,
+        opening_wms=76.0,
+        opening_wme=77.0,
+        details={
+            "production_matching": {
+                "document_residuals": [
+                    {"effective_difference": -202.0}
+                ],
+                "document_residual_total": -202.0,
+                "applied_to_explanation": False,
+            },
+            "delivery_matching": {
+                "residual_total": -7.0,
+                "applied_to_explanation": True,
+            },
+            "wme_residual_movements": {
+                "movements": [
+                    {
+                        "operation_type": "PV",
+                        "document": "A",
+                        "system_difference_effect": 140.0,
+                    },
+                    {
+                        "operation_type": "PV",
+                        "document": "B",
+                        "system_difference_effect": 140.0,
+                    },
+                ]
+            },
+        },
+    )
+
+    explanation = auto_explanation_from_investigation(result)
+
+    assert "PROD-02" not in explanation.rules
+    assert explanation.status != "EXACT"
