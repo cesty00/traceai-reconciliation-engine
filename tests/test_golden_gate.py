@@ -126,3 +126,24 @@ def test_golden_gate_summary_fails_if_one_case_regresses() -> None:
     assert summary["passed"] == 1
     assert summary["failed"] == 1
     assert summary["failed_cases"][0]["case_id"] == "BAD"
+
+
+def test_supporting_rules_do_not_enter_numeric_rule_comparison() -> None:
+    explanation = compose_explanation(
+        -16.0,
+        [comp("delivery", "DEL-02", -16.0)],
+    )
+    expectation = GoldenExpectation(
+        case_id="CASE-GOLDEN-SUPPORT",
+        product_code="TEST",
+        difference=-16.0,
+        explained=-16.0,
+        residual=0.0,
+        rules=("DEL-02",),
+        supporting_rules=("R-DER-001",),
+    )
+
+    result = compare_auto_explanation(expectation, explanation)
+
+    assert result.passed is True
+    assert result.mismatches == ()
