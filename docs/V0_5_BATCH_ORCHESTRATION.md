@@ -152,3 +152,26 @@ Criteriile de acceptanță pentru infrastructura batch sunt îndeplinite:
 - fără update automat în Drive.
 
 Următorul pas este selecția automată a backlog-ului în loturi controlate din REGISTRU_CAZURI.
+
+
+## Hardening final v0.5 — 2026-10-07
+
+Înainte de închiderea v0.5 au fost adăugate două protecții rezultate din verificările reale:
+
+- indexul SQLite este portabil între sesiuni și validează sursele prin `file_name + size + SHA-256`, nu prin path/mtime temporar;
+- soldurile WME sunt reconstruite pe cheia minimă `Warehouse + Account` înainte de agregarea pe gestiune, astfel încât conturile multiple din aceeași gestiune să nu fie pierdute.
+
+A fost adăugat un test de regresie explicit pentru cazul multi-cont.
+
+### Golden Case Library
+
+Ca bază pentru v0.6 a fost creată Golden Case Library v0.1:
+
+- 14 cazuri reale validate manual;
+- toate au nivel de probă A;
+- toate au rezidual cantitativ 0;
+- acoperă OPEN-01, ADJ-01, PROD-01, PROD-02, DEL-02, GST-04, R-DER-001, reversări integrale și sold WME multi-cont;
+- RAW-urile rămân exclusiv în Google Drive;
+- GitHub păstrează doar schema, documentația și regresiile sintetice/scrubbed.
+
+Golden Cases devin bariera de regresie pentru v0.6 Auto Explain.
