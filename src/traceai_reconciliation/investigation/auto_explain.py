@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Iterable
 
+from .models import ProductInvestigationResult
+
 
 _EVIDENCE_ORDER = {"A": 0, "B": 1, "C": 2, "D": 3}
 
@@ -195,3 +197,188 @@ def opening_component(
         source="opening_stock_wms + wme_running_balance",
         status="CONFIRMED",
     )
+
+
+
+def components_from_investigation(
+    result: ProductInvestigationResult,
+    *,
+    decimals: int = 3,
+) -> list[ExplanationComponent]:
+    """
+    Convert only already-applied investigation components into Auto Explain
+    components. This adapter does not promote REVIEW evidence and does not
+    change the investigation result.
+    """
+    components: list[ExplanationComponent] = []
+
+    opening = opening_component(
+        result.opening_stock_wms,
+        result.opening_stock_wme,
+        decimals=decimals,
+    )
+    if opening is not None:
+        components.append(opening)
+
+    details = result.details
+
+    zone = details.get("stock_report_zone_matching", {})
+    if zone.get("applied_to_explanation", False):
+        effect = round(float(zone.get("mapping_effect_total", 0.0)), decimals)
+        if effect:
+            components.append(
+                ExplanationComponent(
+                    component_id="stock_report_zone_mapping",
+                    rule_id="GST-02/GST-03",
+                    effect=effect,
+                    description=(
+                        "Efect confirmat al mapării raportului de stoc față de "
+                        "soldurile WME."
+                    ),
+                    evidence_level="A",
+                    source="stock_report_zone_matching",
+                    status="CONFIRMED",
+                )
+            )
+
+    production = details.get("production_matching", {})
+    if production.get("applied_to_explanation", False):
+        effect = round(float(production.get("residual_total", 0.0)), decimals)
+        if effect:
+            components.append(
+                ExplanationComponent(
+                    component_id="production_residual",
+                    rule_id="PROD-02",
+                    effect=effect,
+                    description=(
+                        "Ajustare reziduală WMS din fluxul de predare producție, "
+                        "deja aplicată de motor la diferența explicată."
+                    ),
+                    evidence_level="B",
+                    source="production_matching",
+                    status="CONFIRMED",
+                )
+            )
+
+    production_input = details.get("production_input_matching", {})
+    if production_input.get("applied_to_explanation", False):
+        effect = round(
+            float(production_input.get("residual_total", 0.0)),
+            decimals,
+        )
+        if effect:
+            components.append(
+                ExplanationComponent(
+                    component_id="production_input_residual",
+                    rule_id="PROD-03",
+                    effect=effect,
+                    description=(
+                        "Consum PRODUCTION-IN confirmat de producție și "
+                        "aplicat de motor ca diferență față de BC WME."
+                    ),
+                    evidence_level="A",
+                    source="production_input_matching",
+                    status="CONFIRMED",
+                )
+            )
+
+    delivery = details.get("delivery_matching", {})
+    if delivery.get("applied_to_explanation", False):
+        effect = round(float(delivery.get("residual_total", 0.0)), decimals)
+        if effect:
+            components.append(
+                ExplanationComponent(
+                    component_id="delivery_residual",
+                    rule_id="DEL-02",
+                    effect=effect,
+                    description=(
+                        "Diferență reziduală după netarea livrărilor/retururilor "
+                        "WMS față de AE WME."
+                    ),
+                    evidence_level="B",
+                    source="delivery_matching",
+                    status="CONFIRMED",
+                )
+            )
+
+    correction = details.get("generic_stock_corrections", {})
+    if correction.get("applied_to_explanation", False):
+        effect = round(float(correction.get("residual_total", 0.0)), decimals)
+        if effect:
+            components.append(
+                ExplanationComponent(
+                    component_id="generic_stock_correction",
+                    rule_id="ADJ-01",
+                    effect=effect,
+                    description=(
+                        "COR STOC WMS rezidual deja aplicat de motor la "
+                        "diferența explicată."
+                    ),
+                    evidence_level="B",
+                    source="generic_stock_corrections",
+                    status="CONFIRMED",
+                )
+            )
+
+    special = details.get("special_status_matching", {})
+    if special.get("applied_to_explanation", False):
+        effect = round(float(special.get("explained_total", 0.0)), decimals)
+        if effect:
+            components.append(
+                ExplanationComponent(
+                    component_id="special_status_residual",
+                    rule_id="GST-04",
+                    effect=effect,
+                    description=(
+                        "Efect rezidual al fluxului special validat și deja "
+                        "aplicat de motor."
+                    ),
+                    evidence_level="B",
+                    source="special_status_matching",
+                    status="CONFIRMED",
+                )
+            )
+
+    return components
+
+
+def auto_explanation_from_investigation(
+    result: ProductInvestigationResult,
+    *,
+    tolerance: float = 0.001,
+    decimals: int = 3,
+) -> AutoExplanation:
+    """Compose a non-mutating Auto Explain view of an investigation result."""
+    return compose_explanation(
+        result.initial_difference,
+        components_from_investigation(result, decimals=decimals),
+        tolerance=tolerance,
+        decimals=decimals,
+    )
+
+
+def auto_explanation_to_dict(
+    explanation: AutoExplanation,
+) -> dict[str, object]:
+    return {
+        "initial_difference": explanation.initial_difference,
+        "explained_difference": explanation.explained_difference,
+        "residual_difference": explanation.residual_difference,
+        "status": explanation.status,
+        "evidence_level": explanation.evidence_level,
+        "rules": list(explanation.rules),
+        "equation": explanation.equation,
+        "components": [
+            {
+                "component_id": item.component_id,
+                "rule_id": item.rule_id,
+                "effect": item.effect,
+                "description": item.description,
+                "evidence_level": item.evidence_level,
+                "source": item.source,
+                "status": item.status,
+                "contributes": item.contributes,
+            }
+            for item in explanation.components
+        ],
+    }
