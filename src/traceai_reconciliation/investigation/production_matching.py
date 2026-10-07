@@ -330,6 +330,26 @@ def match_production_adjustments(
         if scope.empty:
             continue
 
+        # Aggregate ownership without an explicit document reference is only
+        # safe when every correction carries a non-empty lot that belongs to
+        # the production order. Same-day/location/sum coincidence alone is
+        # insufficient evidence.
+        document_lots = {
+            value
+            for value in doc_rows["_lot"].tolist()
+            if value
+        }
+        correction_lots = [
+            value
+            for value in scope["_lot"].tolist()
+        ]
+        if (
+            not document_lots
+            or any(not value for value in correction_lots)
+            or any(value not in document_lots for value in correction_lots)
+        ):
+            continue
+
         positive_total = float(doc_rows["_qty"].sum())
         correction_total = float(scope["_qty"].sum())
         if abs(positive_total + correction_total) > tolerance:
