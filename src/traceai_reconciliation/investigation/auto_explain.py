@@ -242,7 +242,59 @@ def components_from_investigation(
             )
 
     production = details.get("production_matching", {})
-    if production.get("applied_to_explanation", False):
+    production_chain_applied = False
+    production_document_total = round(
+        float(production.get("document_residual_total", 0.0)),
+        decimals,
+    )
+    production_unconsumed_total = round(
+        float(production.get("unconsumed_correction_total", 0.0)),
+        decimals,
+    )
+    current_before_production_chain = round(
+        sum(float(item.effect) for item in components),
+        decimals,
+    )
+    residual_before_production_chain = round(
+        float(result.initial_difference) - current_before_production_chain,
+        decimals,
+    )
+    production_correction_chain = round(
+        production_document_total + production_unconsumed_total,
+        decimals,
+    )
+    if (
+        abs(production_document_total) > 10 ** (-decimals)
+        and abs(production_unconsumed_total) > 10 ** (-decimals)
+        and abs(production_correction_chain) > 10 ** (-decimals)
+        and abs(
+            production_correction_chain - residual_before_production_chain
+        )
+        <= 10 ** (-decimals)
+    ):
+        components.append(
+            ExplanationComponent(
+                component_id="production_correction_chain_exact",
+                rule_id="ADJ-01",
+                effect=production_correction_chain,
+                description=(
+                    "Lanț exact de corecții WMS în locația de producție: "
+                    "rezidualul documentar al predărilor plus toate corecțiile "
+                    "semnate rămase după matching închid exact diferența curentă."
+                ),
+                evidence_level="A",
+                source=(
+                    "production_matching.document_residual_total + "
+                    "production_matching.unconsumed_correction_total"
+                ),
+                status="CONFIRMED",
+            )
+        )
+        production_chain_applied = True
+
+    if production_chain_applied:
+        pass
+    elif production.get("applied_to_explanation", False):
         effect = round(float(production.get("residual_total", 0.0)), decimals)
         if effect:
             residual_items = list(
@@ -293,7 +345,7 @@ def components_from_investigation(
                     status="CONFIRMED",
                 )
             )
-    else:
+    elif not production_chain_applied:
         document_residuals = list(
             production.get("document_residuals", []) or []
         )
