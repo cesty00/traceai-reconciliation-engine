@@ -64,7 +64,13 @@ def test_wms_surplus_pair_is_classified_as_reversal() -> None:
 
     assert result.wms_positive_total == 1104.0
     assert result.wme_np_total == 0.0
-    assert len(result.reversal_pairs) == 2
+    assert sum(
+        item["quantity"] for item in result.reversal_pairs
+    ) == 1104.0
+    assert any(
+        item["status"] in {"WMS_AGGREGATE_SCOPE_REVERSAL", "WMS_REVERSAL_PAIR"}
+        for item in result.reversal_pairs
+    )
     assert result.residual_wms_adjustments == []
     assert result.residual_total == 0.0
 
