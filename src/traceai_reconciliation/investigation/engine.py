@@ -1128,6 +1128,13 @@ def investigate_product(
         "residual_adjustment_items": (
             production_match.residual_wms_adjustments
         ),
+        "unconsumed_correction_items": (
+            production_match.unconsumed_correction_items
+        ),
+        "unconsumed_correction_total": round(
+            production_match.unconsumed_correction_total,
+            decimals,
+        ),
         "applied_to_explanation": False,
     }
 
