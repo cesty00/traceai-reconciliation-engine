@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from datetime import datetime, timezone
 from typing import Any
 
@@ -209,3 +209,66 @@ def queue_item_to_dict(
     payload["blockers"] = list(item.blockers)
     payload["warnings"] = list(item.warnings)
     return payload
+
+
+
+def apply_human_review_decision(
+    item: HumanReviewQueueItem,
+    *,
+    decision: str,
+    reviewer: str,
+    reason: str,
+    reviewed_at: str | None = None,
+) -> HumanReviewQueueItem:
+    """
+    Record one explicit human decision in the review queue.
+
+    This function changes only the immutable queue item returned to the caller.
+    It never writes REGISTRU_CAZURI, WMS or WME.
+
+    APPROVED is allowed only for ELIGIBLE_FOR_HUMAN_REVIEW items.
+    Even then, Registry_Action becomes PROPOSE_ONLY, never APPLY.
+    """
+    decision_normalized = decision.strip().upper()
+    reviewer_clean = reviewer.strip()
+    reason_clean = reason.strip()
+    if not reviewer_clean:
+        raise ValueError("Reviewer este obligatoriu.")
+    if not reason_clean:
+        raise ValueError("Motiv_decizie este obligatoriu.")
+
+    allowed = {"APROBAT", "RESPINS", "NECESITA_DOCUMENTE"}
+    if decision_normalized not in allowed:
+        raise ValueError(
+            "Decizie_umana trebuie sa fie APROBAT, RESPINS sau "
+            "NECESITA_DOCUMENTE."
+        )
+
+    timestamp = reviewed_at or datetime.now(timezone.utc).isoformat(
+        timespec="seconds"
+    )
+
+    if decision_normalized == "APROBAT":
+        if item.promotion_status != "ELIGIBLE_FOR_HUMAN_REVIEW":
+            raise ValueError(
+                "APROBAT este permis numai pentru "
+                "ELIGIBLE_FOR_HUMAN_REVIEW."
+            )
+        review_status = "APPROVED"
+        registry_action = "PROPOSE_ONLY"
+    elif decision_normalized == "RESPINS":
+        review_status = "REJECTED"
+        registry_action = "NONE"
+    else:
+        review_status = "HOLD"
+        registry_action = "NONE"
+
+    return replace(
+        item,
+        reviewer=reviewer_clean,
+        review_status=review_status,
+        human_decision=decision_normalized,
+        decision_reason=reason_clean,
+        reviewed_at=timestamp,
+        registry_action=registry_action,
+    )
