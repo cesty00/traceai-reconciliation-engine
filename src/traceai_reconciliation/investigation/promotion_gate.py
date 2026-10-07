@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 
 from .auto_explain import AutoExplanation
 from .models import ProductInvestigationResult
@@ -17,6 +18,110 @@ class PromotionAssessment:
     explanation_status: str
     evidence_level: str
     rules: tuple[str, ...]
+
+
+def _parse_datetime(value: object) -> datetime | None:
+    text = str(value or "").strip()
+    if not text or text == "-":
+        return None
+    for fmt in (
+        "%Y-%m-%d %H:%M:%S",
+        "%Y-%m-%dT%H:%M:%S",
+        "%d/%m/%Y %H:%M:%S",
+        "%d.%m.%Y %H:%M:%S",
+        "%Y-%m-%d",
+        "%d/%m/%Y",
+        "%d.%m.%Y",
+    ):
+        try:
+            return datetime.strptime(text[:19], fmt)
+        except ValueError:
+            continue
+    return None
+
+
+def _movement_totals_are_balanced(
+    result: ProductInvestigationResult,
+    *,
+    tolerance: float,
+) -> bool:
+    details = result.details or {}
+    wms = details.get("wms_net_movement")
+    wme = details.get("wme_net_movement")
+    if wms is None or wme is None:
+        return False
+    try:
+        return abs(float(wms) - float(wme)) <= tolerance
+    except (TypeError, ValueError):
+        return False
+
+
+def _generic_corrections_are_absorbed_by_prod03(
+    result: ProductInvestigationResult,
+    production_input: dict,
+    *,
+    tolerance: float,
+) -> bool:
+    checkpoint = _parse_datetime(
+        production_input.get("inventory_checkpoint_date")
+    )
+
+    neutralizers: list[tuple[datetime | None, float]] = []
+    for item in list(
+        production_input.get("neutralized_residual_documents", []) or []
+    ):
+        correction = item.get("neutralizing_correction") or {}
+        if not correction:
+            continue
+        try:
+            quantity = float(correction.get("quantity", 0.0) or 0.0)
+        except (TypeError, ValueError):
+            continue
+        neutralizers.append(
+            (_parse_datetime(correction.get("date")), quantity)
+        )
+
+    generic_ops = [
+        item
+        for item in list(result.unmatched_operations or [])
+        if str(item.get("system", "")).strip().upper() == "WMS"
+        and str(item.get("operation_type", "")).strip().upper() == "COR STOC"
+        and str(item.get("status", "")).strip().upper() == "WMS_ONLY_REVIEW"
+    ]
+    if not generic_ops:
+        return False
+
+    for item in generic_ops:
+        item_date = _parse_datetime(item.get("date"))
+        try:
+            item_qty = float(item.get("quantity", 0.0) or 0.0)
+        except (TypeError, ValueError):
+            return False
+
+        if (
+            checkpoint is not None
+            and item_date is not None
+            and item_date <= checkpoint
+        ):
+            continue
+
+        matched_neutralizer = False
+        for neutralizer_date, neutralizer_qty in neutralizers:
+            same_quantity = abs(item_qty - neutralizer_qty) <= tolerance
+            same_day = (
+                item_date is None
+                or neutralizer_date is None
+                or item_date.date() == neutralizer_date.date()
+            )
+            if same_quantity and same_day:
+                matched_neutralizer = True
+                break
+        if matched_neutralizer:
+            continue
+
+        return False
+
+    return True
 
 
 def assess_auto_explain_promotion(
@@ -109,6 +214,11 @@ def assess_auto_explain_promotion(
     if delivery_residual > tolerance and "DEL-02" not in rules:
         blockers.append("UNRESOLVED_DELIVERY_RESIDUAL")
 
+    movement_balanced = _movement_totals_are_balanced(
+        result,
+        tolerance=tolerance,
+    )
+
     generic = details.get("generic_stock_corrections", {}) or {}
     generic_residual = abs(
         float(generic.get("residual_total", 0.0) or 0.0)
@@ -119,8 +229,21 @@ def assess_auto_explain_promotion(
         for component in explanation.components
         if component.contributes
     )
-    if generic_residual > tolerance and not generic_owned:
-        blockers.append("UNRESOLVED_GENERIC_STOCK_CORRECTION")
+    generic_noncompeting = False
+    if (
+        generic_residual > tolerance
+        and not generic_owned
+        and "PROD-03" in rules
+        and _generic_corrections_are_absorbed_by_prod03(
+            result,
+            production_input,
+            tolerance=tolerance,
+        )
+    ):
+        generic_noncompeting = True
+        warnings.append(
+            "GENERIC_CORRECTIONS_ABSORBED_BY_PROD03_CHECKPOINT"
+        )
 
     special = details.get("special_status_matching", {}) or {}
     special_residual_count = int(
@@ -131,8 +254,34 @@ def assess_auto_explain_promotion(
 
     stock_zone = details.get("stock_report_zone_matching", {}) or {}
     unresolved_zone_rows = int(stock_zone.get("unresolved_rows", 0) or 0)
+    mapping_effect = float(
+        stock_zone.get("mapping_effect_total", 0.0) or 0.0
+    )
+    exact_report_mapping = (
+        "GST-02/GST-03" in rules
+        and abs(mapping_effect - float(result.initial_difference)) <= tolerance
+    )
+
+    if (
+        generic_residual > tolerance
+        and not generic_owned
+        and not generic_noncompeting
+    ):
+        if movement_balanced and exact_report_mapping:
+            generic_noncompeting = True
+            warnings.append(
+                "GENERIC_CORRECTIONS_NONCOMPETING_SYSTEM_MOVEMENTS_BALANCED"
+            )
+        else:
+            blockers.append("UNRESOLVED_GENERIC_STOCK_CORRECTION")
+
     if unresolved_zone_rows > 0:
-        blockers.append("UNRESOLVED_STOCK_REPORT_ZONE_MAPPING")
+        if movement_balanced and exact_report_mapping:
+            warnings.append(
+                "UNMAPPED_STOCK_ZONE_NONCOMPETING_SYSTEM_MOVEMENTS_BALANCED"
+            )
+        else:
+            blockers.append("UNRESOLVED_STOCK_REPORT_ZONE_MAPPING")
 
     if "WME-02" in rules:
         wme_residual = details.get("wme_residual_movements", {}) or {}
