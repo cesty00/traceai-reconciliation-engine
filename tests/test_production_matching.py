@@ -741,3 +741,62 @@ def test_aggregate_reversal_rejects_foreign_lot_even_if_sum_matches() -> None:
         item["quantity"] == -150.0
         for item in result.residual_wms_adjustments
     )
+
+
+
+def test_aggregate_reversal_accepts_same_numeric_lot_family() -> None:
+    wms = pd.DataFrame(
+        [
+            {
+                "Data": "2026-07-08 06:52:39",
+                "Tip operatiune": "Ajustare pozitiva",
+                "Cantitate": 264.0,
+                "Numar comanda": "0035077_AE",
+                "Locatie sursa": "ULMA",
+                "Lot": "189.26",
+                "Cod-motiv": "PRODUCTION-OUT",
+                "Detalii": "",
+            },
+            {
+                "Data": "2026-07-08 07:41:18",
+                "Tip operatiune": "Ajustare negativa",
+                "Cantitate": -264.0,
+                "Numar comanda": None,
+                "Locatie sursa": "ULMA",
+                "Lot": "189.26C1",
+                "Cod-motiv": "COR STOC",
+                "Detalii": "EROARE INTRODUCERE COMANDA",
+            },
+            {
+                "Data": "2026-07-08 07:43:55",
+                "Tip operatiune": "Ajustare pozitiva",
+                "Cantitate": 10.0,
+                "Numar comanda": "0035079_AE",
+                "Locatie sursa": "ULMA",
+                "Lot": "189.26C1",
+                "Cod-motiv": "PRODUCTION-OUT",
+                "Detalii": "",
+            },
+        ]
+    )
+    wme = pd.DataFrame(
+        [
+            {
+                "OperationType": "NP",
+                "Document": "35079",
+                "SignedQuantity": 10.0,
+            }
+        ]
+    )
+
+    result = match_production_adjustments(wms, wme)
+
+    assert any(
+        item["positive_document_normalized"] == "35077"
+        and item["status"] == "WMS_AGGREGATE_SCOPE_REVERSAL"
+        for item in result.reversal_pairs
+    )
+    assert all(
+        item["document"] != "35077"
+        for item in result.document_residuals
+    )
