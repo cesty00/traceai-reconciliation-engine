@@ -7,6 +7,10 @@ from typing import Any
 import pandas as pd
 
 from .models import InvestigationSources, ProductInvestigationResult
+from .auto_explain import (
+    auto_explanation_from_investigation,
+    auto_explanation_to_dict,
+)
 from .production_matching import match_production_adjustments
 from .delivery_matching import match_deliveries_and_returns
 from .receipt_matching import match_inbound_receipts
@@ -403,14 +407,36 @@ def investigate_product(
         [product_code],
     )
     if opening_rows.empty:
-        result.technical_warnings.append(
-            f"Produsul {product_code} nu a fost găsit în stocul inițial WMS."
-        )
+        if sources.opening_absent_means_zero:
+            result.opening_stock_wms = 0.0
+            result.technical_warnings.append(
+                f"Produsul {product_code} nu a fost găsit în stocul inițial WMS; "
+                "politica explicită opening_absent_means_zero=True îl tratează ca 0."
+            )
+            result.details["opening_stock_policy"] = {
+                "opening_absent_means_zero": True,
+                "product_absent": True,
+                "applied_value": 0.0,
+            }
+        else:
+            result.technical_warnings.append(
+                f"Produsul {product_code} nu a fost găsit în stocul inițial WMS."
+            )
+            result.details["opening_stock_policy"] = {
+                "opening_absent_means_zero": False,
+                "product_absent": True,
+                "applied_value": None,
+            }
     else:
         result.opening_stock_wms = round(
             numeric_sum(opening_rows, "initial_stock"),
             decimals,
         )
+        result.details["opening_stock_policy"] = {
+            "opening_absent_means_zero": sources.opening_absent_means_zero,
+            "product_absent": False,
+            "applied_value": result.opening_stock_wms,
+        }
 
     if source_index is not None:
         wms_rows = source_index.read_wms_product(
@@ -970,6 +996,23 @@ def investigate_product(
             production_input_match.residual_total,
             decimals,
         ),
+        "persistent_residual_total": round(
+            production_input_match.persistent_residual_total,
+            decimals,
+        ),
+        "persistent_residual_documents": (
+            production_input_match.persistent_residual_documents or []
+        ),
+        "neutralized_residual_documents": (
+            production_input_match.neutralized_residual_documents or []
+        ),
+        "basket_groups": production_input_match.basket_groups or [],
+        "inventory_checkpoint_date": (
+            production_input_match.inventory_checkpoint_date
+        ),
+        "safe_to_auto_explain": (
+            production_input_match.safe_to_auto_explain
+        ),
         "applied_to_explanation": False,
     }
 
@@ -1077,6 +1120,21 @@ def investigate_product(
         "reversal_pairs": len(production_match.reversal_pairs),
         "residual_adjustments": len(production_match.residual_wms_adjustments),
         "residual_total": round(production_match.residual_total, decimals),
+        "document_residuals": production_match.document_residuals,
+        "document_residual_total": round(
+            production_match.document_residual_total,
+            decimals,
+        ),
+        "residual_adjustment_items": (
+            production_match.residual_wms_adjustments
+        ),
+        "unconsumed_correction_items": (
+            production_match.unconsumed_correction_items
+        ),
+        "unconsumed_correction_total": round(
+            production_match.unconsumed_correction_total,
+            decimals,
+        ),
         "applied_to_explanation": False,
     }
 
@@ -1246,6 +1304,7 @@ def investigate_product(
         "residual_movements": len(
             wme_residual_match.residual_movements
         ),
+        "movements": wme_residual_match.residual_movements,
         "wme_signed_total": round(
             wme_residual_match.wme_signed_total,
             decimals,
@@ -1539,6 +1598,12 @@ def investigate_product(
             "document între WMS și WME."
         )
         result.cause_status = "NEDETERMINATA"
+
+    auto_explain = auto_explanation_from_investigation(
+        result,
+        decimals=decimals,
+    )
+    result.details["auto_explain"] = auto_explanation_to_dict(auto_explain)
 
     result.recommendations.append(
         {

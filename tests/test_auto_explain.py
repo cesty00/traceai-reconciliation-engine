@@ -1,0 +1,686 @@
+from __future__ import annotations
+
+import pytest
+
+from traceai_reconciliation.investigation.auto_explain import (
+    ExplanationComponent,
+    auto_explanation_from_investigation,
+    components_from_investigation,
+    compose_explanation,
+    opening_component,
+)
+from traceai_reconciliation.investigation.models import ProductInvestigationResult
+
+
+def component(
+    component_id: str,
+    rule_id: str,
+    effect: float,
+    *,
+    evidence: str = "A",
+    status: str = "CONFIRMED",
+    contributes: bool = True,
+) -> ExplanationComponent:
+    return ExplanationComponent(
+        component_id=component_id,
+        rule_id=rule_id,
+        effect=effect,
+        description=component_id,
+        evidence_level=evidence,
+        status=status,
+        contributes=contributes,
+    )
+
+
+def test_exact_multi_component_equation_from_golden_pattern() -> None:
+    result = compose_explanation(
+        -70.0,
+        [
+            component("opening", "OPEN-01", -1.0),
+            component("production", "PROD-02", -202.0),
+            component("wme_pv", "GST-04", 140.0),
+            component("delivery", "DEL-02", -7.0),
+        ],
+    )
+
+    assert result.status == "EXACT"
+    assert result.explained_difference == -70.0
+    assert result.residual_difference == 0.0
+    assert result.evidence_level == "A"
+    assert result.rules == ("OPEN-01", "PROD-02", "GST-04", "DEL-02")
+    assert "rezidual 0.000" in result.equation
+
+
+def test_opening_only_case_is_exact() -> None:
+    opening = opening_component(72.0, 76.0)
+    assert opening is not None
+
+    result = compose_explanation(-4.0, [opening])
+
+    assert result.status == "EXACT"
+    assert result.rules == ("OPEN-01",)
+    assert result.residual_difference == 0.0
+
+
+def test_probable_component_is_not_used_by_default() -> None:
+    result = compose_explanation(
+        -25.0,
+        [
+            component("opening", "OPEN-01", -1.0),
+            component(
+                "candidate_adjustment",
+                "ADJ-01",
+                -24.0,
+                evidence="B",
+                status="PROBABLE",
+            ),
+        ],
+    )
+
+    assert result.status == "PARTIAL"
+    assert result.explained_difference == -1.0
+    assert result.residual_difference == -24.0
+    assert result.rules == ("OPEN-01",)
+
+
+def test_probable_component_can_be_enabled_explicitly() -> None:
+    result = compose_explanation(
+        -25.0,
+        [
+            component("opening", "OPEN-01", -1.0),
+            component(
+                "candidate_adjustment",
+                "ADJ-01",
+                -24.0,
+                evidence="B",
+                status="PROBABLE",
+            ),
+        ],
+        include_probable=True,
+    )
+
+    assert result.status == "EXACT"
+    assert result.evidence_level == "B"
+    assert result.residual_difference == 0.0
+
+
+def test_non_contributing_and_review_components_do_not_change_math() -> None:
+    result = compose_explanation(
+        -17.0,
+        [
+            component("opening", "OPEN-01", -17.32),
+            component("pv", "GST-04", 16.32),
+            component("production", "PROD-02", -16.0),
+            component(
+                "timing_only",
+                "TIMING",
+                7.0,
+                status="REVIEW",
+            ),
+            component(
+                "matched_transfer",
+                "TRANSFER",
+                999.0,
+                contributes=False,
+            ),
+        ],
+    )
+
+    assert result.status == "EXACT"
+    assert result.explained_difference == -17.0
+    assert result.residual_difference == 0.0
+
+
+def test_duplicate_component_id_is_rejected() -> None:
+    with pytest.raises(ValueError, match="apare de mai multe ori"):
+        compose_explanation(
+            -10.0,
+            [
+                component("same", "OPEN-01", -5.0),
+                component("same", "ADJ-01", -5.0),
+            ],
+        )
+
+
+def test_wrong_direction_components_are_inconsistent() -> None:
+    result = compose_explanation(
+        -10.0,
+        [component("wrong", "ADJ-01", 5.0)],
+    )
+
+    assert result.status == "INCONSISTENT"
+    assert result.residual_difference == -15.0
+
+
+
+def investigation_result(
+    *,
+    initial_difference: float,
+    opening_wms: float | None = None,
+    opening_wme: float | None = None,
+    details: dict | None = None,
+) -> ProductInvestigationResult:
+    return ProductInvestigationResult(
+        case_id="CASE-TEST-AUTO",
+        product_code="TEST001",
+        product_name="Produs test",
+        unit="KG",
+        period="01.01.2026-04.10.2026",
+        report_date="07.10.2026",
+        initial_difference=initial_difference,
+        opening_stock_wms=opening_wms,
+        opening_stock_wme=opening_wme,
+        details=details or {},
+    )
+
+
+def test_adapter_uses_only_applied_components() -> None:
+    result = investigation_result(
+        initial_difference=-70.0,
+        opening_wms=76.0,
+        opening_wme=77.0,
+        details={
+            "production_matching": {
+                "residual_total": -202.0,
+                "applied_to_explanation": True,
+            },
+            "delivery_matching": {
+                "residual_total": -7.0,
+                "applied_to_explanation": True,
+            },
+            "special_status_matching": {
+                "explained_total": 140.0,
+                "applied_to_explanation": True,
+            },
+            "generic_stock_corrections": {
+                "residual_total": -999.0,
+                "applied_to_explanation": False,
+            },
+        },
+    )
+
+    explanation = auto_explanation_from_investigation(result)
+
+    assert explanation.status == "EXACT"
+    assert explanation.explained_difference == -70.0
+    assert explanation.residual_difference == 0.0
+    assert explanation.rules == (
+        "OPEN-01",
+        "PROD-02",
+        "DEL-02",
+        "GST-04",
+    )
+
+
+def test_adapter_ignores_unapplied_details() -> None:
+    result = investigation_result(
+        initial_difference=-10.0,
+        details={
+            "production_matching": {
+                "residual_total": -10.0,
+                "applied_to_explanation": False,
+            },
+            "delivery_matching": {
+                "residual_total": -10.0,
+                "applied_to_explanation": False,
+            },
+        },
+    )
+
+    components = components_from_investigation(result)
+    explanation = auto_explanation_from_investigation(result)
+
+    assert components == []
+    assert explanation.status == "NONE"
+    assert explanation.explained_difference == 0.0
+    assert explanation.residual_difference == -10.0
+
+
+def test_adapter_extracts_opening_only() -> None:
+    result = investigation_result(
+        initial_difference=-4.0,
+        opening_wms=72.0,
+        opening_wme=76.0,
+    )
+
+    components = components_from_investigation(result)
+    explanation = auto_explanation_from_investigation(result)
+
+    assert len(components) == 1
+    assert components[0].rule_id == "OPEN-01"
+    assert explanation.status == "EXACT"
+    assert explanation.residual_difference == 0.0
+
+
+def test_wme02_unique_pv_can_close_current_residual() -> None:
+    result = investigation_result(
+        initial_difference=-17.0,
+        opening_wms=0.0,
+        opening_wme=17.32,
+        details={
+            "production_matching": {
+                "residual_total": -16.0,
+                "applied_to_explanation": True,
+            },
+            "wme_residual_movements": {
+                "movements": [
+                    {
+                        "operation_type": "PV",
+                        "document": "2252",
+                        "warehouse": "DEPOZIT PESTE PROASPAT",
+                        "system_difference_effect": 16.32,
+                    }
+                ]
+            },
+        },
+    )
+
+    explanation = auto_explanation_from_investigation(result)
+
+    assert explanation.status == "EXACT"
+    assert explanation.explained_difference == pytest.approx(-17.0)
+    assert explanation.rules == ("OPEN-01", "PROD-02", "WME-02")
+
+
+def test_exact_opposite_pv_neutralizes_delivery_residual() -> None:
+    result = investigation_result(
+        initial_difference=-38.0,
+        opening_wms=0.0,
+        opening_wme=1.0,
+        details={
+            "delivery_matching": {
+                "residual_total": -16.0,
+                "applied_to_explanation": True,
+            },
+            "wme_residual_movements": {
+                "movements": [
+                    {
+                        "operation_type": "PV",
+                        "document": "2617",
+                        "warehouse": "DEPOZIT PESTE PROASPAT",
+                        "system_difference_effect": 16.0,
+                    }
+                ]
+            },
+        },
+    )
+
+    explanation = auto_explanation_from_investigation(result)
+
+    assert explanation.status == "PARTIAL"
+    assert explanation.explained_difference == pytest.approx(-1.0)
+    assert explanation.residual_difference == pytest.approx(-37.0)
+    assert explanation.rules == ("OPEN-01",)
+
+
+def test_wme02_does_not_sum_multiple_pv_candidates() -> None:
+    result = investigation_result(
+        initial_difference=3.0,
+        details={
+            "wme_residual_movements": {
+                "movements": [
+                    {
+                        "operation_type": "PV",
+                        "document": "A",
+                        "warehouse": "X",
+                        "system_difference_effect": 1.0,
+                    },
+                    {
+                        "operation_type": "PV",
+                        "document": "B",
+                        "warehouse": "X",
+                        "system_difference_effect": 2.0,
+                    },
+                ]
+            },
+        },
+    )
+
+    explanation = auto_explanation_from_investigation(result)
+
+    assert explanation.status == "NONE"
+    assert explanation.explained_difference == 0.0
+    assert explanation.residual_difference == 3.0
+
+
+def test_wme02_ignores_f_even_if_it_would_close_residual() -> None:
+    result = investigation_result(
+        initial_difference=5.0,
+        details={
+            "wme_residual_movements": {
+                "movements": [
+                    {
+                        "operation_type": "F",
+                        "document": "F1",
+                        "warehouse": "X",
+                        "system_difference_effect": 5.0,
+                    }
+                ]
+            },
+        },
+    )
+
+    explanation = auto_explanation_from_investigation(result)
+
+    assert explanation.status == "NONE"
+    assert explanation.rules == ()
+
+
+def test_unique_production_document_residual_can_explain_after_opening() -> None:
+    result = investigation_result(
+        initial_difference=-38.0,
+        opening_wms=0.0,
+        opening_wme=1.0,
+        details={
+            "production_matching": {
+                "residual_total": 0.0,
+                "applied_to_explanation": False,
+                "document_residual_total": -37.0,
+                "document_residuals": [
+                    {
+                        "document": "24707",
+                        "effective_difference": -37.0,
+                    }
+                ],
+            },
+            "delivery_matching": {
+                "residual_total": -16.0,
+                "applied_to_explanation": True,
+            },
+            "wme_residual_movements": {
+                "movements": [
+                    {
+                        "operation_type": "PV",
+                        "document": "2617",
+                        "warehouse": "DEPOZIT PESTE PROASPAT",
+                        "system_difference_effect": 16.0,
+                    }
+                ]
+            },
+        },
+    )
+
+    explanation = auto_explanation_from_investigation(result)
+
+    assert explanation.status == "EXACT"
+    assert explanation.explained_difference == -38.0
+    assert explanation.residual_difference == 0.0
+    assert explanation.rules == ("OPEN-01", "PROD-02")
+
+
+
+def test_exact_opening_plus_production_suppresses_legacy_delivery_residual() -> None:
+    result = investigation_result(
+        initial_difference=-206.0,
+        opening_wms=295.0,
+        opening_wme=299.0,
+        details={
+            "production_matching": {
+                "document_residuals": [
+                    {
+                        "effective_difference": -202.0,
+                    }
+                ],
+                "document_residual_total": -202.0,
+                "applied_to_explanation": False,
+            },
+            "delivery_matching": {
+                "residual_total": -90.0,
+                "applied_to_explanation": True,
+            },
+        },
+    )
+
+    explanation = auto_explanation_from_investigation(result)
+
+    assert explanation.status == "EXACT"
+    assert explanation.explained_difference == -206.0
+    assert explanation.rules == ("OPEN-01", "PROD-02")
+
+
+def test_exact_special_flow_has_priority_over_overlapping_generic_correction() -> None:
+    result = investigation_result(
+        initial_difference=-1419.0,
+        opening_wms=40.0,
+        opening_wme=57.0,
+        details={
+            "production_matching": {
+                "document_residuals": [
+                    {
+                        "effective_difference": -768.0,
+                    }
+                ],
+                "document_residual_total": -768.0,
+                "applied_to_explanation": False,
+            },
+            "delivery_matching": {
+                "residual_total": -16.0,
+                "applied_to_explanation": True,
+            },
+            "generic_stock_corrections": {
+                "residual_total": -32.0,
+                "applied_to_explanation": True,
+            },
+            "special_status_matching": {
+                "explained_total": -618.0,
+                "applied_to_explanation": True,
+            },
+        },
+    )
+
+    explanation = auto_explanation_from_investigation(result)
+
+    assert explanation.status == "EXACT"
+    assert explanation.explained_difference == -1419.0
+    assert explanation.residual_difference == 0.0
+    assert explanation.rules == (
+        "OPEN-01",
+        "PROD-02",
+        "DEL-02",
+        "GST-04",
+    )
+    assert "ADJ-01" not in explanation.rules
+
+
+
+def test_prod02_can_cross_target_only_with_unique_exact_pv_bridge() -> None:
+    result = investigation_result(
+        initial_difference=-70.0,
+        opening_wms=76.0,
+        opening_wme=77.0,
+        details={
+            "production_matching": {
+                "document_residuals": [
+                    {"effective_difference": -202.0}
+                ],
+                "document_residual_total": -202.0,
+                "applied_to_explanation": False,
+            },
+            "delivery_matching": {
+                "residual_total": -7.0,
+                "applied_to_explanation": True,
+            },
+            "wme_residual_movements": {
+                "movements": [
+                    {
+                        "operation_type": "PV",
+                        "document": "2301",
+                        "warehouse": "DEPOZIT PESTE PROASPAT",
+                        "system_difference_effect": 140.0,
+                    }
+                ]
+            },
+        },
+    )
+
+    explanation = auto_explanation_from_investigation(result)
+
+    assert explanation.status == "EXACT"
+    assert explanation.explained_difference == -70.0
+    assert explanation.rules == (
+        "OPEN-01",
+        "PROD-02",
+        "DEL-02",
+        "WME-02",
+    )
+
+
+def test_prod02_cross_target_is_blocked_when_pv_bridge_is_ambiguous() -> None:
+    result = investigation_result(
+        initial_difference=-70.0,
+        opening_wms=76.0,
+        opening_wme=77.0,
+        details={
+            "production_matching": {
+                "document_residuals": [
+                    {"effective_difference": -202.0}
+                ],
+                "document_residual_total": -202.0,
+                "applied_to_explanation": False,
+            },
+            "delivery_matching": {
+                "residual_total": -7.0,
+                "applied_to_explanation": True,
+            },
+            "wme_residual_movements": {
+                "movements": [
+                    {
+                        "operation_type": "PV",
+                        "document": "A",
+                        "system_difference_effect": 140.0,
+                    },
+                    {
+                        "operation_type": "PV",
+                        "document": "B",
+                        "system_difference_effect": 140.0,
+                    },
+                ]
+            },
+        },
+    )
+
+    explanation = auto_explanation_from_investigation(result)
+
+    assert "PROD-02" not in explanation.rules
+    assert explanation.status != "EXACT"
+
+
+
+def test_exact_signed_production_correction_chain_becomes_adj01() -> None:
+    result = investigation_result(
+        initial_difference=-11.8,
+        opening_wms=1393.0,
+        opening_wme=1393.0,
+        details={
+            "production_matching": {
+                "document_residual_total": 155005.0,
+                "document_residuals": [
+                    {
+                        "document": "26778",
+                        "effective_difference": 155005.0,
+                    }
+                ],
+                "unconsumed_correction_total": -155016.8,
+                "unconsumed_correction_items": [
+                    {"quantity": -155024.0},
+                    {"quantity": 7.2},
+                ],
+                "applied_to_explanation": False,
+            },
+        },
+    )
+
+    explanation = auto_explanation_from_investigation(result)
+
+    assert explanation.status == "EXACT"
+    assert explanation.explained_difference == -11.8
+    assert explanation.residual_difference == 0.0
+    assert explanation.rules == ("ADJ-01",)
+    assert len(explanation.components) == 1
+    assert explanation.components[0].component_id == (
+        "production_correction_chain_exact"
+    )
+
+
+def test_nonexact_signed_production_correction_chain_stays_unapplied() -> None:
+    result = investigation_result(
+        initial_difference=-11.8,
+        opening_wms=1393.0,
+        opening_wme=1393.0,
+        details={
+            "production_matching": {
+                "document_residual_total": 100.0,
+                "document_residuals": [
+                    {
+                        "document": "X",
+                        "effective_difference": 100.0,
+                    }
+                ],
+                "unconsumed_correction_total": -110.0,
+                "unconsumed_correction_items": [
+                    {"quantity": -110.0},
+                ],
+                "applied_to_explanation": False,
+            },
+        },
+    )
+
+    explanation = auto_explanation_from_investigation(result)
+
+    assert "ADJ-01" not in explanation.rules
+    assert explanation.status != "EXACT"
+
+
+
+def test_opening_same_direction_and_bounded_remains_contributive() -> None:
+    result = investigation_result(
+        initial_difference=-5.525,
+        opening_wms=0.0,
+        opening_wme=5.525,
+    )
+
+    explanation = auto_explanation_from_investigation(result)
+
+    assert explanation.status == "EXACT"
+    assert explanation.rules == ("OPEN-01",)
+    assert explanation.explained_difference == -5.525
+
+
+def test_opening_opposite_direction_is_evidence_only() -> None:
+    result = investigation_result(
+        initial_difference=-1.0,
+        opening_wms=10.0,
+        opening_wme=1.0,
+    )
+
+    explanation = auto_explanation_from_investigation(result)
+
+    assert explanation.status == "NONE"
+    assert explanation.rules == ()
+    assert explanation.explained_difference == 0.0
+    assert explanation.residual_difference == -1.0
+
+
+def test_opening_overshoot_can_contribute_through_unique_exact_pv_bridge() -> None:
+    result = investigation_result(
+        initial_difference=-4.0,
+        opening_wms=16.0,
+        opening_wme=21.0,
+        details={
+            "wme_residual_movements": {
+                "movements": [
+                    {
+                        "operation_type": "PV",
+                        "document": "2252",
+                        "system_difference_effect": 1.0,
+                    }
+                ]
+            }
+        },
+    )
+
+    explanation = auto_explanation_from_investigation(result)
+
+    assert explanation.status == "EXACT"
+    assert explanation.rules == ("OPEN-01", "WME-02")
+    assert explanation.explained_difference == -4.0

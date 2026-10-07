@@ -17,7 +17,7 @@ Un Golden Case nu este doar un exemplu. El definește un rezultat așteptat pent
 
 ## Reguli de includere
 
-Versiunea 0.1 include numai cazuri care îndeplinesc toate condițiile:
+Versiunea 0.3 include numai cazuri care îndeplinesc toate condițiile:
 
 1. verificare manuală detaliată finalizată;
 2. nivel de probă A;
@@ -30,10 +30,10 @@ RAW-urile WMS/WME nu intră în GitHub.
 ## Sursa oficială
 
 Google Drive:
-`07_REGULI_SI_CAZURI_ETALON/Golden_Case_Library_TraceAI_v0.1.xlsx`
+`07_REGULI_SI_CAZURI_ETALON/Golden_Case_Library_TraceAI_v0.3.xlsx`
 
 Manifest machine-readable:
-`07_REGULI_SI_CAZURI_ETALON/golden_cases_manifest_v0.1.json`
+`07_REGULI_SI_CAZURI_ETALON/golden_cases_manifest_v0.3.json`
 
 Schema de contract este:
 `config/golden_case.schema.json`.
@@ -48,11 +48,22 @@ Pentru fiecare schimbare a motorului:
 4. orice schimbare în `difference / explained / residual / causal pattern` trebuie revizuită explicit;
 5. o regulă nouă nu poate transforma un caz în MATCH doar pentru a crește KPI-ul.
 
-## Pattern-uri acoperite în v0.1
+## Contract reguli v0.3
+
+Golden Case v0.3 separă explicit:
+
+- `contributing_rules` — reguli cu efect numeric distinct în ecuația WMS−WME;
+- `supporting_rules` — reguli de netare, clasificare sau dovadă care NU se adaugă numeric separat.
+
+Golden Gate compară numai regulile contributive. Regulile suport rămân auditabile, dar nu pot produce double counting.
+
+Pentru consumurile `PRODUCTION-IN ↔ BC`, ID-ul canonic este `PROD-03`; denumirea veche `PROD-01` nu se folosește în manifestul v0.3.
+
+## Pattern-uri acoperite în v0.3
 
 - OPEN-01 / diferență de deschidere;
 - ADJ-01 / COR STOC WMS-only;
-- PROD-01 / BC lipsă în WME;
+- PROD-03 / BC lipsă în WME;
 - PROD-02 / corecție predare sau NP cantitativ diferit;
 - DEL-02 / cantitate diferită la livrare;
 - GST-04 / PV sau mișcare WME-only;
@@ -70,3 +81,22 @@ Cazul etalon pentru această regresie este `CASE-2026-000042`.
 ## Principiu
 
 Golden Cases sunt o barieră de siguranță. Dacă motorul nu reproduce un caz etalon, schimbarea trebuie explicată înainte de promovare.
+
+
+## Extindere v0.3 — OPEN-01 persistent
+
+În 2026-10-07 au fost aprobate explicit trei cazuri non-Golden, curate, pentru a testa generalizarea regulii OPEN-01 persistence:
+
+- `CASE-2026-000064 / DS099904229` — -5,525 UM;
+- `CASE-2026-000174 / DS099903805` — -1 UM;
+- `CASE-2026-000165 / DS099903810` — -1 UM.
+
+Criterii comune:
+- diferența de deschidere = diferența finală;
+- diferența netă WMS−WME din mișcările 2026 = 0;
+- unmatched operations = 0;
+- nivel probă A după aprobarea umană;
+- rezidual = 0;
+- regula contributivă unică: `OPEN-01`.
+
+Biblioteca oficială are acum **17 Golden Cases**.
