@@ -90,10 +90,29 @@ Evoluția Golden Gate:
 - baseline: 6/14 PASS;
 - după politica explicită `opening_absent_means_zero`: 7/14;
 - după `WME-02` (PV bridge conservator): 9/14;
-- după PROD-02 document residual after reversals: 10/14.
+- după PROD-02 document residual after reversals: 10/14;
+- după PROD-03 persistence/checkpoint + BC basket logic: 12/14;
+- după PROD-02 multi-row correction ownership + PV bridge: 13/14;
+- după ADJ-01 exact signed correction-chain: **14/14 PASS**.
 
-Nu au existat erori de execuție și nu au fost produse update-uri automate în REGISTRU_CAZURI.
+Checkpoint final shadow:
+- 14/14 Golden Cases = `EXACT`;
+- 14/14 rezidual = 0;
+- 0 ERROR;
+- 0 regresii față de cazurile deja verzi;
+- 0 update-uri automate în `REGISTRU_CAZURI`;
+- sursele RAW nu au fost introduse în GitHub;
+- artifact validat: GitHub Actions run #379, head `596542f9108d94e73db499407cd9def9412fb494`.
 
-Matricea completă a celor patru cazuri rămase și criteriile de promovare sunt în `docs/V0_6_REAL_SHADOW_GAP_MATRIX.md`.
+Regulile suplimentare validate în shadow:
+- PROD-03 folosește rezidual persistent, nu suma brută a abaterilor BC;
+- split-urile BC pot fi tratate numai când coșul este demonstrabil și univoc;
+- PROD-02 acceptă corecții multi-rând numai cu ownership determinist;
+- un PROD-02 care traversează temporar ținta este permis doar printr-un bridge PV WME unic care închide exact rezidualul;
+- ADJ-01 exact-chain se activează numai dacă `document_residual_total + unconsumed_correction_total` închide exact diferența curentă;
+- corecțiile tehnice/TEST rămân în afara ecuației numerice;
+- cazurile ambigue rămân REVIEW.
 
-Pragul minim înainte de promovarea Auto Explain din shadow mode este 12/14 Golden PASS, fără regresii pe cazurile deja verzi și fără relaxarea regulilor de siguranță.
+`docs/V0_6_REAL_SHADOW_GAP_MATRIX.md` păstrează istoricul blocajelor și criteriile care au dus la închiderea 14/14.
+
+Pragul minim de 12/14 a fost depășit. Următorul pas nu este activarea directă în producție, ci un checkpoint separat de promovare: rulare shadow pe un eșantion non-Golden, verificare regresii și review uman al schimbării de autoritate față de v0.5.
