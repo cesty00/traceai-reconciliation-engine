@@ -4,9 +4,12 @@ import pytest
 
 from traceai_reconciliation.investigation.auto_explain import (
     ExplanationComponent,
+    auto_explanation_from_investigation,
+    components_from_investigation,
     compose_explanation,
     opening_component,
 )
+from traceai_reconciliation.investigation.models import ProductInvestigationResult
 
 
 def component(
@@ -147,3 +150,103 @@ def test_wrong_direction_components_are_inconsistent() -> None:
 
     assert result.status == "INCONSISTENT"
     assert result.residual_difference == -15.0
+
+
+
+def investigation_result(
+    *,
+    initial_difference: float,
+    opening_wms: float | None = None,
+    opening_wme: float | None = None,
+    details: dict | None = None,
+) -> ProductInvestigationResult:
+    return ProductInvestigationResult(
+        case_id="CASE-TEST-AUTO",
+        product_code="TEST001",
+        product_name="Produs test",
+        unit="KG",
+        period="01.01.2026-04.10.2026",
+        report_date="07.10.2026",
+        initial_difference=initial_difference,
+        opening_stock_wms=opening_wms,
+        opening_stock_wme=opening_wme,
+        details=details or {},
+    )
+
+
+def test_adapter_uses_only_applied_components() -> None:
+    result = investigation_result(
+        initial_difference=-70.0,
+        opening_wms=76.0,
+        opening_wme=77.0,
+        details={
+            "production_matching": {
+                "residual_total": -202.0,
+                "applied_to_explanation": True,
+            },
+            "delivery_matching": {
+                "residual_total": -7.0,
+                "applied_to_explanation": True,
+            },
+            "special_status_matching": {
+                "explained_total": 140.0,
+                "applied_to_explanation": True,
+            },
+            "generic_stock_corrections": {
+                "residual_total": -999.0,
+                "applied_to_explanation": False,
+            },
+        },
+    )
+
+    explanation = auto_explanation_from_investigation(result)
+
+    assert explanation.status == "EXACT"
+    assert explanation.explained_difference == -70.0
+    assert explanation.residual_difference == 0.0
+    assert explanation.rules == (
+        "OPEN-01",
+        "PROD-02",
+        "DEL-02",
+        "GST-04",
+    )
+
+
+def test_adapter_ignores_unapplied_details() -> None:
+    result = investigation_result(
+        initial_difference=-10.0,
+        details={
+            "production_matching": {
+                "residual_total": -10.0,
+                "applied_to_explanation": False,
+            },
+            "delivery_matching": {
+                "residual_total": -10.0,
+                "applied_to_explanation": False,
+            },
+        },
+    )
+
+    components = components_from_investigation(result)
+    explanation = auto_explanation_from_investigation(result)
+
+    assert components == []
+    assert explanation.status == "NONE"
+    assert explanation.explained_difference == 0.0
+    assert explanation.residual_difference == -10.0
+
+
+def test_adapter_extracts_opening_only() -> None:
+    result = investigation_result(
+        initial_difference=-4.0,
+        opening_wms=72.0,
+        opening_wme=76.0,
+    )
+
+    components = components_from_investigation(result)
+    explanation = auto_explanation_from_investigation(result)
+
+    assert len(components) == 1
+    assert components[0].rule_id == "OPEN-01"
+    assert explanation.status == "EXACT"
+    assert explanation.residual_difference == 0.0
