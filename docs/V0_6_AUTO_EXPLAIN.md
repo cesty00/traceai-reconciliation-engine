@@ -116,3 +116,29 @@ Regulile suplimentare validate în shadow:
 `docs/V0_6_REAL_SHADOW_GAP_MATRIX.md` păstrează istoricul blocajelor și criteriile care au dus la închiderea 14/14.
 
 Pragul minim de 12/14 a fost depășit. Următorul pas nu este activarea directă în producție, ci un checkpoint separat de promovare: rulare shadow pe un eșantion non-Golden, verificare regresii și review uman al schimbării de autoritate față de v0.5.
+
+
+## Checkpoint non-Golden + Promotion Safety Gate
+
+După Golden Gate 14/14, Auto Explain a fost rulat pe 34 cazuri non-Golden stratificate.
+
+Rezultat după OPEN-01 persistence guard:
+- EXACT: 18;
+- PARTIAL: 5;
+- NONE: 11;
+- INCONSISTENT: 0;
+- ERROR: 0.
+
+Pentru a separa închiderea matematică de siguranța promovării a fost introdus
+`Promotion Safety Gate`.
+
+Pe același eșantion:
+- HOLD: 26;
+- ELIGIBLE_FOR_HUMAN_REVIEW: 4;
+- TOLERANCE_MATCH: 4;
+- promovări automate: 0.
+
+Criteriul cheie: EXACT este necesar, dar nu suficient dacă există familii
+reziduale concurente neexplicate sau evidence sub nivel A.
+
+Detalii: `docs/V0_6_PROMOTION_SHADOW.md`.
