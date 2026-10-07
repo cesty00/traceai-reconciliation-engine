@@ -321,7 +321,46 @@ def components_from_investigation(
                 abs(candidate)
                 <= abs(float(result.initial_difference)) + 10 ** (-decimals)
             )
-            if same_direction and bounded:
+
+            # A production correction may legitimately cross the final target
+            # when a later, already-demonstrated delivery plus one unique WME
+            # PV closes the resulting residual exactly. This is a bridge, not
+            # a relaxation: ambiguous/multiple PV candidates still block it.
+            projected_delivery = details.get("delivery_matching", {})
+            projected_delivery_effect = (
+                round(
+                    float(projected_delivery.get("residual_total", 0.0)),
+                    decimals,
+                )
+                if projected_delivery.get("applied_to_explanation", False)
+                else 0.0
+            )
+            projected = round(
+                candidate + projected_delivery_effect,
+                decimals,
+            )
+            projected_residual = round(
+                float(result.initial_difference) - projected,
+                decimals,
+            )
+            projected_wme = details.get("wme_residual_movements", {})
+            projected_pv_candidates = [
+                item
+                for item in list(projected_wme.get("movements", []) or [])
+                if str(item.get("operation_type", "")).strip().upper() == "PV"
+                and abs(
+                    round(
+                        float(item.get("system_difference_effect", 0.0)),
+                        decimals,
+                    )
+                    - projected_residual
+                )
+                <= 10 ** (-decimals)
+                and abs(projected_residual) > 10 ** (-decimals)
+            ]
+            exact_pv_bridge = len(projected_pv_candidates) == 1
+
+            if same_direction and (bounded or exact_pv_bridge):
                 components.append(
                     ExplanationComponent(
                         component_id="production_document_residual",
