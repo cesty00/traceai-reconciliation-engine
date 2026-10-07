@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://traceai.local/schema/golden-case-v0.2.json",
+  "$id": "https://traceai.local/schema/golden-case-v0.3.json",
   "title": "TraceAI Golden Case",
   "type": "object",
   "required": [
