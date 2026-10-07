@@ -3,6 +3,12 @@
 from .case_builder import build_case_report
 from .engine import investigate_product, investigation_to_dict
 from .models import InvestigationSources, ProductInvestigationResult
+from .auto_explain import (
+    AutoExplanation,
+    ExplanationComponent,
+    compose_explanation,
+    opening_component,
+)
 from .registry_sync import build_registry_update, infer_applied_rules
 from .batch import (
     BatchCaseResult,
@@ -25,6 +31,10 @@ from .registry_apply_plan import (
 __all__ = [
     "InvestigationSources",
     "ProductInvestigationResult",
+    "AutoExplanation",
+    "ExplanationComponent",
+    "compose_explanation",
+    "opening_component",
     "investigate_product",
     "investigation_to_dict",
     "build_case_report",
