@@ -147,3 +147,26 @@ def test_supporting_rules_do_not_enter_numeric_rule_comparison() -> None:
 
     assert result.passed is True
     assert result.mismatches == ()
+
+
+def test_golden_gate_rule_order_is_not_semantic() -> None:
+    explanation = compose_explanation(
+        -3.0,
+        [
+            comp("opening", "OPEN-01", -1.0),
+            comp("delivery", "DEL-02", -2.0),
+        ],
+    )
+    expectation = GoldenExpectation(
+        case_id="CASE-GOLDEN-ORDER",
+        product_code="TEST",
+        difference=-3.0,
+        explained=-3.0,
+        residual=0.0,
+        rules=("DEL-02", "OPEN-01"),
+    )
+
+    result = compare_auto_explanation(expectation, explanation)
+
+    assert result.passed is True
+    assert result.mismatches == ()
