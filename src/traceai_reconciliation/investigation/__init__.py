@@ -39,6 +39,7 @@ from .registry_apply_plan import (
 from .human_review_queue import (
     HumanReviewQueueItem,
     REVIEW_QUEUE_COLUMNS,
+    apply_human_review_decision,
     build_human_review_queue_item,
     build_review_queue_payload,
     queue_item_to_dict,
@@ -77,6 +78,7 @@ __all__ = [
     "write_registry_apply_plan",
     "HumanReviewQueueItem",
     "REVIEW_QUEUE_COLUMNS",
+    "apply_human_review_decision",
     "build_human_review_queue_item",
     "build_review_queue_payload",
     "queue_item_to_dict",
