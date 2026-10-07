@@ -112,6 +112,7 @@ def match_production_adjustments(
         )
         .map(_text)
     )
+    work["_op"] = work["Tip operatiune"].astype(str).str.strip()
 
     positive_mask = work["Tip operatiune"].astype(str).str.strip().eq(
         "Ajustare pozitiva"
@@ -126,7 +127,8 @@ def match_production_adjustments(
         if str(value).strip()
     }
     corrections = work[
-        work["_reason"].eq("COR STOC")
+        work["_reason"].isin(["COR STOC", ""])
+        & work["_op"].isin(["Ajustare pozitiva", "Ajustare negativa"])
         & work["_doc"].eq("")
         & work["_location"].isin(production_locations)
         & work["_qty"].abs().gt(tolerance)
@@ -227,6 +229,8 @@ def match_production_adjustments(
     consumption_tokens = ("CONSUM", "MATERIE PRIMA", "MATERIE PRIMĂ")
 
     for corr_idx, corr in corrections.sort_values("Data").iterrows():
+        if str(corr["_reason"]) != "COR STOC":
+            continue
         details_upper = str(corr["_details"]).upper()
         if any(token in details_upper for token in consumption_tokens):
             continue
@@ -420,6 +424,7 @@ def match_production_adjustments(
     remaining_negative = corrections[
         (~corrections.index.isin(used_corrections))
         & corrections["_qty"].lt(-tolerance)
+        & corrections["_reason"].eq("COR STOC")
     ].copy()
     for corr_idx, corr in remaining_negative.sort_values("Data").iterrows():
         correction_abs = abs(float(corr["_qty"]))
