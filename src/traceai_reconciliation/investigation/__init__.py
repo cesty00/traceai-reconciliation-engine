@@ -13,6 +13,12 @@ from .auto_explain import (
     auto_explanation_to_dict,
 )
 from .registry_sync import build_registry_update, infer_applied_rules
+from .golden_gate import (
+    GoldenExpectation,
+    GoldenGateResult,
+    compare_auto_explanation,
+    summarize_golden_gate,
+)
 from .batch import (
     BatchCaseResult,
     BatchCaseSpec,
@@ -46,6 +52,10 @@ __all__ = [
     "build_case_report",
     "build_registry_update",
     "infer_applied_rules",
+    "GoldenExpectation",
+    "GoldenGateResult",
+    "compare_auto_explanation",
+    "summarize_golden_gate",
     "BatchCaseSpec",
     "BatchCaseResult",
     "BatchSummary",
