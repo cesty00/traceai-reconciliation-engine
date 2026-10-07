@@ -10,6 +10,7 @@ from traceai_reconciliation.investigation.human_review_queue import (
     build_human_review_queue_item,
     build_review_queue_payload,
     review_queue_values,
+    record_manual_evidence_resolution,
 )
 from traceai_reconciliation.investigation.models import ProductInvestigationResult
 from traceai_reconciliation.investigation.promotion_gate import (
@@ -312,6 +313,89 @@ def test_hold_still_cannot_be_approved_after_tolerance_extension() -> None:
             reason="Nu trebuie permis.",
         )
     except ValueError as exc:
-        assert "ELIGIBLE_FOR_HUMAN_REVIEW sau TOLERANCE_MATCH" in str(exc)
+        assert "manual evidence VERIFIED" in str(exc)
     else:
         raise AssertionError("HOLD item was incorrectly approved")
+
+
+
+def test_hold_can_be_approved_only_after_verified_manual_evidence() -> None:
+    investigation = result(
+        diff=-8620.2,
+        details={},
+    )
+    explanation = auto_explanation_from_investigation(investigation)
+    assessment = assess_auto_explain_promotion(investigation, explanation)
+    item = build_human_review_queue_item(
+        investigation,
+        explanation,
+        assessment,
+        evidence_url="https://example.invalid/baseline",
+        staged_at="2026-10-07T18:00:00+00:00",
+    )
+
+    assert item.promotion_status == "HOLD"
+    assert item.blockers == ("AUTO_EXPLAIN_NOT_EXACT",)
+
+    resolved = record_manual_evidence_resolution(
+        item,
+        evidence_level="A",
+        residual=0.0,
+        evidence_url="https://example.invalid/manual-report",
+        reviewer="Cezar",
+        reason="Raport documentar demonstreaza integral diferenta.",
+        resolved_blockers=item.blockers,
+        verified_at="2026-10-07T20:00:00+00:00",
+    )
+
+    assert resolved.promotion_status == "HOLD"
+    assert resolved.auto_explain_status == item.auto_explain_status
+    assert resolved.manual_evidence_status == "VERIFIED"
+    assert resolved.review_status == "IN_REVIEW"
+    assert resolved.registry_action == "NONE"
+
+    decided = apply_human_review_decision(
+        resolved,
+        decision="APROBAT",
+        reviewer="Cezar",
+        reason="Dovezile manuale nivel A au fost validate.",
+        reviewed_at="2026-10-07T20:05:00+00:00",
+    )
+
+    assert decided.review_status == "APPROVED"
+    assert decided.registry_action == "PROPOSE_ONLY"
+
+
+def test_manual_evidence_requires_all_original_blockers_and_zero_residual() -> None:
+    investigation = result(
+        diff=-10.0,
+        details={
+            "delivery_matching": {
+                "residual_total": -10.0,
+                "applied_to_explanation": True,
+            }
+        },
+    )
+    explanation = auto_explanation_from_investigation(investigation)
+    assessment = assess_auto_explain_promotion(investigation, explanation)
+    item = build_human_review_queue_item(
+        investigation,
+        explanation,
+        assessment,
+        staged_at="2026-10-07T18:00:00+00:00",
+    )
+
+    try:
+        record_manual_evidence_resolution(
+            item,
+            evidence_level="A",
+            residual=0.5,
+            evidence_url="https://example.invalid/manual-report",
+            reviewer="Cezar",
+            reason="Rezidualul nu este inchis.",
+            resolved_blockers=item.blockers,
+        )
+    except ValueError as exc:
+        assert "rezidual zero" in str(exc)
+    else:
+        raise AssertionError("Manual evidence with non-zero residual was accepted")
