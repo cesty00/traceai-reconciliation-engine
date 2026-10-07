@@ -200,6 +200,92 @@ def opening_component(
 
 
 
+def _opening_is_contributive(
+    result: ProductInvestigationResult,
+    effect: float,
+    *,
+    decimals: int,
+) -> bool:
+    """
+    OPEN-01 is factual whenever both opening balances exist, but it contributes
+    numerically only when it reduces the final residual or participates in one
+    unique exact bridge already evidenced by stronger matchers.
+    """
+    tolerance = 10 ** (-decimals)
+    target = round(float(result.initial_difference), decimals)
+    opening = round(float(effect), decimals)
+
+    if abs(target) <= tolerance or abs(opening) <= tolerance:
+        return False
+
+    same_direction = (opening > 0) == (target > 0)
+    bounded = abs(opening) <= abs(target) + tolerance
+    if same_direction and bounded:
+        return True
+
+    details = result.details
+    production = details.get("production_matching", {})
+    document_residuals = list(
+        production.get("document_residuals", []) or []
+    )
+    production_effect = 0.0
+    if len(document_residuals) == 1:
+        production_effect = round(
+            float(
+                document_residuals[0].get(
+                    "effective_difference",
+                    production.get("document_residual_total", 0.0),
+                )
+            ),
+            decimals,
+        )
+    elif production.get("applied_to_explanation", False):
+        production_effect = round(
+            float(production.get("residual_total", 0.0)),
+            decimals,
+        )
+
+    delivery = details.get("delivery_matching", {})
+    delivery_effect = (
+        round(float(delivery.get("residual_total", 0.0)), decimals)
+        if delivery.get("applied_to_explanation", False)
+        else 0.0
+    )
+
+    bases = [opening]
+    if abs(production_effect) > tolerance:
+        bases.append(round(opening + production_effect, decimals))
+    if abs(delivery_effect) > tolerance:
+        bases.append(round(opening + delivery_effect, decimals))
+    if (
+        abs(production_effect) > tolerance
+        and abs(delivery_effect) > tolerance
+    ):
+        bases.append(
+            round(
+                opening + production_effect + delivery_effect,
+                decimals,
+            )
+        )
+
+    if any(abs(base - target) <= tolerance for base in bases):
+        return True
+
+    wme_residual = details.get("wme_residual_movements", {})
+    pv_effects = [
+        round(float(item.get("system_difference_effect", 0.0)), decimals)
+        for item in list(wme_residual.get("movements", []) or [])
+        if str(item.get("operation_type", "")).strip().upper() == "PV"
+    ]
+    bridge_matches = 0
+    for base in bases:
+        for pv_effect in pv_effects:
+            if abs(base + pv_effect - target) <= tolerance:
+                bridge_matches += 1
+
+    return bridge_matches == 1
+
+
 def components_from_investigation(
     result: ProductInvestigationResult,
     *,
@@ -211,16 +297,22 @@ def components_from_investigation(
     change the investigation result.
     """
     components: list[ExplanationComponent] = []
+    details = result.details
 
     opening = opening_component(
         result.opening_stock_wms,
         result.opening_stock_wme,
         decimals=decimals,
     )
-    if opening is not None:
+    if (
+        opening is not None
+        and _opening_is_contributive(
+            result,
+            opening.effect,
+            decimals=decimals,
+        )
+    ):
         components.append(opening)
-
-    details = result.details
 
     zone = details.get("stock_report_zone_matching", {})
     if zone.get("applied_to_explanation", False):
