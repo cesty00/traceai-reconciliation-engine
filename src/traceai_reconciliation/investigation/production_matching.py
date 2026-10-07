@@ -443,6 +443,8 @@ def match_production_adjustments(
             & positives["_lot"].eq(corr["_lot"])
             & positives["_qty"].sub(correction_abs).abs().le(tolerance)
         ].copy()
+        if candidates.empty:
+            continue
         candidates = candidates[
             candidates["_doc"].map(
                 lambda doc: (
@@ -452,6 +454,8 @@ def match_production_adjustments(
                 )
             )
         ]
+        if candidates.empty:
+            continue
         candidate_docs = sorted(
             {
                 str(value)
