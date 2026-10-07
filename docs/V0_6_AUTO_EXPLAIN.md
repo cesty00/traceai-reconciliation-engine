@@ -78,3 +78,22 @@ Checkpoint-ul curent include un gate read-only pentru compararea Auto Explain cu
 - gate-ul nu modifică investigația, registrul sau sursele.
 
 Auto Explain rulează în prezent în **shadow mode** în `investigate_product` și este salvat în `result.details["auto_explain"]`. Rezultatele v0.5 rămân autoritare până când Golden Case gate este rulat cu succes pe biblioteca reală.
+
+
+## Checkpoint shadow real — 2026-10-07
+
+Golden Case Library curentă: v0.2.3.
+
+Rularea reală folosește artifactul exact trecut prin GitHub Actions și indexul persistent construit din sursele oficiale Drive. Registry rămâne read-only.
+
+Evoluția Golden Gate:
+- baseline: 6/14 PASS;
+- după politica explicită `opening_absent_means_zero`: 7/14;
+- după `WME-02` (PV bridge conservator): 9/14;
+- după PROD-02 document residual after reversals: 10/14.
+
+Nu au existat erori de execuție și nu au fost produse update-uri automate în REGISTRU_CAZURI.
+
+Matricea completă a celor patru cazuri rămase și criteriile de promovare sunt în `docs/V0_6_REAL_SHADOW_GAP_MATRIX.md`.
+
+Pragul minim înainte de promovarea Auto Explain din shadow mode este 12/14 Golden PASS, fără regresii pe cazurile deja verzi și fără relaxarea regulilor de siguranță.
