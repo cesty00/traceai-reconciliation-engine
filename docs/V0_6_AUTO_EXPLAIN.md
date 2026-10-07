@@ -65,3 +65,16 @@ Orice componentă nouă trebuie să treacă:
 `unit tests → scrubbed regression → Golden Case comparison → review`.
 
 Obiectivul nu este creșterea artificială a procentului MATCH, ci reducerea rezidualului prin explicații auditabile.
+
+
+## Golden Case gate implementat
+
+Checkpoint-ul curent include un gate read-only pentru compararea Auto Explain cu așteptările etalon:
+
+- `GoldenExpectation` definește diferența, explicatul, rezidualul, regulile și statusul așteptat;
+- `compare_auto_explanation(...)` produce PASS/FAIL și enumeră exact regresiile;
+- `summarize_golden_gate(...)` agregă rezultatele unui lot de Golden Cases;
+- toleranța numerică este explicită;
+- gate-ul nu modifică investigația, registrul sau sursele.
+
+Auto Explain rulează în prezent în **shadow mode** în `investigate_product` și este salvat în `result.details["auto_explain"]`. Rezultatele v0.5 rămân autoritare până când Golden Case gate este rulat cu succes pe biblioteca reală.
