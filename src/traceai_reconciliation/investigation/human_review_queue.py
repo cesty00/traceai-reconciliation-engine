@@ -249,13 +249,17 @@ def apply_human_review_decision(
     )
 
     if decision_normalized == "APROBAT":
-        if item.promotion_status != "ELIGIBLE_FOR_HUMAN_REVIEW":
+        if item.promotion_status == "ELIGIBLE_FOR_HUMAN_REVIEW":
+            review_status = "APPROVED"
+            registry_action = "PROPOSE_ONLY"
+        elif item.promotion_status == "TOLERANCE_MATCH":
+            review_status = "APPROVED"
+            registry_action = "NONE"
+        else:
             raise ValueError(
                 "APROBAT este permis numai pentru "
-                "ELIGIBLE_FOR_HUMAN_REVIEW."
+                "ELIGIBLE_FOR_HUMAN_REVIEW sau TOLERANCE_MATCH."
             )
-        review_status = "APPROVED"
-        registry_action = "PROPOSE_ONLY"
     elif decision_normalized == "RESPINS":
         review_status = "REJECTED"
         registry_action = "NONE"
