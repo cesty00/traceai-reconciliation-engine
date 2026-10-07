@@ -407,14 +407,36 @@ def investigate_product(
         [product_code],
     )
     if opening_rows.empty:
-        result.technical_warnings.append(
-            f"Produsul {product_code} nu a fost găsit în stocul inițial WMS."
-        )
+        if sources.opening_absent_means_zero:
+            result.opening_stock_wms = 0.0
+            result.technical_warnings.append(
+                f"Produsul {product_code} nu a fost găsit în stocul inițial WMS; "
+                "politica explicită opening_absent_means_zero=True îl tratează ca 0."
+            )
+            result.details["opening_stock_policy"] = {
+                "opening_absent_means_zero": True,
+                "product_absent": True,
+                "applied_value": 0.0,
+            }
+        else:
+            result.technical_warnings.append(
+                f"Produsul {product_code} nu a fost găsit în stocul inițial WMS."
+            )
+            result.details["opening_stock_policy"] = {
+                "opening_absent_means_zero": False,
+                "product_absent": True,
+                "applied_value": None,
+            }
     else:
         result.opening_stock_wms = round(
             numeric_sum(opening_rows, "initial_stock"),
             decimals,
         )
+        result.details["opening_stock_policy"] = {
+            "opening_absent_means_zero": sources.opening_absent_means_zero,
+            "product_absent": False,
+            "applied_value": result.opening_stock_wms,
+        }
 
     if source_index is not None:
         wms_rows = source_index.read_wms_product(
