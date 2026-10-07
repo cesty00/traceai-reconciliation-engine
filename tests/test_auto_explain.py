@@ -629,3 +629,58 @@ def test_nonexact_signed_production_correction_chain_stays_unapplied() -> None:
 
     assert "ADJ-01" not in explanation.rules
     assert explanation.status != "EXACT"
+
+
+
+def test_opening_same_direction_and_bounded_remains_contributive() -> None:
+    result = investigation_result(
+        initial_difference=-5.525,
+        opening_wms=0.0,
+        opening_wme=5.525,
+    )
+
+    explanation = auto_explanation_from_investigation(result)
+
+    assert explanation.status == "EXACT"
+    assert explanation.rules == ("OPEN-01",)
+    assert explanation.explained_difference == -5.525
+
+
+def test_opening_opposite_direction_is_evidence_only() -> None:
+    result = investigation_result(
+        initial_difference=-1.0,
+        opening_wms=10.0,
+        opening_wme=1.0,
+    )
+
+    explanation = auto_explanation_from_investigation(result)
+
+    assert explanation.status == "NONE"
+    assert explanation.rules == ()
+    assert explanation.explained_difference == 0.0
+    assert explanation.residual_difference == -1.0
+
+
+def test_opening_overshoot_can_contribute_through_unique_exact_pv_bridge() -> None:
+    result = investigation_result(
+        initial_difference=-4.0,
+        opening_wms=16.0,
+        opening_wme=21.0,
+        details={
+            "wme_residual_movements": {
+                "movements": [
+                    {
+                        "operation_type": "PV",
+                        "document": "2252",
+                        "system_difference_effect": 1.0,
+                    }
+                ]
+            }
+        },
+    )
+
+    explanation = auto_explanation_from_investigation(result)
+
+    assert explanation.status == "EXACT"
+    assert explanation.rules == ("OPEN-01", "WME-02")
+    assert explanation.explained_difference == -4.0
