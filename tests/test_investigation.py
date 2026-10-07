@@ -10,6 +10,10 @@ from traceai_reconciliation.investigation import (
     investigate_product,
 )
 from traceai_reconciliation.reports import validate_case_report
+from traceai_reconciliation.investigation.engine import (
+    _wme_balance_total_at,
+    _wme_final_balances,
+)
 
 
 def _write_fixture_sources(tmp_path: Path) -> InvestigationSources:
@@ -227,3 +231,47 @@ def test_third_real_case_pattern_keeps_unlinked_wme_residual_unexplained() -> No
     assert unexplained == -0.5
     assert unlinked_wme_residual_effect == -0.5
     # WME residual evidence is intentionally not auto-added to explained.
+
+
+
+def test_wme_balances_preserve_multiple_accounts_in_same_warehouse() -> None:
+    rows = pd.DataFrame(
+        [
+            {
+                "LineNo": 1,
+                "Date": "31.12.2025",
+                "Balance": 4.3,
+                "Account": "301",
+                "Warehouse": "SECTIE PRODUCTIE",
+            },
+            {
+                "LineNo": 2,
+                "Date": "31.12.2025",
+                "Balance": 14.549,
+                "Account": "345",
+                "Warehouse": "SECTIE PRODUCTIE",
+            },
+            {
+                "LineNo": 3,
+                "Date": "31.12.2025",
+                "Balance": 16.793,
+                "Account": "345",
+                "Warehouse": "DEPOZIT PESTE PROASPAT",
+            },
+        ]
+    )
+
+    by_warehouse, total = _wme_final_balances(rows)
+    at_cutoff, cutoff_total = _wme_balance_total_at(
+        rows,
+        pd.Timestamp("2026-01-01"),
+        strictly_before=True,
+    )
+
+    assert by_warehouse["SECTIE PRODUCTIE"] == 18.849
+    assert by_warehouse["DEPOZIT PESTE PROASPAT"] == 16.793
+    assert total == 35.642
+
+    assert at_cutoff["SECTIE PRODUCTIE"] == 18.849
+    assert at_cutoff["DEPOZIT PESTE PROASPAT"] == 16.793
+    assert cutoff_total == 35.642
