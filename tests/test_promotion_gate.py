@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from dataclasses import asdict
+
 from traceai_reconciliation.investigation.auto_explain import (
     auto_explanation_from_investigation,
 )
@@ -145,3 +147,28 @@ def test_tolerance_only_exact_is_classified_separately() -> None:
     assert explanation.components == ()
     assert assessment.status == "TOLERANCE_MATCH"
     assert assessment.eligible_for_review is True
+
+
+
+def test_promotion_gate_is_read_only_on_investigation() -> None:
+    investigation = result(
+        diff=-1.0,
+        details={
+            "wme_residual_movements": {
+                "movements": [
+                    {
+                        "operation_type": "PV",
+                        "document": "TEST",
+                        "system_difference_effect": -1.0,
+                    }
+                ]
+            }
+        },
+    )
+    before = asdict(investigation)
+    explanation = auto_explanation_from_investigation(investigation)
+
+    _ = assess_auto_explain_promotion(investigation, explanation)
+
+    after = asdict(investigation)
+    assert after == before
