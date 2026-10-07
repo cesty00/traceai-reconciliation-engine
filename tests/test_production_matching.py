@@ -668,3 +668,76 @@ def test_positive_unconsumed_production_location_correction_is_preserved_signed(
     assert result.unconsumed_correction_total == 7.2
     assert len(result.unconsumed_correction_items) == 1
     assert result.unconsumed_correction_items[0]["quantity"] == 7.2
+
+
+
+def test_aggregate_reversal_rejects_foreign_lot_even_if_sum_matches() -> None:
+    wms = pd.DataFrame(
+        [
+            {
+                "Data": "2026-08-06 10:00:00",
+                "Tip operatiune": "Ajustare pozitiva",
+                "Cantitate": 100.0,
+                "Numar comanda": "0036576_AE",
+                "Locatie sursa": "ULMA",
+                "Lot": "218.26A",
+                "Cod-motiv": "PRODUCTION-OUT",
+                "Detalii": "",
+            },
+            {
+                "Data": "2026-08-06 10:01:00",
+                "Tip operatiune": "Ajustare pozitiva",
+                "Cantitate": 50.0,
+                "Numar comanda": "0036576_AE",
+                "Locatie sursa": "ULMA",
+                "Lot": "218.26B",
+                "Cod-motiv": "PRODUCTION-OUT",
+                "Detalii": "",
+            },
+            {
+                "Data": "2026-08-06 10:02:00",
+                "Tip operatiune": "Ajustare negativa",
+                "Cantitate": -150.0,
+                "Numar comanda": None,
+                "Locatie sursa": "ULMA",
+                "Lot": "FOREIGN-LOT",
+                "Cod-motiv": "COR STOC",
+                "Detalii": "",
+            },
+            {
+                "Data": "2026-08-06 10:10:00",
+                "Tip operatiune": "Ajustare pozitiva",
+                "Cantitate": 10.0,
+                "Numar comanda": "0036584_AE",
+                "Locatie sursa": "ULMA",
+                "Lot": "218.26C",
+                "Cod-motiv": "PRODUCTION-OUT",
+                "Detalii": "",
+            },
+        ]
+    )
+    wme = pd.DataFrame(
+        [
+            {
+                "OperationType": "NP",
+                "Document": "36584",
+                "SignedQuantity": 10.0,
+            }
+        ]
+    )
+
+    result = match_production_adjustments(wms, wme)
+
+    assert not any(
+        item["positive_document_normalized"] == "36576"
+        and item["status"] == "WMS_AGGREGATE_SCOPE_REVERSAL"
+        for item in result.reversal_pairs
+    )
+    assert any(
+        item["document"] == "36576"
+        for item in result.document_residuals
+    )
+    assert any(
+        item["quantity"] == -150.0
+        for item in result.residual_wms_adjustments
+    )
