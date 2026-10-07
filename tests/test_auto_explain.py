@@ -563,3 +563,69 @@ def test_prod02_cross_target_is_blocked_when_pv_bridge_is_ambiguous() -> None:
 
     assert "PROD-02" not in explanation.rules
     assert explanation.status != "EXACT"
+
+
+
+def test_exact_signed_production_correction_chain_becomes_adj01() -> None:
+    result = investigation_result(
+        initial_difference=-11.8,
+        opening_wms=1393.0,
+        opening_wme=1393.0,
+        details={
+            "production_matching": {
+                "document_residual_total": 155005.0,
+                "document_residuals": [
+                    {
+                        "document": "26778",
+                        "effective_difference": 155005.0,
+                    }
+                ],
+                "unconsumed_correction_total": -155016.8,
+                "unconsumed_correction_items": [
+                    {"quantity": -155024.0},
+                    {"quantity": 7.2},
+                ],
+                "applied_to_explanation": False,
+            },
+        },
+    )
+
+    explanation = auto_explanation_from_investigation(result)
+
+    assert explanation.status == "EXACT"
+    assert explanation.explained_difference == -11.8
+    assert explanation.residual_difference == 0.0
+    assert explanation.rules == ("ADJ-01",)
+    assert len(explanation.components) == 1
+    assert explanation.components[0].component_id == (
+        "production_correction_chain_exact"
+    )
+
+
+def test_nonexact_signed_production_correction_chain_stays_unapplied() -> None:
+    result = investigation_result(
+        initial_difference=-11.8,
+        opening_wms=1393.0,
+        opening_wme=1393.0,
+        details={
+            "production_matching": {
+                "document_residual_total": 100.0,
+                "document_residuals": [
+                    {
+                        "document": "X",
+                        "effective_difference": 100.0,
+                    }
+                ],
+                "unconsumed_correction_total": -110.0,
+                "unconsumed_correction_items": [
+                    {"quantity": -110.0},
+                ],
+                "applied_to_explanation": False,
+            },
+        },
+    )
+
+    explanation = auto_explanation_from_investigation(result)
+
+    assert "ADJ-01" not in explanation.rules
+    assert explanation.status != "EXACT"
