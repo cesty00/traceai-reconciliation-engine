@@ -241,6 +241,8 @@ def match_production_adjustments(
                     "reversare identificată"
                 ),
                 "status": "WMS_ONLY_REVIEW",
+                "cod_motiv": _text(row.get("Cod-motiv")),
+                "details": _text(row.get("Detalii")),
             }
         )
 
