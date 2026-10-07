@@ -189,3 +189,34 @@ def test_rule_inference_uses_applied_component_flags() -> None:
         "GST-04",
         "ADJ-01",
     ]
+
+
+
+def test_auto_explain_shadow_cannot_override_registry_authority() -> None:
+    result = _result(-17.0)
+    result.opening_stock_wms = 40.0
+    result.opening_stock_wme = 40.0
+    result.details = {
+        "auto_explain": {
+            "status": "EXACT",
+            "evidence_level": "A",
+            "rules": ["OPEN-01", "PROD-02"],
+            "explained_difference": -1419.0,
+            "residual_difference": 0.0,
+        }
+    }
+
+    report = build_case_report(
+        result,
+        engine_version="0.6.0-shadow",
+        engine_commit_sha="shadow",
+        rules_version="0.6",
+        execution_id="RUN-AUTHORITY",
+    )
+    payload = build_registry_update(result, report)
+
+    assert payload["values"]["Verdict"] == "REVIEW"
+    assert payload["values"]["Nivel_proba"] == "B"
+    assert payload["values"]["Cauza"] == "CAUSE-MULTI-PARTIAL"
+    assert payload["values"]["Status_investigatie"] == "IN_ANALIZA"
+    assert payload["values"]["Regula_aplicata"] is None
