@@ -248,13 +248,13 @@ def components_from_investigation(
             residual_items = list(
                 production.get("residual_adjustment_items", []) or []
             )
-            production_tokens = (
-                "PRODUCTIE",
-                "PRODUCTIE!",
-                "PROD",
-                "PREDARE",
-                "COMANDA PRODUCTIE",
-                "CMD",
+            generic_tokens = (
+                "CARTOANE DEFECTE",
+                "NOTA DE CREDIT",
+                "NOTĂ DE CREDIT",
+                "INVENTAR",
+                "PROCES VERBAL",
+                "RETUR FACTURAT",
             )
             texts = [
                 " ".join(
@@ -265,23 +265,22 @@ def components_from_investigation(
                 ).upper()
                 for item in residual_items
             ]
-            clearly_production = bool(texts) and all(
-                any(token in text for token in production_tokens)
+            clearly_generic = bool(texts) and all(
+                any(token in text for token in generic_tokens)
                 for text in texts
             )
-            rule_id = "PROD-02" if clearly_production else "ADJ-01"
+            rule_id = "ADJ-01" if clearly_generic else "PROD-02"
             component_id = (
-                "production_residual"
-                if clearly_production
-                else "production_location_generic_adjustment"
+                "production_location_generic_adjustment"
+                if clearly_generic
+                else "production_residual"
             )
             description = (
-                "Ajustare reziduală WMS legată explicit de predarea/comanda "
-                "de producție."
-                if clearly_production
-                else "COR STOC WMS rezidual în locație de producție, fără "
-                "legătură explicită cu o predare/comandă de producție; "
-                "clasificat conservator ca ADJ-01."
+                "COR STOC WMS rezidual în locație de producție, dar cu motiv "
+                "explicit non-producție; clasificat ca ADJ-01."
+                if clearly_generic
+                else "Ajustare reziduală WMS din locația/fluxul de producție, "
+                "păstrată PROD-02 în lipsa unui motiv explicit non-producție."
             )
             components.append(
                 ExplanationComponent(
