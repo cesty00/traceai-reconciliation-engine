@@ -622,3 +622,49 @@ def test_test_lot_correction_is_evidence_only() -> None:
     assert result.document_residuals == []
     assert result.residual_wms_adjustments == []
     assert result.residual_total == 0.0
+
+
+
+def test_positive_unconsumed_production_location_correction_is_preserved_signed() -> None:
+    wms = pd.DataFrame(
+        [
+            {
+                "Data": "2026-08-04 10:00:00",
+                "Tip operatiune": "Ajustare pozitiva",
+                "Cantitate": 100.0,
+                "Numar comanda": "0036374_AE",
+                "Locatie sursa": "ULMA",
+                "Lot": "215.26C1",
+                "Cod-motiv": "PRODUCTION-OUT",
+                "Detalii": "",
+            },
+            {
+                "Data": "2026-08-04 10:05:00",
+                "Tip operatiune": "Ajustare pozitiva",
+                "Cantitate": 7.2,
+                "Numar comanda": None,
+                "Locatie sursa": "ULMA",
+                "Lot": "215.26C1",
+                "Cod-motiv": "COR STOC",
+                "Detalii": "EROARE PREDARE COMANDA PRODUCTIE!",
+            },
+        ]
+    )
+    wme = pd.DataFrame(
+        [
+            {
+                "OperationType": "NP",
+                "Document": "36374",
+                "SignedQuantity": 100.0,
+            }
+        ]
+    )
+
+    result = match_production_adjustments(wms, wme)
+
+    assert result.document_residual_total == 0.0
+    assert result.residual_total == 0.0
+    assert result.residual_wms_adjustments == []
+    assert result.unconsumed_correction_total == 7.2
+    assert len(result.unconsumed_correction_items) == 1
+    assert result.unconsumed_correction_items[0]["quantity"] == 7.2
