@@ -36,6 +36,16 @@ from .registry_apply_plan import (
     build_registry_apply_plan,
     write_registry_apply_plan,
 )
+from .human_review_queue import (
+    HumanReviewQueueItem,
+    REVIEW_QUEUE_COLUMNS,
+    apply_human_review_decision,
+    build_human_review_queue_item,
+    build_review_queue_payload,
+    queue_item_to_dict,
+    review_queue_values,
+    record_manual_evidence_resolution,
+)
 
 __all__ = [
     "InvestigationSources",
@@ -67,4 +77,12 @@ __all__ = [
     "write_manifest",
     "build_registry_apply_plan",
     "write_registry_apply_plan",
+    "HumanReviewQueueItem",
+    "REVIEW_QUEUE_COLUMNS",
+    "apply_human_review_decision",
+    "build_human_review_queue_item",
+    "build_review_queue_payload",
+    "queue_item_to_dict",
+    "review_queue_values",
+    "record_manual_evidence_resolution",
 ]
