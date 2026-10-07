@@ -534,3 +534,91 @@ def test_ambiguous_post_np_correction_remains_review() -> None:
     assert result.document_residuals == []
     assert len(result.residual_wms_adjustments) == 1
     assert result.residual_wms_adjustments[0]["quantity"] == -202.0
+
+
+
+def test_corectie_stoc_duplicate_rows_same_document_is_unambiguous() -> None:
+    wms = pd.DataFrame(
+        [
+            {
+                "Data": "2026-05-06 17:43:02",
+                "Tip operatiune": "Ajustare pozitiva",
+                "Cantitate": 768.0,
+                "Numar comanda": "0031979_AE",
+                "Locatie sursa": "ULMA",
+                "Lot": "127.26S1",
+                "Cod-motiv": "PRODUCTION-OUT",
+                "Detalii": "",
+            },
+            {
+                "Data": "2026-05-06 17:43:03",
+                "Tip operatiune": "Ajustare pozitiva",
+                "Cantitate": 768.0,
+                "Numar comanda": "0031979_AE",
+                "Locatie sursa": "ULMA",
+                "Lot": "127.26S1",
+                "Cod-motiv": "PRODUCTION-OUT",
+                "Detalii": "",
+            },
+            {
+                "Data": "2026-05-06 17:43:44",
+                "Tip operatiune": "Ajustare negativa",
+                "Cantitate": -768.0,
+                "Numar comanda": None,
+                "Locatie sursa": "ULMA",
+                "Lot": "127.26S1",
+                "Cod-motiv": "CORECTIE STOC",
+                "Detalii": "AJUSTARE CANTITATIVA",
+            },
+        ]
+    )
+    wme = pd.DataFrame(
+        [
+            {"OperationType": "NP", "Document": "31979", "SignedQuantity": 768.0},
+            {"OperationType": "NP", "Document": "31979", "SignedQuantity": 768.0},
+        ]
+    )
+
+    result = match_production_adjustments(wms, wme)
+
+    assert result.residual_wms_adjustments == []
+    assert len(result.document_residuals) == 1
+    item = result.document_residuals[0]
+    assert item["document"] == "31979"
+    assert item["raw_difference"] == 0.0
+    assert item["correction_effect"] == -768.0
+    assert item["effective_difference"] == -768.0
+
+
+def test_test_lot_correction_is_evidence_only() -> None:
+    wms = pd.DataFrame(
+        [
+            {
+                "Data": "2026-02-08 10:00:00",
+                "Tip operatiune": "Ajustare pozitiva",
+                "Cantitate": 30.0,
+                "Numar comanda": "0025896_AE",
+                "Locatie sursa": "ULMA",
+                "Lot": "TEST",
+                "Cod-motiv": "PRODUCTION-OUT",
+                "Detalii": "",
+            },
+            {
+                "Data": "2026-03-03 10:24:35",
+                "Tip operatiune": "Ajustare negativa",
+                "Cantitate": -30.0,
+                "Numar comanda": None,
+                "Locatie sursa": "ULMA",
+                "Lot": "TEST",
+                "Cod-motiv": "COR STOC",
+                "Detalii": "comanda test productie",
+            },
+        ]
+    )
+    wme = pd.DataFrame(columns=["OperationType", "Document", "SignedQuantity"])
+
+    result = match_production_adjustments(wms, wme)
+
+    assert result.document_residuals == []
+    assert result.residual_wms_adjustments == []
+    assert result.residual_total == 0.0
