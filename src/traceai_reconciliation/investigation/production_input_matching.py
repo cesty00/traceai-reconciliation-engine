@@ -142,10 +142,13 @@ def match_production_inputs(
             if not inventory_rows.empty:
                 inventory_checkpoint = inventory_rows["_date"].dropna().max()
 
-        corrections = correction_rows[
-            all_operation.reindex(correction_rows.index).eq("Ajustare pozitiva")
-            & correction_rows["_qty"].gt(tolerance)
-        ].copy()
+        if correction_rows.empty:
+            corrections = correction_rows.copy()
+        else:
+            corrections = correction_rows[
+                all_operation.reindex(correction_rows.index).eq("Ajustare pozitiva")
+                & correction_rows["_qty"].gt(tolerance)
+            ].copy()
         if not corrections.empty:
             corrections["_qty"] = pd.to_numeric(
                 corrections["Cantitate"],
