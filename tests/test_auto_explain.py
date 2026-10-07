@@ -364,3 +364,45 @@ def test_wme02_ignores_f_even_if_it_would_close_residual() -> None:
 
     assert explanation.status == "NONE"
     assert explanation.rules == ()
+
+
+def test_unique_production_document_residual_can_explain_after_opening() -> None:
+    result = investigation_result(
+        initial_difference=-38.0,
+        opening_wms=0.0,
+        opening_wme=1.0,
+        details={
+            "production_matching": {
+                "residual_total": 0.0,
+                "applied_to_explanation": False,
+                "document_residual_total": -37.0,
+                "document_residuals": [
+                    {
+                        "document": "24707",
+                        "effective_difference": -37.0,
+                    }
+                ],
+            },
+            "delivery_matching": {
+                "residual_total": -16.0,
+                "applied_to_explanation": True,
+            },
+            "wme_residual_movements": {
+                "movements": [
+                    {
+                        "operation_type": "PV",
+                        "document": "2617",
+                        "warehouse": "DEPOZIT PESTE PROASPAT",
+                        "system_difference_effect": 16.0,
+                    }
+                ]
+            },
+        },
+    )
+
+    explanation = auto_explanation_from_investigation(result)
+
+    assert explanation.status == "EXACT"
+    assert explanation.explained_difference == -38.0
+    assert explanation.residual_difference == 0.0
+    assert explanation.rules == ("OPEN-01", "PROD-02")
