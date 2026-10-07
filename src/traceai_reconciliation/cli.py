@@ -106,6 +106,15 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--period", help="Investigation period label")
     parser.add_argument("--report-date", help="Report date")
     parser.add_argument("--opening-stock-wms", help="Opening stock WMS XLSX")
+    parser.add_argument(
+        "--opening-absent-means-zero",
+        action="store_true",
+        help=(
+            "Explicit policy for a complete opening-stock export: if the product "
+            "is absent from that file, treat its WMS opening balance as 0. "
+            "Disabled by default."
+        ),
+    )
     parser.add_argument("--wms-movements", help="WMS movements CSV/XLSX")
     parser.add_argument("--wme-ledger", help="WME stock ledger XLSX")
     parser.add_argument("--production", help="Production CSV/XLSX")
@@ -255,6 +264,7 @@ def _run_batch_investigation(args: argparse.Namespace) -> None:
         nomenclature=Path(args.nomenclature),
         cache_dir=cache_dir,
         use_source_index=True,
+        opening_absent_means_zero=args.opening_absent_means_zero,
     )
 
     cases = load_batch_manifest(args.batch_manifest)
@@ -312,6 +322,7 @@ def _run_real_product_investigation(args: argparse.Namespace) -> None:
         nomenclature=Path(args.nomenclature),
         cache_dir=cache_dir,
         use_source_index=args.indexed_cache,
+        opening_absent_means_zero=args.opening_absent_means_zero,
     )
 
     result = investigate_product(
