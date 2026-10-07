@@ -996,6 +996,23 @@ def investigate_product(
             production_input_match.residual_total,
             decimals,
         ),
+        "persistent_residual_total": round(
+            production_input_match.persistent_residual_total,
+            decimals,
+        ),
+        "persistent_residual_documents": (
+            production_input_match.persistent_residual_documents or []
+        ),
+        "neutralized_residual_documents": (
+            production_input_match.neutralized_residual_documents or []
+        ),
+        "basket_groups": production_input_match.basket_groups or [],
+        "inventory_checkpoint_date": (
+            production_input_match.inventory_checkpoint_date
+        ),
+        "safe_to_auto_explain": (
+            production_input_match.safe_to_auto_explain
+        ),
         "applied_to_explanation": False,
     }
 
@@ -1107,6 +1124,9 @@ def investigate_product(
         "document_residual_total": round(
             production_match.document_residual_total,
             decimals,
+        ),
+        "residual_adjustment_items": (
+            production_match.residual_wms_adjustments
         ),
         "applied_to_explanation": False,
     }
