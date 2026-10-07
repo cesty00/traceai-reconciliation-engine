@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 import pandas as pd
@@ -15,6 +15,8 @@ class ProductionMatchResult:
     wms_positive_total: float
     wme_np_total: float
     residual_total: float
+    document_residuals: list[dict[str, Any]] = field(default_factory=list)
+    document_residual_total: float = 0.0
 
 
 def normalize_document(value: object) -> str:
@@ -250,6 +252,39 @@ def match_production_adjustments(
         sum(item["quantity"] for item in residual_wms_adjustments)
     )
 
+    reversal_by_document: dict[str, float] = {}
+    for item in reversal_pairs:
+        document = str(item["positive_document_normalized"])
+        reversal_by_document[document] = (
+            reversal_by_document.get(document, 0.0)
+            + float(item["quantity"])
+        )
+
+    document_residuals: list[dict[str, Any]] = []
+    for item in matched_documents:
+        document = str(item["document"])
+        effective_difference = (
+            float(item["difference"])
+            - reversal_by_document.get(document, 0.0)
+        )
+        if abs(effective_difference) <= tolerance:
+            continue
+        document_residuals.append(
+            {
+                "document": document,
+                "raw_difference": float(item["difference"]),
+                "reversed_wms_positive": reversal_by_document.get(
+                    document, 0.0
+                ),
+                "effective_difference": effective_difference,
+                "status": "QTY_DIFF_AFTER_REVERSALS",
+            }
+        )
+
+    document_residual_total = float(
+        sum(item["effective_difference"] for item in document_residuals)
+    )
+
     return ProductionMatchResult(
         matched_documents=matched_documents,
         reversal_pairs=reversal_pairs,
@@ -257,4 +292,6 @@ def match_production_adjustments(
         wms_positive_total=wms_positive_total,
         wme_np_total=wme_np_total,
         residual_total=residual_total,
+        document_residuals=document_residuals,
+        document_residual_total=document_residual_total,
     )
