@@ -31,6 +31,14 @@ REVIEW_QUEUE_COLUMNS = [
     "Motiv_decizie",
     "Reviewed_at",
     "Registry_Action",
+    "Manual_Evidence_Status",
+    "Manual_Evidence_Level",
+    "Manual_Evidence_Residual",
+    "Manual_Evidence_Link",
+    "Manual_Evidence_Reviewer",
+    "Manual_Evidence_Reason",
+    "Resolved_Blockers",
+    "Manual_Evidence_At",
 ]
 
 
@@ -57,6 +65,14 @@ class HumanReviewQueueItem:
     decision_reason: str | None = None
     reviewed_at: str | None = None
     registry_action: str = "NONE"
+    manual_evidence_status: str = "NONE"
+    manual_evidence_level: str | None = None
+    manual_evidence_residual: float | None = None
+    manual_evidence_url: str | None = None
+    manual_evidence_reviewer: str | None = None
+    manual_evidence_reason: str | None = None
+    resolved_blockers: tuple[str, ...] = ()
+    manual_evidence_at: str | None = None
 
 
 def _priority(
@@ -164,6 +180,14 @@ def review_queue_values(
         "Motiv_decizie": item.decision_reason,
         "Reviewed_at": item.reviewed_at,
         "Registry_Action": item.registry_action,
+        "Manual_Evidence_Status": item.manual_evidence_status,
+        "Manual_Evidence_Level": item.manual_evidence_level,
+        "Manual_Evidence_Residual": item.manual_evidence_residual,
+        "Manual_Evidence_Link": item.manual_evidence_url,
+        "Manual_Evidence_Reviewer": item.manual_evidence_reviewer,
+        "Manual_Evidence_Reason": item.manual_evidence_reason,
+        "Resolved_Blockers": ", ".join(item.resolved_blockers) or None,
+        "Manual_Evidence_At": item.manual_evidence_at,
     }
 
 
@@ -212,6 +236,109 @@ def queue_item_to_dict(
 
 
 
+def record_manual_evidence_resolution(
+    item: HumanReviewQueueItem,
+    *,
+    evidence_level: str,
+    residual: float,
+    evidence_url: str,
+    reviewer: str,
+    reason: str,
+    resolved_blockers: tuple[str, ...] | list[str],
+    verified_at: str | None = None,
+    tolerance: float = 0.001,
+) -> HumanReviewQueueItem:
+    """
+    Record a document-based resolution for a Promotion Safety Gate HOLD.
+
+    This is deliberately separate from Auto Explain and Promotion_Status:
+    - AutoExplain_Status is not rewritten;
+    - Promotion_Status is not rewritten;
+    - REGISTRU_CAZURI, WMS and WME are never mutated;
+    - manual evidence can unlock approval only when level A evidence closes the
+      residual within tolerance and every original blocker is explicitly resolved.
+    """
+    if item.promotion_status != "HOLD":
+        raise ValueError(
+            "Manual evidence resolution este permis numai pentru cazuri HOLD."
+        )
+
+    level = evidence_level.strip().upper()
+    if level != "A":
+        raise ValueError(
+            "Manual evidence resolution necesita nivel de proba A."
+        )
+
+    residual_value = float(residual)
+    if abs(residual_value) > tolerance:
+        raise ValueError(
+            "Manual evidence resolution necesita rezidual zero in toleranta."
+        )
+
+    url = evidence_url.strip()
+    reviewer_clean = reviewer.strip()
+    reason_clean = reason.strip()
+    if not url:
+        raise ValueError("Linkul dovezii manuale este obligatoriu.")
+    if not reviewer_clean:
+        raise ValueError("Reviewer-ul dovezii manuale este obligatoriu.")
+    if not reason_clean:
+        raise ValueError("Motivul rezolvarii manuale este obligatoriu.")
+
+    resolved = tuple(dict.fromkeys(str(value).strip() for value in resolved_blockers if str(value).strip()))
+    if not resolved:
+        raise ValueError("Trebuie indicat cel putin un blocker rezolvat.")
+
+    original = set(item.blockers)
+    unknown = [value for value in resolved if value not in original]
+    if unknown:
+        raise ValueError(
+            "Resolved_Blockers contine valori care nu exista in blocker-ele initiale: "
+            + ", ".join(unknown)
+        )
+
+    unresolved = tuple(value for value in item.blockers if value not in set(resolved))
+    status = "VERIFIED" if not unresolved else "PARTIAL"
+    timestamp = verified_at or datetime.now(timezone.utc).isoformat(
+        timespec="seconds"
+    )
+    warning = (
+        "MANUAL_EVIDENCE_VERIFIED"
+        if status == "VERIFIED"
+        else "MANUAL_EVIDENCE_PARTIAL"
+    )
+    warnings = tuple(dict.fromkeys((*item.warnings, warning)))
+
+    if unresolved:
+        prompt = (
+            "Dovezi manuale nivel A au inchis partial blocker-ele. "
+            "Raman de rezolvat: "
+            + ", ".join(unresolved)
+            + ". Nu aproba pana la inchiderea tuturor blocker-elor."
+        )
+    else:
+        prompt = (
+            "Dovezi manuale nivel A, rezidual zero si toate blocker-ele initiale "
+            "au fost verificate documentar. Cazul poate intra in decizie umana. "
+            "Aprobarea ramane separata si nu modifica automat REGISTRU/WMS/WME."
+        )
+
+    return replace(
+        item,
+        warnings=warnings,
+        validation_prompt=prompt,
+        review_status="IN_REVIEW",
+        manual_evidence_status=status,
+        manual_evidence_level=level,
+        manual_evidence_residual=residual_value,
+        manual_evidence_url=url,
+        manual_evidence_reviewer=reviewer_clean,
+        manual_evidence_reason=reason_clean,
+        resolved_blockers=resolved,
+        manual_evidence_at=timestamp,
+    )
+
+
 def apply_human_review_decision(
     item: HumanReviewQueueItem,
     *,
@@ -255,10 +382,21 @@ def apply_human_review_decision(
         elif item.promotion_status == "TOLERANCE_MATCH":
             review_status = "APPROVED"
             registry_action = "NONE"
+        elif (
+            item.promotion_status == "HOLD"
+            and item.manual_evidence_status == "VERIFIED"
+            and item.manual_evidence_level == "A"
+            and item.manual_evidence_residual is not None
+            and abs(float(item.manual_evidence_residual)) <= 0.001
+            and set(item.resolved_blockers) == set(item.blockers)
+        ):
+            review_status = "APPROVED"
+            registry_action = "PROPOSE_ONLY"
         else:
             raise ValueError(
-                "APROBAT este permis numai pentru "
-                "ELIGIBLE_FOR_HUMAN_REVIEW sau TOLERANCE_MATCH."
+                "APROBAT este permis numai pentru ELIGIBLE_FOR_HUMAN_REVIEW, "
+                "TOLERANCE_MATCH sau HOLD cu manual evidence VERIFIED nivel A, "
+                "rezidual zero si toate blocker-ele rezolvate."
             )
     elif decision_normalized == "RESPINS":
         review_status = "REJECTED"
