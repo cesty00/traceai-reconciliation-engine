@@ -61,6 +61,9 @@ candidate_rules:
   - id: WME-01
     description: "Miscarile WME non-standard din afara gestiunilor speciale se raporteaza ca dovezi reziduale, dar nu se adauga automat la diferenta explicata fara o legatura documentara validata."
     status: "CANDIDAT"
+  - id: WME-02
+    description: "In Auto Explain shadow, un PV WME rezidual poate contribui numai daca, dupa neutralizarea unei perechi exacte cu un rezidual de livrare opus, ramane un singur PV al carui efect WMS-WME inchide exact rezidualul curent. F si combinatiile de mai multe PV-uri nu sunt promovate automat."
+    status: "TESTARE_SHADOW"
 
   - id: REC-01
     description: "Receptiile WMS cu Numar comanda IN... se compara cu FE pozitive WME dupa Document intrare si cantitatea agregata."
