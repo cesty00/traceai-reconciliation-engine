@@ -374,9 +374,17 @@ def components_from_investigation(
     wme_residual = details.get("wme_residual_movements", {})
     wme_movements = list(wme_residual.get("movements", []) or [])
     neutralized_wme_indices: set[int] = set()
-    suppress_delivery = False
     delivery_effect = round(float(delivery.get("residual_total", 0.0)), decimals)
     tolerance = 10 ** (-decimals)
+    pre_delivery_explained = round(
+        sum(float(item.effect) for item in components),
+        decimals,
+    )
+    pre_delivery_residual = round(
+        float(result.initial_difference) - pre_delivery_explained,
+        decimals,
+    )
+    suppress_delivery = abs(pre_delivery_residual) <= tolerance
 
     # Conservative bridge: an exact one-to-one opposite PV WME can neutralize
     # a delivery residual as document-family/timing evidence. F movements are
@@ -418,7 +426,33 @@ def components_from_investigation(
             )
 
     correction = details.get("generic_stock_corrections", {})
-    if correction.get("applied_to_explanation", False):
+    special = details.get("special_status_matching", {})
+
+    # Flow-specific evidence has priority over a generic COR STOC. If the
+    # special-status component closes the current residual exactly, do not
+    # double-count a weaker generic adjustment that the legacy engine happened
+    # to apply earlier in its ordering.
+    current_before_generic = round(
+        sum(float(item.effect) for item in components),
+        decimals,
+    )
+    residual_before_generic = round(
+        float(result.initial_difference) - current_before_generic,
+        decimals,
+    )
+    special_effect = round(
+        float(special.get("explained_total", 0.0)),
+        decimals,
+    )
+    special_closes_residual = (
+        special.get("applied_to_explanation", False)
+        and abs(special_effect - residual_before_generic) <= tolerance
+    )
+    if (
+        correction.get("applied_to_explanation", False)
+        and abs(residual_before_generic) > tolerance
+        and not special_closes_residual
+    ):
         effect = round(float(correction.get("residual_total", 0.0)), decimals)
         if effect:
             components.append(
@@ -436,7 +470,6 @@ def components_from_investigation(
                 )
             )
 
-    special = details.get("special_status_matching", {})
     if special.get("applied_to_explanation", False):
         effect = round(float(special.get("explained_total", 0.0)), decimals)
         if effect:
