@@ -176,3 +176,39 @@ Orice pas viitor care aplică o decizie aprobată în registry trebuie să fie u
 ## Următorul pas după faza 1
 
 Populare pilot a cozii cu rezultatele non-Golden deja auditate și verificare manuală a workflow-ului înainte de orice mecanism de sincronizare bidirecțională.
+
+
+## Manual Evidence Resolution pentru cazuri HOLD
+
+Un caz `HOLD` poate avea o investigație documentară ulterioară mai puternică decât
+rezultatul Auto Explain inițial. v0.7 păstrează separat cele două niveluri de
+autoritate:
+
+- `AutoExplain_Status` și `Promotion_Status` nu sunt rescrise retroactiv;
+- dovada manuală se înregistrează separat;
+- rezoluția manuală nu modifică REGISTRU_CAZURI, WMS sau WME;
+- aprobarea umană rămâne un pas separat.
+
+Pentru ca o rezoluție manuală să fie `VERIFIED`, sunt obligatorii cumulativ:
+- nivel probă `A`;
+- rezidual închis la zero în toleranța motorului;
+- link de dovadă/raport;
+- reviewer și motiv;
+- toate blocker-ele inițiale trebuie marcate explicit ca rezolvate.
+
+Dacă numai o parte dintre blockere este rezolvată, statusul dovezii manuale este
+`PARTIAL` și cazul rămâne neaprobabil.
+
+Câmpuri suplimentare în `VALIDARE_CAZURI`:
+- `Manual_Evidence_Status`;
+- `Manual_Evidence_Level`;
+- `Manual_Evidence_Residual`;
+- `Manual_Evidence_Link`;
+- `Manual_Evidence_Reviewer`;
+- `Manual_Evidence_Reason`;
+- `Resolved_Blockers`;
+- `Manual_Evidence_At`.
+
+Un `HOLD` cu `Manual_Evidence_Status=VERIFIED` poate intra în decizia umană,
+dar `Registry_Action` rămâne `NONE` până la o decizie `APROBAT`. Chiar după
+aprobare, acțiunea permisă este numai `PROPOSE_ONLY`, niciodată apply automat.
