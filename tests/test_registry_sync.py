@@ -166,6 +166,9 @@ def test_rule_inference_uses_applied_component_flags() -> None:
         "production_matching": {
             "applied_to_explanation": True,
         },
+        "production_input_matching": {
+            "applied_to_explanation": True,
+        },
         "generic_stock_corrections": {
             "applied_to_explanation": True,
         },
@@ -182,6 +185,7 @@ def test_rule_inference_uses_applied_component_flags() -> None:
         "DEL-02",
         "R-DER-001",
         "PROD-02",
+        "PROD-03",
         "GST-04",
         "ADJ-01",
     ]

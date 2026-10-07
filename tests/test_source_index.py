@@ -140,6 +140,10 @@ def test_sqlite_source_index_builds_and_filters_products(
     assert ids == {"1001"}
     assert float(wme_rows.iloc[0]["SignedQuantity"]) == 10.0
 
+    assert index.count_wme_operation_document("NP", "1") == 1
+    assert index.count_wme_operation_document("BC", "1") == 0
+    assert index.count_wme_operation_document("AE", "2") == 1
+
     production_rows = index.read_production_product(
         "DS001",
         period="01.01.2026-31.01.2026",

@@ -145,3 +145,97 @@ def test_return_and_transfer_mose_receipts_remain_outside_inbound_matcher() -> N
     assert result.residual_documents == []
     assert result.residual_total == 0.0
     assert len(result.unsupported_receipts) == 3
+
+
+def test_supplier_in_falls_back_to_positive_f_when_fe_absent() -> None:
+    wms = pd.DataFrame(
+        [
+            {
+                "Tip operatiune": "Receptie",
+                "Cantitate": 62550.0,
+                "Numar comanda": "IN123",
+                "Document intrare": 2846034,
+            }
+        ]
+    )
+    wme = pd.DataFrame(
+        [
+            {
+                "OperationType": "F",
+                "Document": "2846034",
+                "SignedQuantity": 62550.0,
+            }
+        ]
+    )
+
+    result = match_inbound_receipts(wms, wme)
+
+    assert result.residual_total == 0.0
+    assert result.documents[0]["wme_operation_type"] == "F"
+    assert result.documents[0]["status"] == "MATCH"
+
+
+def test_supplier_in_prefers_fe_when_fe_and_f_both_exist() -> None:
+    wms = pd.DataFrame(
+        [
+            {
+                "Tip operatiune": "Receptie",
+                "Cantitate": 997.0,
+                "Numar comanda": "IN3969",
+                "Document intrare": 10546,
+            }
+        ]
+    )
+    wme = pd.DataFrame(
+        [
+            {
+                "OperationType": "FE",
+                "Document": "10546",
+                "SignedQuantity": 997.0,
+            },
+            {
+                "OperationType": "F",
+                "Document": "10546",
+                "SignedQuantity": 997.0,
+            },
+        ]
+    )
+
+    result = match_inbound_receipts(wms, wme)
+
+    assert result.wme_supported_total == 997.0
+    assert result.documents[0]["wme_operation_type"] == "FE"
+    assert result.documents[0]["status"] == "MATCH"
+
+
+def test_supplier_in_does_not_replace_existing_fe_with_f() -> None:
+    wms = pd.DataFrame(
+        [
+            {
+                "Tip operatiune": "Receptie",
+                "Cantitate": 100.0,
+                "Numar comanda": "IN1",
+                "Document intrare": 42,
+            }
+        ]
+    )
+    wme = pd.DataFrame(
+        [
+            {
+                "OperationType": "FE",
+                "Document": "42",
+                "SignedQuantity": 90.0,
+            },
+            {
+                "OperationType": "F",
+                "Document": "42",
+                "SignedQuantity": 100.0,
+            },
+        ]
+    )
+
+    result = match_inbound_receipts(wms, wme)
+
+    assert result.documents[0]["wme_operation_type"] == "FE"
+    assert result.documents[0]["difference"] == 10.0
+    assert result.documents[0]["status"] == "QTY_DIFF"

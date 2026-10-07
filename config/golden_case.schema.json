@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://traceai.local/schema/golden-case-v0.1.json",
+  "title": "TraceAI Golden Case",
+  "type": "object",
+  "required": [
+    "case_id",
+    "product_code",
+    "difference",
+    "unit",
+    "explained",
+    "residual",
+    "evidence",
+    "cause",
+    "rules",
+    "pattern",
+    "regression_focus"
+  ],
+  "properties": {
+    "case_id": {"type": "string", "pattern": "^CASE-"},
+    "product_code": {"type": "string", "minLength": 1},
+    "difference": {"type": "number"},
+    "unit": {"type": "string", "minLength": 1},
+    "explained": {"type": "number"},
+    "residual": {"type": "number"},
+    "evidence": {"enum": ["A", "B", "C", "D"]},
+    "status": {"type": "string"},
+    "cause": {"type": "string", "minLength": 1},
+    "rules": {"type": "string"},
+    "pattern": {"type": "string", "minLength": 1},
+    "regression_focus": {"type": "string", "minLength": 1},
+    "report_url": {"type": "string"}
+  }
+}

@@ -109,3 +109,10 @@ v0.4 păstrează regulile de siguranță: RAW-urile nu sunt versionate, MATCH nu
 - `tests/` — teste unitare și de regresie
 - `data/` — doar instrucțiuni; datele reale nu se versioneză
 - `docs/` — arhitectură și șablonul oficial de raport
+
+
+## Golden Case Library
+
+Începând cu hardening-ul final v0.5, proiectul are o bibliotecă de cazuri etalon validate manual. Contractul este documentat în `docs/GOLDEN_CASES.md`, iar schema machine-readable este `config/golden_case.schema.json`.
+
+Scopul este ca v0.6 și versiunile ulterioare să poată automatiza explicarea cauzelor fără să regreseze cazurile deja demonstrate.

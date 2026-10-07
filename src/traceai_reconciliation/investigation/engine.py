@@ -178,17 +178,25 @@ def _wme_final_balances(wme_rows: pd.DataFrame) -> tuple[dict[str, float], float
     work["LineNo"] = pd.to_numeric(work["LineNo"], errors="coerce")
     work["Balance"] = pd.to_numeric(work["Balance"], errors="coerce")
 
-    final_by_warehouse: dict[str, float] = {}
-    for warehouse, group in work.groupby("Warehouse", dropna=False):
+    group_keys = ["Warehouse"]
+    if "Account" in work.columns:
+        group_keys.append("Account")
+
+    balances_by_warehouse: dict[str, float] = {}
+    for keys, group in work.groupby(group_keys, dropna=False):
         ordered = group.sort_values(["Date", "LineNo"], na_position="first")
         balances = ordered["Balance"].dropna()
         if balances.empty:
             continue
-        final_by_warehouse[str(warehouse)] = float(balances.iloc[-1])
+        warehouse = keys[0] if isinstance(keys, tuple) else keys
+        balances_by_warehouse[str(warehouse)] = (
+            balances_by_warehouse.get(str(warehouse), 0.0)
+            + float(balances.iloc[-1])
+        )
 
-    if not final_by_warehouse:
+    if not balances_by_warehouse:
         return {}, None
-    return final_by_warehouse, float(sum(final_by_warehouse.values()))
+    return balances_by_warehouse, float(sum(balances_by_warehouse.values()))
 
 
 
@@ -210,17 +218,25 @@ def _wme_balance_total_at(
     else:
         work = work[work["Date"] <= cutoff]
 
-    final_by_warehouse: dict[str, float] = {}
-    for warehouse, group in work.groupby("Warehouse", dropna=False):
+    group_keys = ["Warehouse"]
+    if "Account" in work.columns:
+        group_keys.append("Account")
+
+    balances_by_warehouse: dict[str, float] = {}
+    for keys, group in work.groupby(group_keys, dropna=False):
         ordered = group.sort_values(["Date", "LineNo"], na_position="first")
         balances = ordered["Balance"].dropna()
         if balances.empty:
             continue
-        final_by_warehouse[str(warehouse)] = float(balances.iloc[-1])
+        warehouse = keys[0] if isinstance(keys, tuple) else keys
+        balances_by_warehouse[str(warehouse)] = (
+            balances_by_warehouse.get(str(warehouse), 0.0)
+            + float(balances.iloc[-1])
+        )
 
-    if not final_by_warehouse:
+    if not balances_by_warehouse:
         return {}, None
-    return final_by_warehouse, float(sum(final_by_warehouse.values()))
+    return balances_by_warehouse, float(sum(balances_by_warehouse.values()))
 
 
 def _wms_total_net_movement(
@@ -898,18 +914,84 @@ def investigate_product(
             "TRANSFER_MOSE sau lanțuri -1/-2) și rămân în regulile dedicate."
         )
 
-    production_input_match = match_production_inputs(wms_rows, wme_rows)
+    production_input_match = match_production_inputs(
+        wms_rows,
+        wme_rows,
+        production_rows=production_rows,
+    )
+    production_input_confirmed_missing = [
+        item
+        for item in production_input_match.residual_documents
+        if item.get("residual_kind") == "WME_BC_MISSING"
+        and item.get("production_confirmed", False)
+    ]
+    production_input_whole_document_missing = 0
+    if source_index is not None:
+        for item in production_input_confirmed_missing:
+            global_bc_rows = source_index.count_wme_operation_document(
+                "BC",
+                str(item["document"]),
+            )
+            item["global_wme_bc_rows"] = global_bc_rows
+            item["document_event"] = (
+                "WHOLE_BC_DOCUMENT_MISSING"
+                if global_bc_rows == 0
+                else "PRODUCT_BC_LINE_MISSING"
+            )
+            if global_bc_rows == 0:
+                production_input_whole_document_missing += 1
     result.details["production_input_matching"] = {
         "wms_total": round(production_input_match.wms_total, decimals),
+        "wms_reversal_total": round(
+            production_input_match.wms_reversal_total,
+            decimals,
+        ),
+        "wms_effective_total": round(
+            production_input_match.wms_effective_total,
+            decimals,
+        ),
         "wme_bc_total": round(production_input_match.wme_bc_total, decimals),
+        "reversed_documents": len(
+            production_input_match.reversed_documents or []
+        ),
         "residual_documents": len(
             production_input_match.residual_documents
         ),
+        "production_confirmed_missing_bc": len(
+            production_input_confirmed_missing
+        ),
+        "whole_bc_document_missing": (
+            production_input_whole_document_missing
+            if source_index is not None
+            else None
+        ),
+        "global_document_check_performed": source_index is not None,
         "residual_total": round(
             production_input_match.residual_total,
             decimals,
         ),
+        "applied_to_explanation": False,
     }
+
+    if production_input_match.reversed_documents:
+        reversed_total = sum(
+            abs(float(item["wms_production_in"]))
+            for item in production_input_match.reversed_documents
+        )
+        result.findings.append(
+            {
+                "type": "PRODUCTION_INPUT_WMS_REVERSAL",
+                "description": (
+                    f"{len(production_input_match.reversed_documents)} "
+                    f"documente PRODUCTION-IN au fost reversate explicit in "
+                    f"WMS prin COR STOC cu referinta la aceeasi comanda, total "
+                    f"{reversed_total:.3f} {result.unit}. Aceste documente nu "
+                    f"sunt tratate ca BC lipsa si nu pot explica automat "
+                    f"diferenta fata de WME."
+                ),
+                "evidence": "SRC-WMS(PRODUCTION-IN + COR STOC) + PROD-05",
+            }
+        )
 
     if production_input_match.residual_documents:
         for item in production_input_match.residual_documents:
@@ -923,11 +1005,29 @@ def investigate_product(
                     "reason": (
                         f"WMS PRODUCTION-IN "
                         f"{item['wms_production_in']:.3f} vs "
-                        f"WME BC {item['wme_bc']:.3f}"
+                        f"WME BC {item['wme_bc']:.3f}; "
+                        f"producție {item.get('production_consumption', 0.0):.3f}; "
+                        f"tip={item.get('residual_kind', 'QTY_DIFF')}; "
+                        f"eveniment={item.get('document_event', 'NEVERIFICAT_GLOBAL')}"
                     ),
                     "status": "QTY_DIFF",
                 }
             )
+        if source_index is not None and production_input_confirmed_missing:
+            result.findings.append(
+                {
+                    "type": "PRODUCTION_INPUT_DOCUMENT_EVENT",
+                    "description": (
+                        f"Dintre {len(production_input_confirmed_missing)} "
+                        f"documente BC lipsă pentru produs, "
+                        f"{production_input_whole_document_missing} au 0 rânduri "
+                        f"BC la nivel global în WME. Verificarea globală este "
+                        f"doar evidență de cauză și nu închide automat cazul."
+                    ),
+                    "evidence": "SRC-WME global OperationType=BC + PROD-04",
+                }
+            )
+
         result.findings.append(
             {
                 "type": "PRODUCTION_INPUT_RESIDUAL",
@@ -936,25 +1036,37 @@ def investigate_product(
                     f"{len(production_input_match.residual_documents)} "
                     f"documente cu diferență, total "
                     f"{production_input_match.residual_total:.3f} "
-                    f"{result.unit}."
+                    f"{result.unit}; "
+                    f"{len(production_input_confirmed_missing)} documente "
+                    f"au consumul WMS confirmat exact de raportul de producție "
+                    f"și BC WME lipsă."
                 ),
-                "evidence": "SRC-WMS(PRODUCTION-IN) + SRC-WME(BC)",
+                "evidence": (
+                    "SRC-WMS(PRODUCTION-IN) + SRC-WME(BC) + SRC-PROD(CONSUM)"
+                ),
             }
         )
     elif production_input_match.documents:
+        active_documents = (
+            len(production_input_match.documents)
+            - len(production_input_match.reversed_documents or [])
+        )
         result.findings.append(
             {
                 "type": "PRODUCTION_INPUT_MATCH",
                 "description": (
-                    f"Toate cele "
-                    f"{len(production_input_match.documents)} documente "
-                    f"PRODUCTION-IN WMS sunt concordante cu BC WME; "
-                    f"total WMS "
-                    f"{production_input_match.wms_total:.3f} "
+                    f"După excluderea a "
+                    f"{len(production_input_match.reversed_documents or [])} "
+                    f"documente PRODUCTION-IN reversate explicit în WMS, "
+                    f"cele {active_documents} documente active sunt "
+                    f"concordante cu BC WME; total WMS efectiv "
+                    f"{production_input_match.wms_effective_total:.3f} "
                     f"și total WME "
                     f"{production_input_match.wme_bc_total:.3f}."
                 ),
-                "evidence": "SRC-WMS(PRODUCTION-IN) + SRC-WME(BC)",
+                "evidence": (
+                    "SRC-WMS(PRODUCTION-IN + COR STOC) + SRC-WME(BC)"
+                ),
             }
         )
 
@@ -1038,6 +1150,49 @@ def investigate_product(
             )
             result.cause_status = "PROBABILA"
             result.evidence_level = "B"
+            result.verdict = "REVIEW"
+
+    production_input_residual = round(
+        production_input_match.residual_total,
+        decimals,
+    )
+    production_input_safe = (
+        bool(production_input_match.residual_documents)
+        and len(production_input_confirmed_missing)
+        == len(production_input_match.residual_documents)
+        and all(
+            item.get("residual_kind") == "WME_BC_MISSING"
+            for item in production_input_match.residual_documents
+        )
+    )
+    if production_input_safe and production_input_residual != 0:
+        candidate_explained = round(
+            result.explained_difference + production_input_residual,
+            decimals,
+        )
+        if abs(candidate_explained - result.initial_difference) <= 10 ** (-decimals):
+            had_previous_explanation = abs(result.explained_difference) > 10 ** (-decimals)
+            result.explained_difference = candidate_explained
+            result.unexplained_difference = round(
+                result.initial_difference - result.explained_difference,
+                decimals,
+            )
+            result.details["production_input_matching"][
+                "applied_to_explanation"
+            ] = True
+            result.cause_code = (
+                "CAUSE-MULTI-PARTIAL"
+                if had_previous_explanation
+                else "CAUSE-WME-BC-MISSING-CONFIRMED"
+            )
+            result.cause_description = (
+                "Diferența este explicată integral de consumuri PRODUCTION-IN "
+                "înregistrate în WMS și confirmate exact de raportul de "
+                "producție, pentru care documentele BC corespondente lipsesc "
+                "din WME."
+            )
+            result.cause_status = "CONFIRMATA"
+            result.evidence_level = "A"
             result.verdict = "REVIEW"
 
     delivery_residual = round(delivery_match.residual_total, decimals)

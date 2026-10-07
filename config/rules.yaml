@@ -44,8 +44,16 @@ candidate_rules:
     description: "Diferenta existenta la inceputul perioadei se pastreaza separat si nu se atribuie automat operatiunilor din perioada analizata."
     status: "CANDIDAT"
   - id: PROD-03
-    description: "Ajustarile negative WMS PRODUCTION-IN se compara cu WME BC dupa numarul de comanda normalizat si cantitatea agregata."
-    status: "CANDIDAT"
+    description: "Ajustarile negative WMS PRODUCTION-IN se compara cu WME BC dupa numarul de comanda normalizat si cantitatea agregata, dupa excluderea consumurilor reversate explicit in WMS prin PROD-05."
+    status: "TESTARE_REPARATIE"
+
+  - id: PROD-04
+    description: "Pentru un rezidual PROD-03 de tip BC lipsa confirmat de productie, se verifica global OperationType=BC + document numai dupa excluderea comenzilor reversate prin PROD-05. Zero randuri BC este evidenta de document lipsa, nu dovada automata de eroare de integrare."
+    status: "TESTARE_REPARATIE"
+
+  - id: PROD-05
+    description: "Un PRODUCTION-IN WMS este exclus din ipoteza BC lipsa daca exista ulterior o Ajustare pozitiva COR STOC care referentiaza explicit aceeasi comanda in Detalii si inverseaza integral cantitatea produsului. Reversarea este evidentiary-only si nu explica automat diferenta finala."
+    status: "TESTARE_CI"
   - id: ADJ-01
     description: "Corectiile WMS COR STOC fara document, ramase in afara productiei si fluxurilor speciale deja clasificate, se pastreaza ca WMS_ONLY_REVIEW si pot explica doar probabil o parte din diferenta."
     status: "CANDIDAT"
@@ -60,6 +68,10 @@ candidate_rules:
   - id: REC-02
     description: "Receptiile WMS TRANSFER_CG... se compara cu NT pozitive WME dupa Document intrare; TRANSFER_MOSE ramane in familia dedicata de transfer."
     status: "CANDIDAT"
+
+  - id: C-REC-003
+    description: "Pentru WMS IN... Receptie, FE pozitiv WME ramane prioritar; daca FE lipseste pe acelasi Document intrare, se permite fallback la F pozitiv pe acelasi document. Fallback-ul nu inlocuieste un FE existent si nu forteaza MATCH."
+    status: "TESTARE_REGRESIE"
 
   - id: TR-MOSE-01
     description: "TRANSFER_MOSE se reconciliaza cu NT WME ca flux intern DP<->MOSE; _DEL_ se neteaza in ordinul de baza, Document intrare are prioritate, iar fallback-ul pe cantitate+directie+data se accepta numai daca este univoc."

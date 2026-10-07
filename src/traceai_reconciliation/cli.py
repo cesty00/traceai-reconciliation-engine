@@ -11,6 +11,13 @@ from .investigation import (
     build_case_report,
     build_registry_update,
     investigate_product,
+    load_batch_manifest,
+    run_batch,
+    load_registry_export,
+    select_registry_cases,
+    write_manifest,
+    build_registry_apply_plan,
+    write_registry_apply_plan,
 )
 from .loaders import read_table
 from .product_audit import summarize_stock_report
@@ -34,6 +41,68 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument("--case-id", help="CASE_ID for product investigation")
+    parser.add_argument(
+        "--batch-summary",
+        help="Existing batch_summary.json used to stage registry updates",
+    )
+    parser.add_argument(
+        "--registry-plan-output",
+        help="Output JSON path for a staged registry apply plan",
+    )
+    parser.add_argument(
+        "--minimum-evidence",
+        default="B",
+        choices=["A", "B", "C", "D"],
+        help="Minimum evidence level accepted by registry apply-plan staging",
+    )
+    parser.add_argument(
+        "--registry-export",
+        help="CSV/JSON export of REGISTRU_CAZURI used to build a batch manifest",
+    )
+    parser.add_argument(
+        "--manifest-output",
+        help="Output JSON path for a manifest generated from REGISTRU_CAZURI",
+    )
+    parser.add_argument(
+        "--batch-limit",
+        type=int,
+        help="Maximum number of registry cases selected into a generated manifest",
+    )
+    parser.add_argument(
+        "--registry-status",
+        action="append",
+        help=(
+            "Registry status to include when generating a manifest. "
+            "Can be repeated. Defaults to DESCHIS and IN_ANALIZA."
+        ),
+    )
+    parser.add_argument(
+        "--exclude-case-id",
+        action="append",
+        help="CASE_ID to exclude from generated backlog manifest; repeatable",
+    )
+    parser.add_argument(
+        "--exclude-product",
+        action="append",
+        help="Product code to exclude from generated backlog manifest; repeatable",
+    )
+    parser.add_argument(
+        "--batch-manifest",
+        help="JSON/CSV manifest for controlled multi-case execution",
+    )
+    parser.add_argument(
+        "--batch-output-dir",
+        help="Output directory for batch case folders and batch_summary.json",
+    )
+    parser.add_argument(
+        "--batch-id",
+        help="Deterministic batch execution identifier",
+    )
+    parser.add_argument(
+        "--no-reuse-completed",
+        action="store_true",
+        help="Force re-execution even when a complete case signature can be reused",
+    )
     parser.add_argument("--period", help="Investigation period label")
     parser.add_argument("--report-date", help="Report date")
     parser.add_argument("--opening-stock-wms", help="Opening stock WMS XLSX")
@@ -63,7 +132,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--rules-version",
-        default="0.3",
+        default="0.4",
         help="Rules version recorded in the generated report",
     )
     return parser
@@ -77,6 +146,135 @@ def _write_json(path: str | Path, payload: dict) -> Path:
         encoding="utf-8",
     )
     return output
+
+
+def _run_registry_apply_plan_generation(
+    args: argparse.Namespace,
+) -> None:
+    required = {
+        "--registry-export": args.registry_export,
+        "--batch-summary": args.batch_summary,
+        "--registry-plan-output": args.registry_plan_output,
+    }
+    missing = [name for name, value in required.items() if not value]
+    if missing:
+        raise SystemExit(
+            "Registry apply-plan generation requires: "
+            + ", ".join(missing)
+        )
+
+    rows = load_registry_export(args.registry_export)
+    plan = build_registry_apply_plan(
+        rows,
+        args.batch_summary,
+        minimum_evidence=args.minimum_evidence,
+    )
+    output = write_registry_apply_plan(
+        args.registry_plan_output,
+        plan,
+    )
+    print(
+        json.dumps(
+            {
+                "registry_apply_plan": str(output),
+                "batch_id": plan.get("batch_id"),
+                "counts": plan.get("counts", {}),
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+    )
+
+
+def _run_registry_manifest_generation(
+    args: argparse.Namespace,
+) -> None:
+    if not args.registry_export or not args.manifest_output:
+        raise SystemExit(
+            "Registry manifest generation requires "
+            "--registry-export and --manifest-output."
+        )
+
+    rows = load_registry_export(args.registry_export)
+    statuses = (
+        set(args.registry_status)
+        if args.registry_status
+        else None
+    )
+    cases = select_registry_cases(
+        rows,
+        statuses=statuses,
+        limit=args.batch_limit,
+        exclude_case_ids=set(args.exclude_case_id or []),
+        exclude_products=set(args.exclude_product or []),
+    )
+    output = write_manifest(args.manifest_output, cases)
+    print(
+        json.dumps(
+            {
+                "manifest": str(output),
+                "selected_cases": len(cases),
+                "case_ids": [case.case_id for case in cases],
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+    )
+
+
+def _run_batch_investigation(args: argparse.Namespace) -> None:
+    required = {
+        "--batch-manifest": args.batch_manifest,
+        "--batch-output-dir": args.batch_output_dir,
+        "--batch-id": args.batch_id,
+        "--stock-report": args.stock_report,
+        "--opening-stock-wms": args.opening_stock_wms,
+        "--wms-movements": args.wms_movements,
+        "--wme-ledger": args.wme_ledger,
+        "--production": args.production,
+        "--nomenclature": args.nomenclature,
+    }
+    missing = [name for name, value in required.items() if not value]
+    if missing:
+        raise SystemExit(
+            "Batch investigation requires: " + ", ".join(missing)
+        )
+
+    output_dir = Path(args.batch_output_dir)
+    cache_dir = (
+        Path(args.cache_dir)
+        if args.cache_dir
+        else output_dir / ".traceai_cache"
+    )
+    sources = InvestigationSources(
+        stock_report=Path(args.stock_report),
+        opening_stock_wms=Path(args.opening_stock_wms),
+        wms_movements=Path(args.wms_movements),
+        wme_ledger=Path(args.wme_ledger),
+        production=Path(args.production),
+        nomenclature=Path(args.nomenclature),
+        cache_dir=cache_dir,
+        use_source_index=True,
+    )
+
+    cases = load_batch_manifest(args.batch_manifest)
+    summary = run_batch(
+        cases,
+        sources,
+        output_dir,
+        batch_id=args.batch_id,
+        rules_version=args.rules_version,
+        engine_commit_sha=args.engine_commit_sha,
+        reuse_completed=not args.no_reuse_completed,
+    )
+    print(
+        json.dumps(
+            asdict(summary),
+            ensure_ascii=False,
+            indent=2,
+            default=str,
+        )
+    )
 
 
 def _run_real_product_investigation(args: argparse.Namespace) -> None:
@@ -152,6 +350,18 @@ def _run_real_product_investigation(args: argparse.Namespace) -> None:
 
 def main() -> None:
     args = build_parser().parse_args()
+
+    if args.registry_export and args.batch_summary:
+        _run_registry_apply_plan_generation(args)
+        return
+
+    if args.registry_export:
+        _run_registry_manifest_generation(args)
+        return
+
+    if args.batch_manifest:
+        _run_batch_investigation(args)
+        return
 
     if args.case_json:
         if not args.output_docx:
