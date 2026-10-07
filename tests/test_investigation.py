@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pandas as pd
+import pytest
 
 from traceai_reconciliation.investigation import (
     InvestigationSources,
@@ -268,10 +269,10 @@ def test_wme_balances_preserve_multiple_accounts_in_same_warehouse() -> None:
         strictly_before=True,
     )
 
-    assert by_warehouse["SECTIE PRODUCTIE"] == 18.849
-    assert by_warehouse["DEPOZIT PESTE PROASPAT"] == 16.793
-    assert total == 35.642
+    assert by_warehouse["SECTIE PRODUCTIE"] == pytest.approx(18.849)
+    assert by_warehouse["DEPOZIT PESTE PROASPAT"] == pytest.approx(16.793)
+    assert total == pytest.approx(35.642)
 
-    assert at_cutoff["SECTIE PRODUCTIE"] == 18.849
-    assert at_cutoff["DEPOZIT PESTE PROASPAT"] == 16.793
-    assert cutoff_total == 35.642
+    assert at_cutoff["SECTIE PRODUCTIE"] == pytest.approx(18.849)
+    assert at_cutoff["DEPOZIT PESTE PROASPAT"] == pytest.approx(16.793)
+    assert cutoff_total == pytest.approx(35.642)
