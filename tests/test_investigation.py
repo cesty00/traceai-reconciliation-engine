@@ -284,3 +284,52 @@ def test_wme_balances_preserve_multiple_accounts_in_same_warehouse() -> None:
     assert at_cutoff["SECTIE PRODUCTIE"] == pytest.approx(18.849)
     assert at_cutoff["DEPOZIT PESTE PROASPAT"] == pytest.approx(16.793)
     assert cutoff_total == pytest.approx(35.642)
+
+
+def test_missing_opening_can_be_explicitly_treated_as_zero(tmp_path: Path) -> None:
+    sources = _write_fixture_sources(tmp_path)
+    pd.DataFrame(
+        [{"CodArticol": "OTHER", "Cantitate": 5.0}]
+    ).to_excel(sources.opening_stock_wms, index=False)
+    sources.opening_absent_means_zero = True
+
+    result = investigate_product(
+        product_code="DS001",
+        case_id="CASE-2026-TEST-ZERO-OPENING",
+        sources=sources,
+        period="01.01.2026-04.10.2026",
+        report_date="07.10.2026",
+    )
+
+    assert result.opening_stock_wms == 0.0
+    assert result.details["opening_stock_policy"] == {
+        "opening_absent_means_zero": True,
+        "product_absent": True,
+        "applied_value": 0.0,
+    }
+    assert any(
+        "opening_absent_means_zero=True" in warning
+        for warning in result.technical_warnings
+    )
+
+
+def test_missing_opening_remains_unknown_by_default(tmp_path: Path) -> None:
+    sources = _write_fixture_sources(tmp_path)
+    pd.DataFrame(
+        [{"CodArticol": "OTHER", "Cantitate": 5.0}]
+    ).to_excel(sources.opening_stock_wms, index=False)
+
+    result = investigate_product(
+        product_code="DS001",
+        case_id="CASE-2026-TEST-UNKNOWN-OPENING",
+        sources=sources,
+        period="01.01.2026-04.10.2026",
+        report_date="07.10.2026",
+    )
+
+    assert result.opening_stock_wms is None
+    assert result.details["opening_stock_policy"] == {
+        "opening_absent_means_zero": False,
+        "product_absent": True,
+        "applied_value": None,
+    }
