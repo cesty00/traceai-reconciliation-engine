@@ -14,6 +14,7 @@ class GoldenExpectation:
     explained: float
     residual: float
     rules: tuple[str, ...] = ()
+    supporting_rules: tuple[str, ...] = ()
     expected_status: str = "EXACT"
 
 
@@ -34,6 +35,10 @@ def compare_auto_explanation(
 ) -> GoldenGateResult:
     """
     Compare one Auto Explain result with a curated Golden Case expectation.
+
+    Only numeric/contributing rules are compared. supporting_rules are audit
+    context and MUST NOT create extra explanation components or double count
+    the equation.
 
     The gate is read-only. It never mutates the investigation, registry or
     source data.
