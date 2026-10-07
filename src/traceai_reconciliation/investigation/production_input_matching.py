@@ -19,6 +19,12 @@ class ProductionInputMatchResult:
     reversed_documents: list[dict[str, Any]] | None = None
     wms_reversal_total: float = 0.0
     wms_effective_total: float = 0.0
+    persistent_residual_documents: list[dict[str, Any]] | None = None
+    neutralized_residual_documents: list[dict[str, Any]] | None = None
+    persistent_residual_total: float = 0.0
+    basket_groups: list[dict[str, Any]] | None = None
+    inventory_checkpoint_date: str | None = None
+    safe_to_auto_explain: bool = False
 
 
 def match_production_inputs(
@@ -65,6 +71,9 @@ def match_production_inputs(
     wms["_qty"] = pd.to_numeric(
         wms["Cantitate"], errors="coerce"
     ).fillna(0.0)
+    wms["_date"] = pd.to_datetime(
+        wms.get("Data"), errors="coerce", dayfirst=True
+    )
 
     op_series = wme_rows.get(
         "OperationType",
@@ -82,12 +91,14 @@ def match_production_inputs(
         bc["_doc"] = pd.Series(dtype=str)
         bc["_qty"] = pd.Series(dtype=float)
 
+    wms_valid = wms[wms["_doc"].ne("")].copy()
     wms_by_doc = (
-        wms[wms["_doc"].ne("")]
-        .groupby("_doc")["_qty"]
+        wms_valid.groupby("_doc")["_qty"]
         .sum()
         .rename("wms_production_in")
     )
+    wms_first_date_by_doc = wms_valid.groupby("_doc")["_date"].min().to_dict()
+    wms_last_date_by_doc = wms_valid.groupby("_doc")["_date"].max().to_dict()
     wme_by_doc = (
         bc[bc["_doc"].ne("")]
         .groupby("_doc")["_qty"]
@@ -96,6 +107,8 @@ def match_production_inputs(
     )
 
     correction_by_doc: dict[str, float] = {}
+    correction_rows = pd.DataFrame()
+    inventory_checkpoint = None
     if {"Detalii", "Cod-motiv"}.issubset(wms_rows.columns):
         all_reason = (
             wms_rows["Cod-motiv"].astype(str).str.strip().str.upper()
@@ -107,10 +120,31 @@ def match_production_inputs(
             wms_rows["Cantitate"],
             errors="coerce",
         ).fillna(0.0)
-        corrections = wms_rows[
+        correction_rows = wms_rows[
             all_reason.eq("COR STOC")
-            & all_operation.eq("Ajustare pozitiva")
-            & all_quantity.gt(tolerance)
+            & all_quantity.abs().gt(tolerance)
+        ].copy()
+        if not correction_rows.empty:
+            correction_rows["_qty"] = pd.to_numeric(
+                correction_rows["Cantitate"], errors="coerce"
+            ).fillna(0.0)
+            correction_rows["_date"] = pd.to_datetime(
+                correction_rows.get("Data"), errors="coerce", dayfirst=True
+            )
+            correction_rows["_details"] = (
+                correction_rows["Detalii"].fillna("").astype(str)
+            )
+            inventory_rows = correction_rows[
+                correction_rows["_details"].str.contains(
+                    "INVENTAR", case=False, regex=False, na=False
+                )
+            ]
+            if not inventory_rows.empty:
+                inventory_checkpoint = inventory_rows["_date"].dropna().max()
+
+        corrections = correction_rows[
+            all_operation.reindex(correction_rows.index).eq("Ajustare pozitiva")
+            & correction_rows["_qty"].gt(tolerance)
         ].copy()
         if not corrections.empty:
             corrections["_qty"] = pd.to_numeric(
@@ -219,6 +253,16 @@ def match_production_inputs(
 
         item = {
             "document": str(doc),
+            "first_date": (
+                str(wms_first_date_by_doc.get(str(doc)))
+                if pd.notna(wms_first_date_by_doc.get(str(doc)))
+                else None
+            ),
+            "last_date": (
+                str(wms_last_date_by_doc.get(str(doc)))
+                if pd.notna(wms_last_date_by_doc.get(str(doc)))
+                else None
+            ),
             "wms_production_in": wms_quantity,
             "wms_reversal": wms_reversal,
             "wms_effective": wms_effective,
@@ -236,6 +280,140 @@ def match_production_inputs(
         elif abs(difference) > tolerance:
             residual_documents.append(item)
 
+    neutralized_residual_documents: list[dict[str, Any]] = []
+    persistent_residual_documents: list[dict[str, Any]] = []
+
+    for item in residual_documents:
+        item_copy = dict(item)
+        doc = str(item_copy["document"])
+        last_date = pd.to_datetime(
+            item_copy.get("last_date"), errors="coerce"
+        )
+        neutralization_reason = None
+
+        if (
+            inventory_checkpoint is not None
+            and pd.notna(last_date)
+            and last_date < inventory_checkpoint
+        ):
+            neutralization_reason = "PRE_INVENTORY_CHECKPOINT"
+
+        if neutralization_reason is None and not correction_rows.empty:
+            pattern = rf"(?<!\\d){re.escape(doc)}(?!\\d)"
+            referenced = correction_rows[
+                correction_rows["_details"].str.contains(
+                    pattern,
+                    case=False,
+                    regex=True,
+                    na=False,
+                )
+            ].copy()
+            if pd.notna(last_date):
+                referenced = referenced[
+                    referenced["_date"].isna()
+                    | referenced["_date"].ge(last_date)
+                ]
+            exact_opposite = referenced[
+                (
+                    referenced["_qty"]
+                    + float(item_copy["difference"])
+                ).abs()
+                <= tolerance
+            ]
+            if len(exact_opposite) == 1:
+                row = exact_opposite.iloc[0]
+                neutralization_reason = "EXPLICIT_COR_STOC_NEUTRALIZATION"
+                item_copy["neutralizing_correction"] = {
+                    "date": (
+                        str(row["_date"])
+                        if pd.notna(row["_date"])
+                        else None
+                    ),
+                    "quantity": float(row["_qty"]),
+                    "details": str(row["_details"]),
+                }
+
+        if neutralization_reason is not None:
+            item_copy["persistence_status"] = neutralization_reason
+            neutralized_residual_documents.append(item_copy)
+        else:
+            item_copy["persistence_status"] = "PERSISTENT"
+            persistent_residual_documents.append(item_copy)
+
+    basket_groups: list[dict[str, Any]] = []
+    used_in_basket: set[str] = set()
+    ordered_persistent = sorted(
+        persistent_residual_documents,
+        key=lambda item: (
+            pd.to_datetime(item.get("last_date"), errors="coerce")
+            if pd.notna(pd.to_datetime(item.get("last_date"), errors="coerce"))
+            else pd.Timestamp.max
+        ),
+    )
+    for left_index, left in enumerate(ordered_persistent):
+        if left["document"] in used_in_basket:
+            continue
+        left_date = pd.to_datetime(left.get("last_date"), errors="coerce")
+        for right in ordered_persistent[left_index + 1:]:
+            if right["document"] in used_in_basket:
+                continue
+            right_date = pd.to_datetime(right.get("last_date"), errors="coerce")
+            if pd.isna(left_date) or pd.isna(right_date):
+                continue
+            if abs((right_date - left_date).days) > 2:
+                continue
+            if not (
+                left.get("production_confirmed", False)
+                and right.get("production_confirmed", False)
+            ):
+                continue
+
+            wme_basket = (
+                float(left["wme_bc"]) + float(right["wme_bc"])
+            )
+            left_wms = float(left["wms_effective"])
+            if abs(wme_basket - left_wms) > tolerance:
+                continue
+
+            combined_difference = (
+                float(left["difference"]) + float(right["difference"])
+            )
+            right_wms = float(right["wms_effective"])
+            if abs(combined_difference - right_wms) > tolerance:
+                continue
+
+            group = {
+                "documents": [
+                    str(left["document"]),
+                    str(right["document"]),
+                ],
+                "anchor_document": str(left["document"]),
+                "residual_document": str(right["document"]),
+                "wms_anchor": left_wms,
+                "wme_basket": wme_basket,
+                "persistent_effect": combined_difference,
+                "status": "SPLIT_BC_BASKET_CONFIRMED",
+            }
+            basket_groups.append(group)
+            used_in_basket.update(group["documents"])
+            left["basket_group"] = group
+            right["basket_group"] = group
+            break
+
+    persistent_residual_total = float(
+        sum(
+            float(item["difference"])
+            for item in persistent_residual_documents
+        )
+    )
+    safe_to_auto_explain = bool(
+        persistent_residual_documents
+        and all(
+            bool(item.get("production_confirmed", False))
+            for item in persistent_residual_documents
+        )
+    )
+
     return ProductionInputMatchResult(
         documents=documents,
         residual_documents=residual_documents,
@@ -245,4 +423,15 @@ def match_production_inputs(
         reversed_documents=reversed_documents,
         wms_reversal_total=float(comparison["wms_reversal"].sum()),
         wms_effective_total=float(comparison["wms_effective"].sum()),
+        persistent_residual_documents=persistent_residual_documents,
+        neutralized_residual_documents=neutralized_residual_documents,
+        persistent_residual_total=persistent_residual_total,
+        basket_groups=basket_groups,
+        inventory_checkpoint_date=(
+            str(inventory_checkpoint)
+            if inventory_checkpoint is not None
+            and pd.notna(inventory_checkpoint)
+            else None
+        ),
+        safe_to_auto_explain=safe_to_auto_explain,
     )
