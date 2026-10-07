@@ -15,6 +15,7 @@ class InvestigationSources:
     nomenclature: Path
     cache_dir: Path | None = None
     use_source_index: bool = False
+    opening_absent_means_zero: bool = False
 
 
 @dataclass(slots=True)
