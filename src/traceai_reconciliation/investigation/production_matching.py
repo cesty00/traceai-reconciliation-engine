@@ -39,6 +39,23 @@ def normalize_document(value: object) -> str:
     return base
 
 
+def _lot_family(value: object) -> str:
+    """
+    Normalize operational lot variants to their numeric family.
+
+    Examples:
+    - 189.26 -> 189.26
+    - 189.26C1 -> 189.26
+    - 219.26F3 -> 219.26
+
+    Non-standard lots without a leading numeric family are returned as-is so
+    they cannot accidentally match a numeric production family.
+    """
+    text = _text(value).upper()
+    match = re.match(r"^(\d+(?:\.\d+)*)", text)
+    return match.group(1) if match else text
+
+
 def _text(value: object) -> str:
     return "" if value is None or pd.isna(value) else str(value).strip()
 
@@ -343,10 +360,19 @@ def match_production_adjustments(
             value
             for value in scope["_lot"].tolist()
         ]
+        document_families = {
+            _lot_family(value)
+            for value in document_lots
+            if _lot_family(value)
+        }
         if (
             not document_lots
             or any(not value for value in correction_lots)
-            or any(value not in document_lots for value in correction_lots)
+            or any(
+                value not in document_lots
+                and _lot_family(value) not in document_families
+                for value in correction_lots
+            )
         ):
             continue
 
