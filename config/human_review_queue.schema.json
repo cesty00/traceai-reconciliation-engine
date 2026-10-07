@@ -1,0 +1,140 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://traceai.local/schema/human-review-queue-v0.7.json",
+  "title": "TraceAI Human Review Queue Payload",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "target",
+    "operation",
+    "lookup",
+    "columns",
+    "values",
+    "authority"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "0.7.0"
+    },
+    "target": {
+      "type": "object",
+      "required": [
+        "spreadsheet",
+        "sheet"
+      ],
+      "properties": {
+        "spreadsheet": {
+          "const": "CONTROL_RECONCILIERE_WMS_WME"
+        },
+        "sheet": {
+          "const": "VALIDARE_CAZURI"
+        }
+      },
+      "additionalProperties": false
+    },
+    "operation": {
+      "const": "STAGE_ONLY"
+    },
+    "lookup": {
+      "type": "object",
+      "required": [
+        "primary",
+        "fallback"
+      ],
+      "properties": {
+        "primary": {
+          "type": "object",
+          "required": [
+            "QUEUE_ID"
+          ]
+        },
+        "fallback": {
+          "type": "object",
+          "required": [
+            "CASE_ID"
+          ]
+        }
+      }
+    },
+    "columns": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 21,
+      "uniqueItems": true
+    },
+    "values": {
+      "type": "object",
+      "required": [
+        "QUEUE_ID",
+        "CASE_ID",
+        "Cod_produs",
+        "Diferenta",
+        "AutoExplain_Status",
+        "Nivel_proba",
+        "Promotion_Status",
+        "Prioritate",
+        "Ce_se_valideaza",
+        "Staged_at",
+        "Review_Status",
+        "Registry_Action"
+      ],
+      "properties": {
+        "Review_Status": {
+          "enum": [
+            "STAGED",
+            "IN_REVIEW",
+            "APPROVED",
+            "REJECTED",
+            "HOLD"
+          ]
+        },
+        "Decizie_umana": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            null,
+            "APROBAT",
+            "RESPINS",
+            "NECESITA_DOCUMENTE"
+          ]
+        },
+        "Registry_Action": {
+          "enum": [
+            "NONE",
+            "PROPOSE_ONLY",
+            "MANUAL_SEPARATE_APPROVAL"
+          ]
+        }
+      }
+    },
+    "authority": {
+      "type": "object",
+      "required": [
+        "registry_mutation_allowed",
+        "wms_mutation_allowed",
+        "wme_mutation_allowed",
+        "human_decision_required"
+      ],
+      "properties": {
+        "registry_mutation_allowed": {
+          "const": false
+        },
+        "wms_mutation_allowed": {
+          "const": false
+        },
+        "wme_mutation_allowed": {
+          "const": false
+        },
+        "human_decision_required": {
+          "const": true
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}
