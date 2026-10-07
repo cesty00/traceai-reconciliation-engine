@@ -1272,6 +1272,7 @@ def investigate_product(
         "residual_movements": len(
             wme_residual_match.residual_movements
         ),
+        "movements": wme_residual_match.residual_movements,
         "wme_signed_total": round(
             wme_residual_match.wme_signed_total,
             decimals,
