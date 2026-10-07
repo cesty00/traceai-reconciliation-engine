@@ -276,9 +276,9 @@ class SQLiteSourceIndex:
                 [
                     (
                         key,
-                        value["path"],
+                        value["file_name"],
                         value["size"],
-                        value["mtime_ns"],
+                        value["sha256"],
                     )
                     for key, value in meta.items()
                 ],
