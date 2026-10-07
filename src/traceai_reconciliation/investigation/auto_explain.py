@@ -259,6 +259,50 @@ def components_from_investigation(
                     status="CONFIRMED",
                 )
             )
+    else:
+        document_residuals = list(
+            production.get("document_residuals", []) or []
+        )
+        if len(document_residuals) == 1:
+            effect = round(
+                float(
+                    document_residuals[0].get(
+                        "effective_difference",
+                        production.get("document_residual_total", 0.0),
+                    )
+                ),
+                decimals,
+            )
+            current_explained = round(
+                sum(float(item.effect) for item in components),
+                decimals,
+            )
+            candidate = round(current_explained + effect, decimals)
+            same_direction = (
+                effect != 0
+                and result.initial_difference != 0
+                and (effect > 0) == (result.initial_difference > 0)
+            )
+            bounded = (
+                abs(candidate)
+                <= abs(float(result.initial_difference)) + 10 ** (-decimals)
+            )
+            if same_direction and bounded:
+                components.append(
+                    ExplanationComponent(
+                        component_id="production_document_residual",
+                        rule_id="PROD-02",
+                        effect=effect,
+                        description=(
+                            "Diferență cantitativă unică WMS PRODUCTION-OUT "
+                            "față de NP WME rămasă după eliminarea ordinelor "
+                            "WMS complet reversate."
+                        ),
+                        evidence_level="B",
+                        source="production_matching.document_residuals",
+                        status="CONFIRMED",
+                    )
+                )
 
     production_input = details.get("production_input_matching", {})
     if production_input.get("applied_to_explanation", False):
