@@ -17,6 +17,10 @@ class DeliveryMatchResult:
     residual_total: float
     derived_receipt_documents: int = 0
     net_zero_derived_documents: int = 0
+    special_outbound_documents: list[dict[str, Any]] | None = None
+
+
+SPECIAL_OUTBOUND_SOURCE_LOCATIONS = {"PROTAN"}
 
 
 def normalize_delivery_document(value: object) -> str:
@@ -99,10 +103,38 @@ def match_deliveries_and_returns(
     )
     transfer_delivery = raw_document.str.startswith("TRANSFER_")
 
+    special_outbound_mask = pd.Series(False, index=work.index)
+    if "Locatie sursa" in work.columns:
+        source_location = (
+            work["Locatie sursa"]
+            .fillna("")
+            .astype(str)
+            .str.strip()
+            .str.upper()
+        )
+        special_outbound_mask = (
+            work["_op"].eq("Livrare")
+            & work["_doc"].ne("")
+            & source_location.isin(SPECIAL_OUTBOUND_SOURCE_LOCATIONS)
+        )
+
+    special_outbound = work[special_outbound_mask].copy()
+    special_outbound_documents = [
+        {
+            "document": str(row["_doc"]),
+            "raw_document": str(row.get("Numar comanda", "") or ""),
+            "quantity": float(row["_qty"]),
+            "source_location": str(row.get("Locatie sursa", "") or ""),
+            "status": "SPECIAL_OUTBOUND_REVIEW",
+        }
+        for _, row in special_outbound.iterrows()
+    ]
+
     delivery = work[
         work["_op"].eq("Livrare")
         & work["_doc"].ne("")
         & ~transfer_delivery
+        & ~special_outbound_mask
     ].copy()
 
     raw_document = (
@@ -281,4 +313,5 @@ def match_deliveries_and_returns(
         residual_total=float(comparison["difference"].sum()),
         derived_receipt_documents=len(derived_documents),
         net_zero_derived_documents=net_zero_derived_documents,
+        special_outbound_documents=special_outbound_documents,
     )
