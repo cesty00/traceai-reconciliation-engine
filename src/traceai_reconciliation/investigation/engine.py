@@ -7,6 +7,10 @@ from typing import Any
 import pandas as pd
 
 from .models import InvestigationSources, ProductInvestigationResult
+from .auto_explain import (
+    auto_explanation_from_investigation,
+    auto_explanation_to_dict,
+)
 from .production_matching import match_production_adjustments
 from .delivery_matching import match_deliveries_and_returns
 from .receipt_matching import match_inbound_receipts
@@ -1539,6 +1543,12 @@ def investigate_product(
             "document între WMS și WME."
         )
         result.cause_status = "NEDETERMINATA"
+
+    auto_explain = auto_explanation_from_investigation(
+        result,
+        decimals=decimals,
+    )
+    result.details["auto_explain"] = auto_explanation_to_dict(auto_explain)
 
     result.recommendations.append(
         {
