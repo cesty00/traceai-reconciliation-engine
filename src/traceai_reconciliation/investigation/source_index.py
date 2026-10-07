@@ -15,6 +15,7 @@ from .source_readers import (
     WME_STANDARD_COLUMNS,
     detect_csv_delimiter,
     filter_by_period,
+    sha256_file,
 )
 
 
@@ -22,9 +23,9 @@ def _fingerprint(path: str | Path) -> dict[str, int | str]:
     source = Path(path).resolve()
     stat = source.stat()
     return {
-        "path": str(source),
+        "file_name": source.name,
         "size": int(stat.st_size),
-        "mtime_ns": int(stat.st_mtime_ns),
+        "sha256": sha256_file(source),
     }
 
 
@@ -72,8 +73,10 @@ class SQLiteSourceIndex:
     """
     Local reusable index for the three large operational sources.
 
-    The index is rebuilt atomically whenever path/size/mtime_ns changes for
-    WMS, WME or production. RAW files are never modified.
+    The index is rebuilt atomically whenever the content identity changes for
+    WMS, WME or production. Identity is portable across sessions and is based
+    on file_name/size/SHA-256 rather than temporary local path or mtime.
+    RAW files are never modified.
     """
 
     def __init__(self, cache_dir: str | Path) -> None:
@@ -110,7 +113,7 @@ class SQLiteSourceIndex:
             with sqlite3.connect(self.db_path) as connection:
                 rows = connection.execute(
                     """
-                    SELECT source_key, path, size, mtime_ns
+                    SELECT source_key, file_name, size, sha256
                     FROM _source_meta
                     """
                 ).fetchall()
@@ -119,11 +122,11 @@ class SQLiteSourceIndex:
 
         current = {
             str(source_key): {
-                "path": str(path),
+                "file_name": str(file_name),
                 "size": int(size),
-                "mtime_ns": int(mtime_ns),
+                "sha256": str(sha256),
             }
-            for source_key, path, size, mtime_ns in rows
+            for source_key, file_name, size, sha256 in rows
         }
         return current == expected
 
@@ -253,9 +256,9 @@ class SQLiteSourceIndex:
                 """
                 CREATE TABLE _source_meta (
                     source_key TEXT PRIMARY KEY,
-                    path TEXT NOT NULL,
+                    file_name TEXT NOT NULL,
                     size INTEGER NOT NULL,
-                    mtime_ns INTEGER NOT NULL
+                    sha256 TEXT NOT NULL
                 )
                 """
             )
@@ -267,7 +270,7 @@ class SQLiteSourceIndex:
             connection.executemany(
                 """
                 INSERT INTO _source_meta
-                (source_key, path, size, mtime_ns)
+                (source_key, file_name, size, sha256)
                 VALUES (?, ?, ?, ?)
                 """,
                 [
