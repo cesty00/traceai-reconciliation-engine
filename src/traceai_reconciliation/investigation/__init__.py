@@ -44,6 +44,7 @@ from .human_review_queue import (
     build_review_queue_payload,
     queue_item_to_dict,
     review_queue_values,
+    record_manual_evidence_resolution,
 )
 
 __all__ = [
@@ -83,4 +84,5 @@ __all__ = [
     "build_review_queue_payload",
     "queue_item_to_dict",
     "review_queue_values",
+    "record_manual_evidence_resolution",
 ]
