@@ -17,6 +17,10 @@ class ProductionMatchResult:
     residual_total: float
     document_residuals: list[dict[str, Any]] = field(default_factory=list)
     document_residual_total: float = 0.0
+    unconsumed_correction_items: list[dict[str, Any]] = field(
+        default_factory=list
+    )
+    unconsumed_correction_total: float = 0.0
 
 
 def normalize_document(value: object) -> str:
@@ -482,10 +486,32 @@ def match_production_adjustments(
         )
         used_corrections.add(corr_idx)
 
+    # Preserve the full signed correction chain for shadow explanation.
+    # Legacy residual_total below intentionally remains negative-only.
+    unconsumed = corrections[
+        ~corrections.index.isin(used_corrections)
+    ].copy()
+    unconsumed_correction_items: list[dict[str, Any]] = []
+    for _, row in unconsumed.sort_values("Data").iterrows():
+        unconsumed_correction_items.append(
+            {
+                "date": row["Data"],
+                "operation_type": row["_op"],
+                "quantity": float(row["_qty"]),
+                "location": row["_location"],
+                "lot": row["_lot"],
+                "cod_motiv": row["_reason"],
+                "details": row["_details"],
+                "status": "UNCONSUMED_PRODUCTION_LOCATION_CORRECTION",
+            }
+        )
+    unconsumed_correction_total = float(
+        sum(item["quantity"] for item in unconsumed_correction_items)
+    )
+
     # Only still-unconsumed negative corrections remain operational REVIEW.
-    residual = corrections[
-        (~corrections.index.isin(used_corrections))
-        & corrections["_qty"].lt(-tolerance)
+    residual = unconsumed[
+        unconsumed["_qty"].lt(-tolerance)
     ].copy()
     residual_wms_adjustments: list[dict[str, Any]] = []
     for _, row in residual.sort_values("Data").iterrows():
@@ -554,4 +580,6 @@ def match_production_adjustments(
         residual_total=residual_total,
         document_residuals=document_residuals,
         document_residual_total=document_residual_total,
+        unconsumed_correction_items=unconsumed_correction_items,
+        unconsumed_correction_total=unconsumed_correction_total,
     )
