@@ -406,3 +406,77 @@ def test_unique_production_document_residual_can_explain_after_opening() -> None
     assert explanation.explained_difference == -38.0
     assert explanation.residual_difference == 0.0
     assert explanation.rules == ("OPEN-01", "PROD-02")
+
+
+
+def test_exact_opening_plus_production_suppresses_legacy_delivery_residual() -> None:
+    result = investigation_result(
+        initial_difference=-206.0,
+        opening_wms=295.0,
+        opening_wme=299.0,
+        details={
+            "production_matching": {
+                "document_residuals": [
+                    {
+                        "effective_difference": -202.0,
+                    }
+                ],
+                "document_residual_total": -202.0,
+                "applied_to_explanation": False,
+            },
+            "delivery_matching": {
+                "residual_total": -90.0,
+                "applied_to_explanation": True,
+            },
+        },
+    )
+
+    explanation = auto_explanation_from_investigation(result)
+
+    assert explanation.status == "EXACT"
+    assert explanation.explained_difference == -206.0
+    assert explanation.rules == ("OPEN-01", "PROD-02")
+
+
+def test_exact_special_flow_has_priority_over_overlapping_generic_correction() -> None:
+    result = investigation_result(
+        initial_difference=-1419.0,
+        opening_wms=40.0,
+        opening_wme=57.0,
+        details={
+            "production_matching": {
+                "document_residuals": [
+                    {
+                        "effective_difference": -768.0,
+                    }
+                ],
+                "document_residual_total": -768.0,
+                "applied_to_explanation": False,
+            },
+            "delivery_matching": {
+                "residual_total": -16.0,
+                "applied_to_explanation": True,
+            },
+            "generic_stock_corrections": {
+                "residual_total": -32.0,
+                "applied_to_explanation": True,
+            },
+            "special_status_matching": {
+                "explained_total": -618.0,
+                "applied_to_explanation": True,
+            },
+        },
+    )
+
+    explanation = auto_explanation_from_investigation(result)
+
+    assert explanation.status == "EXACT"
+    assert explanation.explained_difference == -1419.0
+    assert explanation.residual_difference == 0.0
+    assert explanation.rules == (
+        "OPEN-01",
+        "PROD-02",
+        "DEL-02",
+        "GST-04",
+    )
+    assert "ADJ-01" not in explanation.rules
