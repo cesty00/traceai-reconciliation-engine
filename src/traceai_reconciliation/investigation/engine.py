@@ -1103,6 +1103,11 @@ def investigate_product(
         "reversal_pairs": len(production_match.reversal_pairs),
         "residual_adjustments": len(production_match.residual_wms_adjustments),
         "residual_total": round(production_match.residual_total, decimals),
+        "document_residuals": production_match.document_residuals,
+        "document_residual_total": round(
+            production_match.document_residual_total,
+            decimals,
+        ),
         "applied_to_explanation": False,
     }
 
