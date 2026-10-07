@@ -127,7 +127,7 @@ def match_production_adjustments(
         if str(value).strip()
     }
     corrections = work[
-        work["_reason"].isin(["COR STOC", ""])
+        work["_reason"].isin(["COR STOC", "CORECTIE STOC", ""])
         & work["_op"].isin(["Ajustare pozitiva", "Ajustare negativa"])
         & work["_doc"].eq("")
         & work["_location"].isin(production_locations)
@@ -212,6 +212,15 @@ def match_production_adjustments(
 
     used_corrections: set[int] = set()
     used_positive: set[int] = set()
+
+    # Technical/test corrections never become numeric PROD-02 evidence.
+    technical_test_corrections = corrections[
+        corrections["_lot"].str.upper().eq("TEST")
+        | corrections["_details"].str.upper().str.contains(
+            "TEST", regex=False, na=False
+        )
+    ]
+    used_corrections.update(technical_test_corrections.index.tolist())
     reversal_pairs: list[dict[str, Any]] = []
     correction_effect_by_document: dict[str, float] = {}
     correction_evidence_by_document: dict[str, list[dict[str, Any]]] = {}
@@ -229,7 +238,7 @@ def match_production_adjustments(
     consumption_tokens = ("CONSUM", "MATERIE PRIMA", "MATERIE PRIMĂ")
 
     for corr_idx, corr in corrections.sort_values("Data").iterrows():
-        if str(corr["_reason"]) != "COR STOC":
+        if str(corr["_reason"]) not in {"COR STOC", "CORECTIE STOC"}:
             continue
         details_upper = str(corr["_details"]).upper()
         if any(token in details_upper for token in consumption_tokens):
@@ -424,7 +433,7 @@ def match_production_adjustments(
     remaining_negative = corrections[
         (~corrections.index.isin(used_corrections))
         & corrections["_qty"].lt(-tolerance)
-        & corrections["_reason"].eq("COR STOC")
+        & corrections["_reason"].isin(["COR STOC", "CORECTIE STOC"])
     ].copy()
     for corr_idx, corr in remaining_negative.sort_values("Data").iterrows():
         correction_abs = abs(float(corr["_qty"]))
@@ -443,10 +452,17 @@ def match_production_adjustments(
                 )
             )
         ]
-        if len(candidates) != 1:
+        candidate_docs = sorted(
+            {
+                str(value)
+                for value in candidates["_doc"].tolist()
+                if str(value)
+            }
+        )
+        if len(candidate_docs) != 1:
             continue
-        pos = candidates.iloc[0]
-        doc = str(pos["_doc"])
+        doc = candidate_docs[0]
+        pos = candidates[candidates["_doc"].eq(doc)].iloc[0]
         effect = float(corr["_qty"])
         correction_effect_by_document[doc] = (
             correction_effect_by_document.get(doc, 0.0) + effect
