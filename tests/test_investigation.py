@@ -136,6 +136,14 @@ def test_real_product_pipeline_builds_case_report(tmp_path: Path) -> None:
     assert result.details["wme_rows"] == 1
     assert result.details["production_rows"] == 1
     assert result.details["wme_mapping_ids"] == ["1001"]
+    assert "auto_explain" in result.details
+    assert result.details["auto_explain"]["initial_difference"] == 2.0
+    assert result.details["auto_explain"]["status"] in {
+        "NONE", "PARTIAL", "EXACT", "INCONSISTENT"
+    }
+    # v0.6 shadow mode must not mutate the authoritative v0.5 result.
+    assert result.explained_difference == 0.0
+    assert result.unexplained_difference == 2.0
     assert len(result.operation_timeline) == 3
 
     report = build_case_report(
