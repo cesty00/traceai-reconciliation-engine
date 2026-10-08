@@ -75,3 +75,20 @@ def test_cli_registry_apply_plan_arguments_parse() -> None:
     assert args.batch_summary == "batch_summary.json"
     assert args.registry_plan_output == "apply_plan.json"
     assert args.minimum_evidence == "B"
+
+
+def test_cli_self_service_batch_arguments_parse() -> None:
+    args = build_parser().parse_args(
+        [
+            "--self-service-batch-manifest",
+            "manifest.json",
+            "--self-service-batch-output-dir",
+            "out-v08",
+            "--batch-id",
+            "V08-BATCH-001",
+        ]
+    )
+
+    assert args.self_service_batch_manifest == "manifest.json"
+    assert args.self_service_batch_output_dir == "out-v08"
+    assert args.batch_id == "V08-BATCH-001"
