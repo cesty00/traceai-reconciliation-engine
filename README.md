@@ -116,3 +116,20 @@ v0.4 păstrează regulile de siguranță: RAW-urile nu sunt versionate, MATCH nu
 Începând cu hardening-ul final v0.5, proiectul are o bibliotecă de cazuri etalon validate manual. Contractul este documentat în `docs/GOLDEN_CASES.md`, iar schema machine-readable este `config/golden_case.schema.json`.
 
 Scopul este ca v0.6 și versiunile ulterioare să poată automatiza explicarea cauzelor fără să regreseze cazurile deja demonstrate.
+
+
+## v0.7 — Human Review Workflow
+
+v0.7 adaugă fluxul controlat de validare umană peste Auto Explain și Promotion Safety Gate:
+
+- coadă operațională `VALIDARE_CAZURI`;
+- stări auditabile `STAGED / IN_REVIEW / APPROVED / REJECTED / HOLD`;
+- decizii umane `APROBAT / RESPINS / NECESITA_DOCUMENTE`;
+- `Manual Evidence Resolution` pentru cazuri HOLD cu dovezi documentare nivel A și rezidual 0;
+- separarea strictă între Auto Explain, dovada manuală și aprobarea finală;
+- `Registry_Action=PROPOSE_ONLY` după aprobare; fără apply automat;
+- nicio mutație automată WMS/WME;
+- Golden Gate real: 17/17 cazuri etalon PASS;
+- CI pe `main` după merge: GitHub Actions #442 SUCCESS.
+
+Release commit de bază: `752bfbbb30dcebd66648e0c82daaf9e58983316c`.
