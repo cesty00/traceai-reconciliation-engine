@@ -125,3 +125,49 @@ Regresie:
 
 Concluzie:
 Milestone 1 este acceptat. PR #7 rămâne draft deoarece v0.8 continuă cu Source Readiness și review handoff.
+
+
+## Checkpoint M2 — ACCEPTAT (2026-10-08)
+
+Source Readiness a fost întărit și validat pe sursele RAW oficiale.
+
+Contract:
+- toate cele 6 surse obligatorii trebuie să existe;
+- fișierele goale sunt respinse;
+- formatele neacceptate sunt respinse;
+- perioada este validată înainte de investigație;
+- identitatea fiecărei surse este capturată prin SHA-256;
+- dimensiunile și path-urile sunt păstrate auditabil;
+- nu există substituire automată/fuzzy a unei surse lipsă;
+- orice eroare oprește controlat cazul înainte de investigație.
+
+Pilot DS099904350 după M2:
+- EXACT / A / ADJ-01;
+- rezidual 0;
+- ELIGIBLE_FOR_HUMAN_REVIEW;
+- runtime aproximativ 10,5 secunde cu hash cache;
+- Registry_Action = NONE;
+- toate hash-urile surselor au fost înregistrate în case.json.
+
+CI PR #7 / run #476: SUCCESS.
+
+## Checkpoint M3 — REVIEW HANDOFF VALIDAT (2026-10-08)
+
+Handoff-ul self-service către VALIDARE_CAZURI a fost verificat pe două profile reale:
+
+1. DS099904350 — caz eligibil:
+   - ELIGIBLE_FOR_HUMAN_REVIEW;
+   - Review_Status = STAGED;
+   - Registry_Action = NONE;
+   - decizia umană rămâne goală.
+
+2. DS099904370 — caz HOLD:
+   - Auto Explain = EXACT;
+   - nivel probă B;
+   - blocker = EVIDENCE_LEVEL_B_REQUIRES_HUMAN_VALIDATION;
+   - Review_Status = STAGED;
+   - Registry_Action = NONE;
+   - self-service nu reutilizează automat aprobarea/manual evidence dintr-un caz istoric.
+
+Concluzie:
+M3 păstrează corect separarea între investigație automată, manual evidence și decizia umană.
