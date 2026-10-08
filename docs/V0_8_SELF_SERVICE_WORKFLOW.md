@@ -95,3 +95,33 @@ v0.7.0 RELEASED:
 - release commit `42aac7d8eebbbe879ceee2bda36ba961116a93d4`;
 - CI main #444 SUCCESS;
 - Golden Gate 17/17 PASS.
+
+
+## Checkpoint M1 — ACCEPTAT (2026-10-08)
+
+Self-Service Case Runner a fost validat end-to-end pe sursele RAW oficiale.
+
+Pilot real:
+- CASE-2026-000187 / DS099904350;
+- diferență: -0,300 kg;
+- Auto Explain: EXACT;
+- nivel probă: A;
+- regulă contributivă: ADJ-01;
+- rezidual: 0;
+- Promotion Safety Gate: ELIGIBLE_FOR_HUMAN_REVIEW;
+- Review_Status inițial: STAGED;
+- Registry_Action: NONE;
+- fără mutații WMS/WME.
+
+Performanță pilot local:
+- rulare completă single-case pe RAW: aproximativ 17 secunde;
+- WME single-product reader folosește fast-path XML/sharedStrings;
+- sursele mari rămân read-only.
+
+Regresie:
+- CI PR #7 / run #470: SUCCESS;
+- Golden Gate real după hardening: 17/17 PASS;
+- nu s-a schimbat ecuația sau setul de reguli contributive pentru niciun Golden Case.
+
+Concluzie:
+Milestone 1 este acceptat. PR #7 rămâne draft deoarece v0.8 continuă cu Source Readiness și review handoff.
