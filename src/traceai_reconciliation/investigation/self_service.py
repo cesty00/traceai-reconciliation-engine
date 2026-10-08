@@ -141,7 +141,7 @@ def run_self_service_case(
     effective_sources = replace(
         sources,
         cache_dir=sources.cache_dir or (root / ".traceai_cache"),
-        use_source_index=True,
+        use_source_index=sources.use_source_index,
     )
 
     investigation = investigate_product(
