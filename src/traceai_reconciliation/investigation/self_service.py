@@ -22,6 +22,8 @@ from .human_review_queue import (
 from .models import InvestigationSources
 from .promotion_gate import assess_auto_explain_promotion
 from .registry_sync import build_registry_update
+from .source_hash_cache import hash_sources
+from .source_readers import parse_period
 
 
 @dataclass(frozen=True, slots=True)
@@ -29,7 +31,12 @@ class SourceReadiness:
     ready: bool
     required: tuple[str, ...]
     missing: tuple[str, ...]
+    empty: tuple[str, ...]
+    invalid_format: tuple[str, ...]
     paths: dict[str, str]
+    file_sizes: dict[str, int]
+    source_hashes: dict[str, str]
+    period: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -63,7 +70,17 @@ def _write_json(path: Path, payload: dict[str, Any]) -> Path:
 
 def validate_source_readiness(
     sources: InvestigationSources,
+    *,
+    period: str | None = None,
 ) -> SourceReadiness:
+    """
+    Fail closed before a self-service investigation when required sources are
+    missing, empty, have unsupported formats, or the requested period is invalid.
+
+    Source identity is captured with SHA-256 so the later investigation can
+    reuse the same hash cache. No source substitution or fuzzy file selection
+    is attempted.
+    """
     paths = {
         "stock_report": Path(sources.stock_report),
         "opening_stock_wms": Path(sources.opening_stock_wms),
@@ -72,24 +89,71 @@ def validate_source_readiness(
         "production": Path(sources.production),
         "nomenclature": Path(sources.nomenclature),
     }
+    required_formats = {
+        "stock_report": {".xlsx"},
+        "opening_stock_wms": {".xlsx", ".csv"},
+        "wms_movements": {".csv", ".xlsx"},
+        "wme_ledger": {".xlsx"},
+        "production": {".csv"},
+        "nomenclature": {".xlsx"},
+    }
+
     missing = tuple(
         name
         for name, path in paths.items()
         if not path.exists() or not path.is_file()
     )
-    readiness = SourceReadiness(
-        ready=not missing,
-        required=tuple(paths),
-        missing=missing,
-        paths={name: str(path) for name, path in paths.items()},
+    empty = tuple(
+        name
+        for name, path in paths.items()
+        if name not in missing and path.stat().st_size <= 0
     )
+    invalid_format = tuple(
+        name
+        for name, path in paths.items()
+        if name not in missing
+        and path.suffix.lower() not in required_formats[name]
+    )
+
     if missing:
         raise FileNotFoundError(
             "Self-service source readiness failed. Missing required sources: "
             + ", ".join(missing)
         )
-    return readiness
+    if empty:
+        raise ValueError(
+            "Self-service source readiness failed. Empty required sources: "
+            + ", ".join(empty)
+        )
+    if invalid_format:
+        raise ValueError(
+            "Self-service source readiness failed. Unsupported source formats: "
+            + ", ".join(invalid_format)
+        )
 
+    normalized_period = str(period).strip() if period is not None else None
+    if normalized_period:
+        parse_period(normalized_period)
+
+    source_hashes = hash_sources(
+        paths,
+        cache_dir=sources.cache_dir,
+    )
+
+    return SourceReadiness(
+        ready=True,
+        required=tuple(paths),
+        missing=(),
+        empty=(),
+        invalid_format=(),
+        paths={name: str(path) for name, path in paths.items()},
+        file_sizes={
+            name: int(path.stat().st_size)
+            for name, path in paths.items()
+        },
+        source_hashes=source_hashes,
+        period=normalized_period,
+    )
 
 def _next_action(promotion_status: str) -> str:
     if promotion_status == "ELIGIBLE_FOR_HUMAN_REVIEW":
@@ -137,11 +201,14 @@ def run_self_service_case(
     case_dir = root / resolved_case_id.replace("/", "_")
     case_dir.mkdir(parents=True, exist_ok=True)
 
-    readiness = validate_source_readiness(sources)
     effective_sources = replace(
         sources,
         cache_dir=sources.cache_dir or (root / ".traceai_cache"),
         use_source_index=sources.use_source_index,
+    )
+    readiness = validate_source_readiness(
+        effective_sources,
+        period=period,
     )
 
     investigation = investigate_product(
