@@ -17,16 +17,17 @@ from traceai_reconciliation.investigation.self_service import (
 
 
 def sources(tmp_path: Path) -> InvestigationSources:
+    suffixes = {
+        "stock_report": ".xlsx",
+        "opening_stock_wms": ".xlsx",
+        "wms_movements": ".csv",
+        "wme_ledger": ".xlsx",
+        "production": ".csv",
+        "nomenclature": ".xlsx",
+    }
     values = {}
-    for name in (
-        "stock_report",
-        "opening_stock_wms",
-        "wms_movements",
-        "wme_ledger",
-        "production",
-        "nomenclature",
-    ):
-        path = tmp_path / f"{name}.dat"
+    for name, suffix in suffixes.items():
+        path = tmp_path / f"{name}{suffix}"
         path.write_text("stub", encoding="utf-8")
         values[name] = path
     return InvestigationSources(**values)
@@ -174,3 +175,48 @@ def test_self_service_hold_remains_hold(
     assert summary["promotion_status"] == "HOLD"
     assert summary["registry_action"] == "NONE"
     assert summary["blockers"]
+
+
+def test_source_readiness_rejects_empty_and_invalid_sources(tmp_path: Path) -> None:
+    src = sources(tmp_path)
+    src.production.write_bytes(b"")
+
+    with pytest.raises(ValueError, match="Empty required sources"):
+        validate_source_readiness(
+            src,
+            period="01.01.2026-04.10.2026",
+        )
+
+    src.production.write_text("stub", encoding="utf-8")
+    bad = tmp_path / "production.xlsx"
+    bad.write_text("stub", encoding="utf-8")
+    src.production = bad
+
+    with pytest.raises(ValueError, match="Unsupported source formats"):
+        validate_source_readiness(
+            src,
+            period="01.01.2026-04.10.2026",
+        )
+
+
+def test_source_readiness_captures_hashes_and_period(tmp_path: Path) -> None:
+    src = sources(tmp_path)
+    src.cache_dir = tmp_path / "cache"
+
+    readiness = validate_source_readiness(
+        src,
+        period="01.01.2026-04.10.2026",
+    )
+
+    assert readiness.ready is True
+    assert readiness.period == "01.01.2026-04.10.2026"
+    assert set(readiness.source_hashes) == {
+        "stock_report",
+        "opening_stock_wms",
+        "wms_movements",
+        "wme_ledger",
+        "production",
+        "nomenclature",
+    }
+    assert all(value for value in readiness.source_hashes.values())
+    assert all(value > 0 for value in readiness.file_sizes.values())
