@@ -286,6 +286,101 @@ def _opening_is_contributive(
     return bridge_matches == 1
 
 
+def _generic_stock_correction_evidence_level(
+    result: ProductInvestigationResult,
+    effect: float,
+    *,
+    tolerance: float,
+) -> str:
+    """
+    Promote one isolated generic COR STOC component to level A only when the
+    full movement bridge independently proves it is the sole net cause.
+
+    This does not suppress competing evidence: unmatched/PV rows remain
+    warnings in Promotion Safety Gate. It only upgrades the factual quality of
+    the ADJ-01 component when all major reconciled families are quantitatively
+    closed and WMS-WME movement totals reproduce the final difference.
+    """
+    details = result.details or {}
+    generic = details.get("generic_stock_corrections", {}) or {}
+
+    if int(generic.get("residual_corrections", 0) or 0) != 1:
+        return "B"
+    if abs(float(generic.get("residual_total", 0.0) or 0.0) - effect) > tolerance:
+        return "B"
+    if abs(float(result.initial_difference) - effect) > tolerance:
+        return "B"
+
+    production = details.get("production_matching", {}) or {}
+    if abs(float(production.get("residual_total", 0.0) or 0.0)) > tolerance:
+        return "B"
+    if abs(float(production.get("document_residual_total", 0.0) or 0.0)) > tolerance:
+        return "B"
+
+    production_input = details.get("production_input_matching", {}) or {}
+    production_input_residual = float(
+        production_input.get(
+            "persistent_residual_total",
+            production_input.get("residual_total", 0.0),
+        )
+        or 0.0
+    )
+    if abs(production_input_residual) > tolerance:
+        return "B"
+
+    delivery = details.get("delivery_matching", {}) or {}
+    if abs(float(delivery.get("residual_total", 0.0) or 0.0)) > tolerance:
+        return "B"
+
+    special = details.get("special_status_matching", {}) or {}
+    if int(special.get("residual_corrections", 0) or 0) > 0:
+        return "B"
+
+    stock_zone = details.get("stock_report_zone_matching", {}) or {}
+    if int(stock_zone.get("unresolved_rows", 0) or 0) > 0:
+        return "B"
+
+    generic_ops = [
+        item
+        for item in list(result.unmatched_operations or [])
+        if str(item.get("system", "")).strip().upper() == "WMS"
+        and str(item.get("operation_type", "")).strip().upper() == "COR STOC"
+        and str(item.get("status", "")).strip().upper() == "WMS_ONLY_REVIEW"
+    ]
+    if len(generic_ops) != 1:
+        return "B"
+    try:
+        generic_qty = float(generic_ops[0].get("quantity", 0.0) or 0.0)
+    except (TypeError, ValueError):
+        return "B"
+    if abs(generic_qty - effect) > tolerance:
+        return "B"
+
+    wms_net = details.get("wms_net_movement")
+    wme_net = details.get("wme_net_movement")
+    if wms_net is None or wme_net is None:
+        return "B"
+    try:
+        movement_difference = float(wms_net) - float(wme_net)
+    except (TypeError, ValueError):
+        return "B"
+    if abs(movement_difference - float(result.initial_difference)) > tolerance:
+        return "B"
+
+    if (
+        result.calculated_stock_wme is not None
+        and result.reported_stock_wme is not None
+        and abs(
+            float(result.calculated_stock_wme)
+            - float(result.reported_stock_wme)
+        )
+        > tolerance
+    ):
+        return "B"
+
+    return "A"
+
+
 def components_from_investigation(
     result: ProductInvestigationResult,
     *,
@@ -647,7 +742,11 @@ def components_from_investigation(
                         "COR STOC WMS rezidual deja aplicat de motor la "
                         "diferența explicată."
                     ),
-                    evidence_level="B",
+                    evidence_level=_generic_stock_correction_evidence_level(
+                        result,
+                        effect,
+                        tolerance=tolerance,
+                    ),
                     source="generic_stock_corrections",
                     status="CONFIRMED",
                 )

@@ -36,6 +36,16 @@ from .registry_apply_plan import (
     build_registry_apply_plan,
     write_registry_apply_plan,
 )
+from .self_service import (
+    SourceReadiness,
+    SelfServiceRunResult,
+    SelfServiceBatchCaseSpec,
+    SelfServiceBatchCaseResult,
+    SelfServiceBatchSummary,
+    run_self_service_case,
+    run_self_service_batch,
+    validate_source_readiness,
+)
 from .human_review_queue import (
     HumanReviewQueueItem,
     REVIEW_QUEUE_COLUMNS,
@@ -85,4 +95,12 @@ __all__ = [
     "queue_item_to_dict",
     "review_queue_values",
     "record_manual_evidence_resolution",
+    "SourceReadiness",
+    "SelfServiceRunResult",
+    "SelfServiceBatchCaseSpec",
+    "SelfServiceBatchCaseResult",
+    "SelfServiceBatchSummary",
+    "run_self_service_case",
+    "run_self_service_batch",
+    "validate_source_readiness",
 ]

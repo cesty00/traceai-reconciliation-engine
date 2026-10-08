@@ -684,3 +684,102 @@ def test_opening_overshoot_can_contribute_through_unique_exact_pv_bridge() -> No
     assert explanation.status == "EXACT"
     assert explanation.rules == ("OPEN-01", "WME-02")
     assert explanation.explained_difference == -4.0
+
+
+def test_isolated_exact_generic_stock_correction_can_be_level_a() -> None:
+    result = investigation_result(
+        initial_difference=-0.3,
+        details={
+            "wms_net_movement": 0.0,
+            "wme_net_movement": 0.3,
+            "production_matching": {
+                "residual_total": 0.0,
+                "document_residual_total": 0.0,
+            },
+            "production_input_matching": {
+                "persistent_residual_total": 0.0,
+            },
+            "delivery_matching": {
+                "residual_total": 0.0,
+            },
+            "special_status_matching": {
+                "residual_corrections": 0,
+            },
+            "stock_report_zone_matching": {
+                "unresolved_rows": 0,
+            },
+            "generic_stock_corrections": {
+                "residual_corrections": 1,
+                "residual_total": -0.3,
+                "applied_to_explanation": True,
+            },
+        },
+    )
+    result.reported_stock_wme = 0.3
+    result.calculated_stock_wme = 0.3
+    result.unmatched_operations = [
+        {
+            "system": "WMS",
+            "operation_type": "COR STOC",
+            "quantity": -0.3,
+            "status": "WMS_ONLY_REVIEW",
+        },
+        {
+            "system": "WME",
+            "operation_type": "PV",
+            "quantity": 17.0,
+            "status": "WME_ONLY_REVIEW",
+        },
+    ]
+
+    explanation = auto_explanation_from_investigation(result)
+
+    assert explanation.status == "EXACT"
+    assert explanation.rules == ("ADJ-01",)
+    assert explanation.evidence_level == "A"
+    assert explanation.components[0].evidence_level == "A"
+
+
+def test_generic_stock_correction_stays_level_b_when_major_flow_is_unresolved() -> None:
+    result = investigation_result(
+        initial_difference=-0.3,
+        details={
+            "wms_net_movement": 0.0,
+            "wme_net_movement": 0.3,
+            "production_matching": {
+                "residual_total": 0.0,
+                "document_residual_total": 0.0,
+            },
+            "production_input_matching": {
+                "persistent_residual_total": 0.0,
+            },
+            "delivery_matching": {
+                "residual_total": -5.0,
+            },
+            "special_status_matching": {
+                "residual_corrections": 0,
+            },
+            "stock_report_zone_matching": {
+                "unresolved_rows": 0,
+            },
+            "generic_stock_corrections": {
+                "residual_corrections": 1,
+                "residual_total": -0.3,
+                "applied_to_explanation": True,
+            },
+        },
+    )
+    result.unmatched_operations = [
+        {
+            "system": "WMS",
+            "operation_type": "COR STOC",
+            "quantity": -0.3,
+            "status": "WMS_ONLY_REVIEW",
+        }
+    ]
+
+    explanation = auto_explanation_from_investigation(result)
+
+    assert explanation.status == "EXACT"
+    assert explanation.rules == ("ADJ-01",)
+    assert explanation.evidence_level == "B"

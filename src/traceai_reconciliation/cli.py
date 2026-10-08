@@ -18,6 +18,8 @@ from .investigation import (
     write_manifest,
     build_registry_apply_plan,
     write_registry_apply_plan,
+    run_self_service_case,
+    run_self_service_batch,
 )
 from .loaders import read_table
 from .product_audit import summarize_stock_report
@@ -105,6 +107,18 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--period", help="Investigation period label")
     parser.add_argument("--report-date", help="Report date")
+    parser.add_argument(
+        "--self-service-output-dir",
+        help="Run v0.8 single-case self-service workflow into this directory",
+    )
+    parser.add_argument(
+        "--self-service-batch-manifest",
+        help="JSON/CSV manifest for v0.8 self-service batch execution",
+    )
+    parser.add_argument(
+        "--self-service-batch-output-dir",
+        help="Output directory for v0.8 self-service batch execution",
+    )
     parser.add_argument("--opening-stock-wms", help="Opening stock WMS XLSX")
     parser.add_argument(
         "--opening-absent-means-zero",
@@ -287,6 +301,117 @@ def _run_batch_investigation(args: argparse.Namespace) -> None:
     )
 
 
+def _run_self_service_batch_investigation(
+    args: argparse.Namespace,
+) -> None:
+    required = {
+        "--self-service-batch-manifest": args.self_service_batch_manifest,
+        "--self-service-batch-output-dir": args.self_service_batch_output_dir,
+        "--batch-id": args.batch_id,
+        "--stock-report": args.stock_report,
+        "--opening-stock-wms": args.opening_stock_wms,
+        "--wms-movements": args.wms_movements,
+        "--wme-ledger": args.wme_ledger,
+        "--production": args.production,
+        "--nomenclature": args.nomenclature,
+    }
+    missing = [name for name, value in required.items() if not value]
+    if missing:
+        raise SystemExit(
+            "Self-service batch requires: " + ", ".join(missing)
+        )
+
+    output_dir = Path(args.self_service_batch_output_dir)
+    cache_dir = (
+        Path(args.cache_dir)
+        if args.cache_dir
+        else output_dir / ".traceai_cache"
+    )
+    sources = InvestigationSources(
+        stock_report=Path(args.stock_report),
+        opening_stock_wms=Path(args.opening_stock_wms),
+        wms_movements=Path(args.wms_movements),
+        wme_ledger=Path(args.wme_ledger),
+        production=Path(args.production),
+        nomenclature=Path(args.nomenclature),
+        cache_dir=cache_dir,
+        use_source_index=args.indexed_cache,
+        opening_absent_means_zero=args.opening_absent_means_zero,
+    )
+    cases = load_batch_manifest(args.self_service_batch_manifest)
+    summary = run_self_service_batch(
+        cases=cases,
+        sources=sources,
+        output_dir=output_dir,
+        batch_id=args.batch_id,
+        rules_version=args.rules_version,
+        engine_commit_sha=args.engine_commit_sha,
+    )
+    print(
+        json.dumps(
+            asdict(summary),
+            ensure_ascii=False,
+            indent=2,
+            default=str,
+        )
+    )
+
+
+def _run_self_service_investigation(args: argparse.Namespace) -> None:
+    required = {
+        "--product": args.product,
+        "--period": args.period,
+        "--stock-report": args.stock_report,
+        "--opening-stock-wms": args.opening_stock_wms,
+        "--wms-movements": args.wms_movements,
+        "--wme-ledger": args.wme_ledger,
+        "--production": args.production,
+        "--nomenclature": args.nomenclature,
+        "--self-service-output-dir": args.self_service_output_dir,
+    }
+    missing = [name for name, value in required.items() if not value]
+    if missing:
+        raise SystemExit(
+            "Self-service investigation requires: " + ", ".join(missing)
+        )
+
+    output_dir = Path(args.self_service_output_dir)
+    cache_dir = (
+        Path(args.cache_dir)
+        if args.cache_dir
+        else output_dir / ".traceai_cache"
+    )
+    sources = InvestigationSources(
+        stock_report=Path(args.stock_report),
+        opening_stock_wms=Path(args.opening_stock_wms),
+        wms_movements=Path(args.wms_movements),
+        wme_ledger=Path(args.wme_ledger),
+        production=Path(args.production),
+        nomenclature=Path(args.nomenclature),
+        cache_dir=cache_dir,
+        use_source_index=args.indexed_cache,
+        opening_absent_means_zero=args.opening_absent_means_zero,
+    )
+    result = run_self_service_case(
+        product_code=args.product,
+        case_id=args.case_id,
+        period=args.period,
+        report_date=args.report_date,
+        sources=sources,
+        output_dir=output_dir,
+        rules_version=args.rules_version,
+        engine_commit_sha=args.engine_commit_sha,
+        execution_id=f"self-service:{args.case_id or args.product}",
+    )
+    print(
+        json.dumps(
+            asdict(result),
+            ensure_ascii=False,
+            indent=2,
+        )
+    )
+
+
 def _run_real_product_investigation(args: argparse.Namespace) -> None:
     required = {
         "--product": args.product,
@@ -370,8 +495,16 @@ def main() -> None:
         _run_registry_manifest_generation(args)
         return
 
+    if args.self_service_batch_manifest:
+        _run_self_service_batch_investigation(args)
+        return
+
     if args.batch_manifest:
         _run_batch_investigation(args)
+        return
+
+    if args.self_service_output_dir:
+        _run_self_service_investigation(args)
         return
 
     if args.case_json:

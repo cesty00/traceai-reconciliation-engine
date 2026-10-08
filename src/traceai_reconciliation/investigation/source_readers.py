@@ -7,9 +7,12 @@ import unicodedata
 from datetime import datetime
 from pathlib import Path
 from typing import Iterable, Sequence
+from zipfile import ZipFile
 
 import pandas as pd
+from lxml import etree
 from openpyxl import load_workbook
+from openpyxl.utils.datetime import from_excel
 
 
 ALIASES: dict[str, tuple[str, ...]] = {
@@ -334,53 +337,238 @@ def read_wme_product(
     product_name: str,
     period: str | None = None,
 ) -> tuple[pd.DataFrame, set[str]]:
+    """
+    Read one WME product from a large XLSX export.
+
+    Fast path: when ProductName exists in sharedStrings.xml, read the worksheet
+    XML once, locate only the shared-string index used in column K, and decode
+    only those matching rows. This avoids Python-level iteration across ~243k
+    WME rows for a single-case self-service run.
+
+    Conservative fallback: if the requested product is not represented by a
+    shared-string index, use streaming row iteration without changing matching
+    semantics.
+    """
     path = Path(path)
-    workbook = load_workbook(path, read_only=True, data_only=True)
-    worksheet = workbook[workbook.sheetnames[0]]
-
-    rows: list[dict[str, object]] = []
-    ids: set[str] = set()
-
-    for row in worksheet.iter_rows(values_only=True):
-        if len(row) < 15:
-            continue
-        current_name = str(row[10] or "").strip()
-        if current_name != str(product_name).strip():
-            continue
-
-        item_id = str(row[12] or "").strip()
-        if item_id:
-            ids.add(item_id)
-
-        incoming = pd.to_numeric(pd.Series([row[4]]), errors="coerce").iloc[0]
-        outgoing = pd.to_numeric(pd.Series([row[5]]), errors="coerce").iloc[0]
-        incoming = 0.0 if pd.isna(incoming) else float(incoming)
-        outgoing = 0.0 if pd.isna(outgoing) else float(outgoing)
-
-        rows.append(
-            {
-                "LineNo": row[0],
-                "OperationType": row[1],
-                "Document": row[2],
-                "Date": row[3],
-                "Incoming": incoming,
-                "Outgoing": outgoing,
-                "Balance": row[6],
-                "Price": row[7],
-                "Account": row[8],
-                "Partner": row[9],
-                "ProductName": current_name,
-                "CounterWarehouse": row[11],
-                "WMEItemId": item_id,
-                "Warehouse": row[13],
-                "Unit": row[14],
-                "Note": row[15] if len(row) > 15 else None,
-                "InternalRef": row[16] if len(row) > 16 else None,
-                "SignedQuantity": incoming - outgoing,
-            }
+    if path.suffix.lower() != ".xlsx":
+        raise ValueError(
+            f"{path.name}: fișa WME trebuie să fie .xlsx pentru citirea targetată."
         )
 
-    workbook.close()
+    xml_ns = "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}"
+    namespace_uri = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+    column_pattern = re.compile(r"([A-Z]+)")
+    accepted_columns = set("ABCDEFGHIJKLMNOPQ")
+    target = str(product_name).strip()
+
+    def decode_cell(
+        cell: etree._Element,
+        shared_strings: list[str],
+    ) -> object:
+        cell_type = cell.get("t")
+        value_node = cell.find(xml_ns + "v")
+        value: object = value_node.text if value_node is not None else None
+        if cell_type == "s" and value is not None:
+            try:
+                value = shared_strings[int(value)]
+            except (ValueError, IndexError):
+                return value
+        elif cell_type == "inlineStr":
+            inline = cell.find(xml_ns + "is")
+            if inline is not None:
+                value = "".join(
+                    (node.text or "")
+                    for node in inline.iter(xml_ns + "t")
+                )
+        return value
+
+    def decoded_row(
+        row_element: etree._Element,
+        shared_strings: list[str],
+    ) -> dict[str, object]:
+        values: dict[str, object] = {}
+        for cell in row_element.findall(xml_ns + "c"):
+            reference = cell.get("r") or ""
+            match = column_pattern.match(reference)
+            if match is None:
+                continue
+            column = match.group(1)
+            if column in accepted_columns:
+                values[column] = decode_cell(cell, shared_strings)
+
+        def numeric(column: str) -> float:
+            value = values.get(column)
+            try:
+                return float(value)
+            except (TypeError, ValueError):
+                return 0.0
+
+        raw_date = values.get("D")
+        parsed_date: object = raw_date
+        if raw_date not in (None, ""):
+            try:
+                parsed_date = from_excel(float(raw_date))
+            except (TypeError, ValueError, OverflowError):
+                parsed_date = raw_date
+
+        incoming = numeric("E")
+        outgoing = numeric("F")
+        item_id = str(values.get("M") or "").strip()
+        return {
+            "LineNo": values.get("A"),
+            "OperationType": values.get("B"),
+            "Document": values.get("C"),
+            "Date": parsed_date,
+            "Incoming": incoming,
+            "Outgoing": outgoing,
+            "Balance": numeric("G"),
+            "Price": numeric("H"),
+            "Account": values.get("I"),
+            "Partner": values.get("J"),
+            "ProductName": str(values.get("K") or "").strip(),
+            "CounterWarehouse": values.get("L"),
+            "WMEItemId": item_id,
+            "Warehouse": values.get("N"),
+            "Unit": values.get("O"),
+            "Note": values.get("P"),
+            "InternalRef": values.get("Q"),
+            "SignedQuantity": incoming - outgoing,
+        }
+
+    with ZipFile(path) as archive:
+        shared_strings: list[str] = []
+        if "xl/sharedStrings.xml" in archive.namelist():
+            root = etree.fromstring(archive.read("xl/sharedStrings.xml"))
+            shared_strings = [
+                "".join(
+                    (node.text or "")
+                    for node in item.iter(xml_ns + "t")
+                )
+                for item in root.findall(xml_ns + "si")
+            ]
+
+        target_shared_indexes = {
+            index
+            for index, value in enumerate(shared_strings)
+            if str(value).strip() == target
+        }
+        worksheet_names = sorted(
+            name
+            for name in archive.namelist()
+            if name.startswith("xl/worksheets/sheet")
+            and name.endswith(".xml")
+        )
+        if not worksheet_names:
+            raise ValueError(
+                f"{path.name}: nu găsesc worksheet XML pentru fișa WME."
+            )
+
+        rows: list[dict[str, object]] = []
+        ids: set[str] = set()
+
+        if target_shared_indexes:
+            worksheet = archive.read(worksheet_names[0])
+            row_ranges: set[tuple[int, int]] = set()
+
+            for shared_index in target_shared_indexes:
+                needle = f"<v>{shared_index}</v>".encode("ascii")
+                cursor = 0
+                while True:
+                    hit = worksheet.find(needle, cursor)
+                    if hit < 0:
+                        break
+                    cursor = hit + len(needle)
+
+                    cell_start = worksheet.rfind(
+                        b"<c",
+                        max(0, hit - 2048),
+                        hit,
+                    )
+                    cell_end = worksheet.find(
+                        b"</c>",
+                        hit,
+                        min(len(worksheet), hit + 4096),
+                    )
+                    if cell_start < 0 or cell_end < 0:
+                        continue
+
+                    cell_xml = worksheet[cell_start : cell_end + 4]
+                    if b't="s"' not in cell_xml:
+                        continue
+                    reference_match = re.search(
+                        rb'\br="K\d+"',
+                        cell_xml,
+                    )
+                    if reference_match is None:
+                        continue
+
+                    row_start = worksheet.rfind(
+                        b"<row",
+                        max(0, cell_start - 65536),
+                        cell_start,
+                    )
+                    row_end = worksheet.find(
+                        b"</row>",
+                        cell_end,
+                        min(len(worksheet), cell_end + 65536),
+                    )
+                    if row_start < 0 or row_end < 0:
+                        continue
+                    row_ranges.add((row_start, row_end + 6))
+
+            wrapper_start = (
+                f'<root xmlns="{namespace_uri}">'.encode("utf-8")
+            )
+            wrapper_end = b"</root>"
+            for row_start, row_end in sorted(row_ranges):
+                fragment = (
+                    wrapper_start
+                    + worksheet[row_start:row_end]
+                    + wrapper_end
+                )
+                root = etree.fromstring(fragment)
+                if len(root) != 1:
+                    continue
+                item = decoded_row(root[0], shared_strings)
+                if item["ProductName"] != target:
+                    continue
+                item_id = str(item["WMEItemId"] or "").strip()
+                if item_id:
+                    ids.add(item_id)
+                rows.append(item)
+        else:
+            with archive.open(worksheet_names[0]) as handle:
+                context = etree.iterparse(
+                    handle,
+                    events=("end",),
+                    tag=xml_ns + "row",
+                )
+                for _, row_element in context:
+                    product_matches = False
+                    for cell in row_element.findall(xml_ns + "c"):
+                        reference = cell.get("r") or ""
+                        match = column_pattern.match(reference)
+                        if match is None or match.group(1) != "K":
+                            continue
+                        value = decode_cell(cell, shared_strings)
+                        product_matches = (
+                            str(value or "").strip() == target
+                        )
+                        break
+
+                    if product_matches:
+                        item = decoded_row(row_element, shared_strings)
+                        item_id = str(item["WMEItemId"] or "").strip()
+                        if item_id:
+                            ids.add(item_id)
+                        rows.append(item)
+
+                    row_element.clear()
+                    parent = row_element.getparent()
+                    if parent is not None:
+                        while row_element.getprevious() is not None:
+                            del parent[0]
+
     result = pd.DataFrame(rows, columns=WME_STANDARD_COLUMNS)
     if period and not result.empty:
         result = filter_by_period(result, period)
