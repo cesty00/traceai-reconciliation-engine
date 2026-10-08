@@ -11,6 +11,9 @@ from traceai_reconciliation.investigation.models import (
     ProductInvestigationResult,
 )
 from traceai_reconciliation.investigation.self_service import (
+    SelfServiceBatchCaseSpec,
+    SelfServiceRunResult,
+    run_self_service_batch,
     run_self_service_case,
     validate_source_readiness,
 )
@@ -220,3 +223,101 @@ def test_source_readiness_captures_hashes_and_period(tmp_path: Path) -> None:
     }
     assert all(value for value in readiness.source_hashes.values())
     assert all(value > 0 for value in readiness.file_sizes.values())
+
+
+def test_self_service_batch_isolates_errors_and_preserves_authority(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    src = sources(tmp_path)
+
+    def fake_run(**kwargs):
+        case_id = kwargs["case_id"]
+        product_code = kwargs["product_code"]
+        root = Path(kwargs["output_dir"]) / case_id
+        root.mkdir(parents=True, exist_ok=True)
+        summary = root / "self_service_summary.json"
+        summary.write_text("{}", encoding="utf-8")
+
+        if product_code == "ERR":
+            raise KeyError("produs lipsa")
+        status = (
+            "ELIGIBLE_FOR_HUMAN_REVIEW"
+            if product_code == "OK"
+            else "HOLD"
+        )
+        return SelfServiceRunResult(
+            case_id=case_id,
+            product_code=product_code,
+            status=status,
+            next_action=(
+                "HUMAN_REVIEW"
+                if status == "ELIGIBLE_FOR_HUMAN_REVIEW"
+                else "RESOLVE_PROMOTION_BLOCKERS"
+            ),
+            output_dir=str(root),
+            technical_json=str(root / "case.json"),
+            docx=str(root / "case.docx"),
+            registry_json=str(root / "registry_update.json"),
+            review_queue_json=str(root / "review_queue.json"),
+            summary_json=str(summary),
+        )
+
+    monkeypatch.setattr(
+        "traceai_reconciliation.investigation.self_service.run_self_service_case",
+        fake_run,
+    )
+
+    summary = run_self_service_batch(
+        cases=[
+            SelfServiceBatchCaseSpec(
+                case_id="CASE-OK",
+                product_code="OK",
+                period="01.01.2026-04.10.2026",
+            ),
+            SelfServiceBatchCaseSpec(
+                case_id="CASE-HOLD",
+                product_code="HOLD",
+                period="01.01.2026-04.10.2026",
+            ),
+            SelfServiceBatchCaseSpec(
+                case_id="CASE-ERR",
+                product_code="ERR",
+                period="01.01.2026-04.10.2026",
+            ),
+            SelfServiceBatchCaseSpec(
+                case_id="CASE-SKIP",
+                product_code="SKIP",
+                period="01.01.2026-04.10.2026",
+                enabled=False,
+            ),
+        ],
+        sources=src,
+        output_dir=tmp_path / "batch",
+        batch_id="BATCH-V08",
+    )
+
+    assert summary.total_cases == 4
+    assert summary.executed == 2
+    assert summary.eligible == 1
+    assert summary.hold == 1
+    assert summary.error == 1
+    assert summary.skipped == 1
+
+    payload = json.loads(
+        Path(summary.summary_json).read_text(encoding="utf-8")
+    )
+    assert payload["authority"]["automatic_approval_allowed"] is False
+    assert payload["authority"]["registry_apply_allowed"] is False
+    assert payload["authority"]["wms_mutation_allowed"] is False
+    assert payload["authority"]["wme_mutation_allowed"] is False
+    assert any(
+        item["case_id"] == "CASE-ERR" and item["status"] == "ERROR"
+        for item in payload["cases"]
+    )
+    assert (
+        tmp_path
+        / "batch"
+        / "CASE-ERR"
+        / "self_service_error.json"
+    ).exists()
