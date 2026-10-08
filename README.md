@@ -133,3 +133,22 @@ v0.7 adaugă fluxul controlat de validare umană peste Auto Explain și Promotio
 - CI pe `main` după merge: GitHub Actions #442 SUCCESS.
 
 Release commit de bază: `752bfbbb30dcebd66648e0c82daaf9e58983316c`.
+
+
+## v0.8 — Self-Service Investigation Workflow
+
+v0.8 introduce rularea controlată self-service peste motorul validat v0.7:
+
+- single-case runner: surse → investigație → Auto Explain → Promotion Gate → DOCX → review queue;
+- output-uri standard: `case.json`, `case.docx`, `registry_update.json`, `review_queue.json`, `self_service_summary.json`;
+- Source Readiness fail-closed cu validarea existenței, dimensiunii, formatului, perioadei și identității SHA-256;
+- fast-path WME single-product pe XML/sharedStrings pentru rulări pe RAW oficial;
+- handoff determinist către `VALIDARE_CAZURI`, fără aprobare automată;
+- batch self-service cu izolare de eroare per caz și sumar de lot;
+- ADJ-01 poate primi nivel A numai pentru o corecție generică izolată, exactă și demonstrată independent de movement bridge;
+- Golden Gate real 17/17 PASS după schimbarea de motor;
+- pilot single-case DS099904350: EXACT / A / ADJ-01 / rezidual 0 / ELIGIBLE_FOR_HUMAN_REVIEW;
+- pilot batch: eligible 1 / hold 1 / error izolat 1;
+- fără registry apply automat și fără mutații WMS/WME.
+
+Feature merge commit de bază: `3e4363e4ff3a1b40032789de3848a5e4c6968306`.
