@@ -320,3 +320,170 @@ def run_self_service_case(
         review_queue_json=str(review_queue_json),
         summary_json=str(summary_json),
     )
+
+
+@dataclass(frozen=True, slots=True)
+class SelfServiceBatchCaseSpec:
+    case_id: str
+    product_code: str
+    period: str
+    report_date: str | None = None
+    enabled: bool = True
+
+
+@dataclass(frozen=True, slots=True)
+class SelfServiceBatchCaseResult:
+    case_id: str
+    product_code: str
+    status: str
+    next_action: str | None = None
+    summary_json: str | None = None
+    error: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class SelfServiceBatchSummary:
+    batch_id: str
+    total_cases: int
+    executed: int
+    skipped: int
+    eligible: int
+    tolerance: int
+    hold: int
+    error: int
+    cases: tuple[SelfServiceBatchCaseResult, ...]
+    summary_json: str
+
+
+def run_self_service_batch(
+    *,
+    cases: list[SelfServiceBatchCaseSpec],
+    sources: InvestigationSources,
+    output_dir: str | Path,
+    batch_id: str,
+    rules_version: str = "0.4",
+    engine_commit_sha: str = "LOCAL_OR_UNSET",
+) -> SelfServiceBatchSummary:
+    """
+    Run multiple v0.8 self-service cases with case-level error isolation.
+
+    The batch composes the single-case runner and therefore inherits the same
+    authority boundary: no approvals, no registry apply, no WMS/WME mutation.
+    """
+    batch_clean = str(batch_id).strip()
+    if not batch_clean:
+        raise ValueError("batch_id este obligatoriu.")
+
+    root = Path(output_dir)
+    root.mkdir(parents=True, exist_ok=True)
+    effective_sources = replace(
+        sources,
+        cache_dir=sources.cache_dir or (root / ".traceai_cache"),
+        use_source_index=sources.use_source_index,
+    )
+
+    results: list[SelfServiceBatchCaseResult] = []
+
+    for spec in cases:
+        if not spec.enabled:
+            results.append(
+                SelfServiceBatchCaseResult(
+                    case_id=spec.case_id,
+                    product_code=spec.product_code,
+                    status="SKIPPED",
+                )
+            )
+            continue
+
+        try:
+            run = run_self_service_case(
+                product_code=spec.product_code,
+                case_id=spec.case_id,
+                period=spec.period,
+                report_date=spec.report_date,
+                sources=effective_sources,
+                output_dir=root,
+                rules_version=rules_version,
+                engine_commit_sha=engine_commit_sha,
+                execution_id=f"{batch_clean}:{spec.case_id}",
+            )
+            results.append(
+                SelfServiceBatchCaseResult(
+                    case_id=run.case_id,
+                    product_code=run.product_code,
+                    status=run.status,
+                    next_action=run.next_action,
+                    summary_json=run.summary_json,
+                )
+            )
+        except Exception as exc:  # deliberate case-level isolation
+            case_dir = root / spec.case_id.replace("/", "_")
+            error_path = case_dir / "self_service_error.json"
+            _write_json(
+                error_path,
+                {
+                    "schema_version": "0.8.0",
+                    "batch_id": batch_clean,
+                    "case_id": spec.case_id,
+                    "product_code": spec.product_code,
+                    "error_type": type(exc).__name__,
+                    "error": str(exc),
+                    "authority": {
+                        "registry_apply_allowed": False,
+                        "wms_mutation_allowed": False,
+                        "wme_mutation_allowed": False,
+                    },
+                },
+            )
+            results.append(
+                SelfServiceBatchCaseResult(
+                    case_id=spec.case_id,
+                    product_code=spec.product_code,
+                    status="ERROR",
+                    error=f"{type(exc).__name__}: {exc}",
+                )
+            )
+
+    summary_path = root / "self_service_batch_summary.json"
+    counts = {
+        "total_cases": len(results),
+        "executed": sum(
+            item.status not in {"SKIPPED", "ERROR"}
+            for item in results
+        ),
+        "skipped": sum(item.status == "SKIPPED" for item in results),
+        "eligible": sum(
+            item.status == "ELIGIBLE_FOR_HUMAN_REVIEW"
+            for item in results
+        ),
+        "tolerance": sum(
+            item.status == "TOLERANCE_MATCH"
+            for item in results
+        ),
+        "hold": sum(item.status == "HOLD" for item in results),
+        "error": sum(item.status == "ERROR" for item in results),
+    }
+    payload = {
+        "schema_version": "0.8.0",
+        "batch_id": batch_clean,
+        "engine_version": __version__,
+        "rules_version": rules_version,
+        "engine_commit_sha": engine_commit_sha,
+        **counts,
+        "cases": [asdict(item) for item in results],
+        "authority": {
+            "human_decision_required": True,
+            "automatic_approval_allowed": False,
+            "registry_apply_allowed": False,
+            "wms_mutation_allowed": False,
+            "wme_mutation_allowed": False,
+        },
+    }
+    _write_json(summary_path, payload)
+
+    return SelfServiceBatchSummary(
+        batch_id=batch_clean,
+        cases=tuple(results),
+        summary_json=str(summary_path),
+        **counts,
+    )
