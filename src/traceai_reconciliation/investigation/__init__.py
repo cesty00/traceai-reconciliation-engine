@@ -39,7 +39,11 @@ from .registry_apply_plan import (
 from .self_service import (
     SourceReadiness,
     SelfServiceRunResult,
+    SelfServiceBatchCaseSpec,
+    SelfServiceBatchCaseResult,
+    SelfServiceBatchSummary,
     run_self_service_case,
+    run_self_service_batch,
     validate_source_readiness,
 )
 from .human_review_queue import (
@@ -93,6 +97,10 @@ __all__ = [
     "record_manual_evidence_resolution",
     "SourceReadiness",
     "SelfServiceRunResult",
+    "SelfServiceBatchCaseSpec",
+    "SelfServiceBatchCaseResult",
+    "SelfServiceBatchSummary",
     "run_self_service_case",
+    "run_self_service_batch",
     "validate_source_readiness",
 ]
