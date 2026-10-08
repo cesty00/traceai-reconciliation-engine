@@ -171,3 +171,41 @@ Handoff-ul self-service către VALIDARE_CAZURI a fost verificat pe două profile
 
 Concluzie:
 M3 păstrează corect separarea între investigație automată, manual evidence și decizia umană.
+
+
+## Checkpoint M4 — BATCH SELF-SERVICE ACCEPTAT (2026-10-08)
+
+Batch runner-ul v0.8 a fost validat pe un lot pilot real + eroare sintetică:
+
+- CASE-2026-000187 / DS099904350 → ELIGIBLE_FOR_HUMAN_REVIEW;
+- CASE-2026-000008 / DS099904370 → HOLD;
+- CASE-V08-ERROR / DS_DOES_NOT_EXIST → ERROR izolat.
+
+Rezultat lot:
+- total = 3;
+- executate = 2;
+- eligible = 1;
+- hold = 1;
+- error = 1;
+- runtime pilot ≈ 28 secunde;
+- eroarea sintetică nu a oprit celelalte cazuri;
+- fiecare caz valid a produs propriile output-uri self-service;
+- fiecare review payload a rămas STAGE_ONLY / Review_Status=STAGED / Registry_Action=NONE;
+- batch summary păstrează explicit authority boundary.
+
+CI pentru implementarea batch + CLI: SUCCESS pe PR #7.
+
+## Acceptanță v0.8 — checkpoint 1
+
+Toate criteriile planificate sunt îndeplinite:
+
+1. CI verde.
+2. Golden Gate real 17/17 PASS după schimbarea de motor ADJ-01.
+3. DS099904350 rulează end-to-end pe RAW oficial și produce EXACT / A / rezidual 0.
+4. DS099904370 rămâne HOLD fără override automat.
+5. sursa/cazul invalid eșuează controlat și auditabil.
+6. output-urile single-case și batch sunt deterministe și structurate.
+7. nu există mutații WMS/WME.
+8. nu există registry apply automat.
+
+PR #7 poate trece din draft în review. Merge-ul în main rămâne condiționat de CI verde pe head-ul final.
