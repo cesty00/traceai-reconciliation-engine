@@ -324,7 +324,7 @@ def _run_self_service_investigation(args: argparse.Namespace) -> None:
         production=Path(args.production),
         nomenclature=Path(args.nomenclature),
         cache_dir=cache_dir,
-        use_source_index=True,
+        use_source_index=args.indexed_cache,
         opening_absent_means_zero=args.opening_absent_means_zero,
     )
     result = run_self_service_case(
