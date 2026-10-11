@@ -1,0 +1,19 @@
+# v0.9 Daily Operations profile example.
+# Paths may be absolute or relative to this YAML file.
+# Real WMS/WME exports remain outside GitHub.
+
+sources:
+  stock_report: ../data/current/stock_report.xlsx
+  opening_stock_wms: ../data/current/opening_stock_wms.xlsx
+  wms_movements: ../data/current/wms_movements.csv
+  wme_ledger: ../data/current/wme_ledger.xlsx
+  production: ../data/current/production.csv
+  nomenclature: ../data/current/nomenclature.xlsx
+
+daily:
+  manifest: ../data/current/daily_manifest.json
+  output_dir: ../outputs/daily
+  period: 01.01.2026-04.10.2026
+  report_date: 11.10.2026
+  opening_absent_means_zero: true
+  indexed_cache: true
