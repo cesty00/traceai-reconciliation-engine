@@ -83,7 +83,10 @@ jobs:
           pip install -e ".[dev]"
 
       - name: Golden Gate contract
-        run: pytest -q tests/test_golden_gate.py
+        run: |
+          pytest -q \
+            tests/test_golden_gate.py \
+            tests/test_golden_manifest_contract.py
 
       - name: Daily orchestrator and delta smoke
         run: |
