@@ -20,6 +20,7 @@ from .investigation import (
     write_registry_apply_plan,
     run_self_service_case,
     run_self_service_batch,
+    run_daily,
 )
 from .loaders import read_table
 from .product_audit import summarize_stock_report
@@ -106,6 +107,14 @@ def build_parser() -> argparse.ArgumentParser:
         help="Force re-execution even when a complete case signature can be reused",
     )
     parser.add_argument("--period", help="Investigation period label")
+    parser.add_argument(
+        "--daily-profile",
+        help="YAML profile for v0.9 daily operations run",
+    )
+    parser.add_argument(
+        "--daily-run-id",
+        help="Deterministic daily run identifier",
+    )
     parser.add_argument("--report-date", help="Report date")
     parser.add_argument(
         "--self-service-output-dir",
@@ -412,6 +421,28 @@ def _run_self_service_investigation(args: argparse.Namespace) -> None:
     )
 
 
+def _run_daily_operations(args: argparse.Namespace) -> None:
+    if not args.daily_profile or not args.daily_run_id:
+        raise SystemExit(
+            "Daily operations require --daily-profile and --daily-run-id."
+        )
+    summary = run_daily(
+        profile_path=args.daily_profile,
+        run_id=args.daily_run_id,
+        rules_version=args.rules_version,
+        engine_commit_sha=args.engine_commit_sha,
+        reuse_completed=not args.no_reuse_completed,
+    )
+    print(
+        json.dumps(
+            asdict(summary),
+            ensure_ascii=False,
+            indent=2,
+            default=str,
+        )
+    )
+
+
 def _run_real_product_investigation(args: argparse.Namespace) -> None:
     required = {
         "--product": args.product,
@@ -486,6 +517,10 @@ def _run_real_product_investigation(args: argparse.Namespace) -> None:
 
 def main() -> None:
     args = build_parser().parse_args()
+
+    if args.daily_profile or args.daily_run_id:
+        _run_daily_operations(args)
+        return
 
     if args.registry_export and args.batch_summary:
         _run_registry_apply_plan_generation(args)
