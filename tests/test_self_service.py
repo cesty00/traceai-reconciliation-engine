@@ -321,3 +321,169 @@ def test_self_service_batch_isolates_errors_and_preserves_authority(
         / "CASE-ERR"
         / "self_service_error.json"
     ).exists()
+
+
+def test_self_service_batch_reuses_completed_case_with_same_sources(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    src = sources(tmp_path)
+    src.cache_dir = tmp_path / "cache"
+    output_dir = tmp_path / "batch"
+    case_dir = output_dir / "CASE-REUSE"
+    case_dir.mkdir(parents=True, exist_ok=True)
+
+    readiness = validate_source_readiness(
+        src,
+        period="01.01.2026-11.10.2026",
+    )
+    outputs = {
+        "case_json": str(case_dir / "case.json"),
+        "case_docx": str(case_dir / "case.docx"),
+        "registry_update_json": str(case_dir / "registry_update.json"),
+        "review_queue_json": str(case_dir / "review_queue.json"),
+    }
+    for path in outputs.values():
+        Path(path).write_bytes(b"stub")
+
+    (case_dir / "case.json").write_text(
+        json.dumps(
+            {
+                "source_readiness": {
+                    "source_hashes": readiness.source_hashes,
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    (case_dir / "self_service_summary.json").write_text(
+        json.dumps(
+            {
+                "case_id": "CASE-REUSE",
+                "product_code": "REUSE",
+                "period": "01.01.2026-11.10.2026",
+                "rules_version": "0.9",
+                "engine_commit_sha": "abc123",
+                "promotion_status": "HOLD",
+                "next_action": "RESOLVE_PROMOTION_BLOCKERS",
+                "outputs": outputs,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    def forbidden_run(**kwargs):
+        raise AssertionError("completed case should have been reused")
+
+    monkeypatch.setattr(
+        "traceai_reconciliation.investigation.self_service.run_self_service_case",
+        forbidden_run,
+    )
+
+    summary = run_self_service_batch(
+        cases=[
+            SelfServiceBatchCaseSpec(
+                case_id="CASE-REUSE",
+                product_code="REUSE",
+                period="01.01.2026-11.10.2026",
+            )
+        ],
+        sources=src,
+        output_dir=output_dir,
+        batch_id="BATCH-RESUME",
+        rules_version="0.9",
+        engine_commit_sha="abc123",
+    )
+
+    assert summary.total_cases == 1
+    assert summary.executed == 0
+    assert summary.skipped == 1
+    assert summary.hold == 1
+    assert summary.error == 0
+    assert summary.cases[0].reused is True
+
+
+def test_self_service_batch_does_not_reuse_after_source_change(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    src = sources(tmp_path)
+    src.cache_dir = tmp_path / "cache"
+    output_dir = tmp_path / "batch"
+    case_dir = output_dir / "CASE-REUSE"
+    case_dir.mkdir(parents=True, exist_ok=True)
+
+    old_hashes = validate_source_readiness(
+        src,
+        period="01.01.2026-11.10.2026",
+    ).source_hashes
+    outputs = {
+        "case_json": str(case_dir / "case.json"),
+        "case_docx": str(case_dir / "case.docx"),
+        "registry_update_json": str(case_dir / "registry_update.json"),
+        "review_queue_json": str(case_dir / "review_queue.json"),
+    }
+    for path in outputs.values():
+        Path(path).write_bytes(b"stub")
+    (case_dir / "case.json").write_text(
+        json.dumps({"source_readiness": {"source_hashes": old_hashes}}),
+        encoding="utf-8",
+    )
+    (case_dir / "self_service_summary.json").write_text(
+        json.dumps(
+            {
+                "case_id": "CASE-REUSE",
+                "product_code": "REUSE",
+                "period": "01.01.2026-11.10.2026",
+                "rules_version": "0.9",
+                "engine_commit_sha": "abc123",
+                "promotion_status": "HOLD",
+                "next_action": "RESOLVE_PROMOTION_BLOCKERS",
+                "outputs": outputs,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    src.production.write_text("changed", encoding="utf-8")
+    calls = {"count": 0}
+
+    def fake_run(**kwargs):
+        calls["count"] += 1
+        return SelfServiceRunResult(
+            case_id=kwargs["case_id"],
+            product_code=kwargs["product_code"],
+            status="HOLD",
+            next_action="RESOLVE_PROMOTION_BLOCKERS",
+            output_dir=str(case_dir),
+            technical_json=str(case_dir / "case.json"),
+            docx=str(case_dir / "case.docx"),
+            registry_json=str(case_dir / "registry_update.json"),
+            review_queue_json=str(case_dir / "review_queue.json"),
+            summary_json=str(case_dir / "self_service_summary.json"),
+        )
+
+    monkeypatch.setattr(
+        "traceai_reconciliation.investigation.self_service.run_self_service_case",
+        fake_run,
+    )
+
+    summary = run_self_service_batch(
+        cases=[
+            SelfServiceBatchCaseSpec(
+                case_id="CASE-REUSE",
+                product_code="REUSE",
+                period="01.01.2026-11.10.2026",
+            )
+        ],
+        sources=src,
+        output_dir=output_dir,
+        batch_id="BATCH-RESUME-CHANGED",
+        rules_version="0.9",
+        engine_commit_sha="abc123",
+    )
+
+    assert calls["count"] == 1
+    assert summary.executed == 1
+    assert summary.skipped == 0
+    assert summary.cases[0].reused is False
