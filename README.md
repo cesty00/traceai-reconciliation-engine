@@ -152,3 +152,22 @@ v0.8 introduce rularea controlată self-service peste motorul validat v0.7:
 - fără registry apply automat și fără mutații WMS/WME.
 
 Feature merge commit de bază: `3e4363e4ff3a1b40032789de3848a5e4c6968306`.
+
+
+## v0.9 — Daily Operations Readiness
+
+v0.9 transformă motorul self-service validat în v0.8 într-un flux zilnic controlat și repetabil:
+
+- profil YAML pentru sursele zilnice și manifestul de cazuri;
+- validare fail-closed înainte de analiză;
+- SHA-256 pentru identitatea surselor;
+- manifest determinist de rulare și semnătură completă;
+- idempotency/reuse pentru rulări identice;
+- clasificare delta între rulări: `NEW / CHANGED / UNCHANGED`;
+- politici conservative: `ANALYZE / REANALYZE_SOURCE_CHANGED / REUSE_SAFE`;
+- Daily Release Gate în GitHub Actions;
+- contract CI pentru biblioteca oficială de 17 Golden Cases;
+- release-candidate verdict gate agregat;
+- fără aprobare automată, fără registry apply automat și fără mutații WMS/WME.
+
+Feature merge commit de bază: `81f1fa005208d532d80d0a810465dae5a9d1ddcc`.
