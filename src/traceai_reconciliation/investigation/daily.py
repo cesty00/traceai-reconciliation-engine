@@ -1,0 +1,376 @@
+from __future__ import annotations
+
+from dataclasses import asdict, dataclass
+from datetime import datetime, timezone
+import hashlib
+import json
+from pathlib import Path
+from typing import Any
+
+import yaml
+
+from traceai_reconciliation import __version__
+
+from .batch import BatchCaseSpec, load_batch_manifest
+from .models import InvestigationSources
+from .self_service import (
+    SelfServiceBatchSummary,
+    run_self_service_batch,
+    validate_source_readiness,
+)
+
+
+@dataclass(frozen=True, slots=True)
+class DailyProfile:
+    stock_report: str
+    opening_stock_wms: str
+    wms_movements: str
+    wme_ledger: str
+    production: str
+    nomenclature: str
+    manifest: str
+    output_dir: str
+    period: str
+    report_date: str | None = None
+    opening_absent_means_zero: bool = False
+    indexed_cache: bool = True
+
+
+@dataclass(frozen=True, slots=True)
+class DailyRunSummary:
+    run_id: str
+    status: str
+    signature: str | None
+    reused_run: bool
+    started_at: str
+    finished_at: str
+    profile_path: str
+    manifest_path: str
+    output_dir: str
+    source_hashes: dict[str, str]
+    total_cases: int
+    executed: int
+    skipped: int
+    eligible: int
+    tolerance: int
+    hold: int
+    error: int
+    batch_summary_json: str | None
+    run_manifest_json: str
+    summary_json: str
+    error_message: str | None = None
+
+
+def _utc_now() -> str:
+    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+def _write_json(path: Path, payload: dict[str, Any]) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    temporary.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2, default=str),
+        encoding="utf-8",
+    )
+    temporary.replace(path)
+    return path
+
+
+def _resolve(base: Path, value: str) -> str:
+    path = Path(str(value).strip())
+    if path.is_absolute():
+        return str(path)
+    return str((base / path).resolve())
+
+
+def load_daily_profile(path: str | Path) -> DailyProfile:
+    profile_path = Path(path)
+    payload = yaml.safe_load(profile_path.read_text(encoding="utf-8")) or {}
+    if not isinstance(payload, dict):
+        raise ValueError("Daily profile must be a YAML mapping.")
+
+    sources = payload.get("sources") or {}
+    daily = payload.get("daily") or {}
+    if not isinstance(sources, dict) or not isinstance(daily, dict):
+        raise ValueError("Daily profile requires 'sources' and 'daily' mappings.")
+
+    required_sources = (
+        "stock_report",
+        "opening_stock_wms",
+        "wms_movements",
+        "wme_ledger",
+        "production",
+        "nomenclature",
+    )
+    missing = [
+        name for name in required_sources
+        if not str(sources.get(name, "")).strip()
+    ]
+    for name in ("manifest", "output_dir", "period"):
+        if not str(daily.get(name, "")).strip():
+            missing.append(f"daily.{name}")
+    if missing:
+        raise ValueError(
+            "Daily profile missing required fields: " + ", ".join(missing)
+        )
+
+    base = profile_path.parent
+    return DailyProfile(
+        stock_report=_resolve(base, sources["stock_report"]),
+        opening_stock_wms=_resolve(base, sources["opening_stock_wms"]),
+        wms_movements=_resolve(base, sources["wms_movements"]),
+        wme_ledger=_resolve(base, sources["wme_ledger"]),
+        production=_resolve(base, sources["production"]),
+        nomenclature=_resolve(base, sources["nomenclature"]),
+        manifest=_resolve(base, daily["manifest"]),
+        output_dir=_resolve(base, daily["output_dir"]),
+        period=str(daily["period"]).strip(),
+        report_date=(
+            str(daily.get("report_date", "")).strip() or None
+        ),
+        opening_absent_means_zero=bool(
+            daily.get("opening_absent_means_zero", False)
+        ),
+        indexed_cache=bool(daily.get("indexed_cache", True)),
+    )
+
+
+def _sources_from_profile(
+    profile: DailyProfile,
+    run_root: Path,
+) -> InvestigationSources:
+    return InvestigationSources(
+        stock_report=Path(profile.stock_report),
+        opening_stock_wms=Path(profile.opening_stock_wms),
+        wms_movements=Path(profile.wms_movements),
+        wme_ledger=Path(profile.wme_ledger),
+        production=Path(profile.production),
+        nomenclature=Path(profile.nomenclature),
+        cache_dir=run_root.parent / ".traceai_cache",
+        use_source_index=profile.indexed_cache,
+        opening_absent_means_zero=profile.opening_absent_means_zero,
+    )
+
+
+def _normalize_cases(
+    cases: list[BatchCaseSpec],
+    profile: DailyProfile,
+) -> list[BatchCaseSpec]:
+    normalized: list[BatchCaseSpec] = []
+    for item in cases:
+        normalized.append(
+            BatchCaseSpec(
+                case_id=item.case_id,
+                product_code=item.product_code,
+                period=item.period or profile.period,
+                report_date=item.report_date or profile.report_date,
+                enabled=item.enabled,
+            )
+        )
+    return normalized
+
+
+def _signature(
+    *,
+    profile: DailyProfile,
+    cases: list[BatchCaseSpec],
+    source_hashes: dict[str, str],
+    rules_version: str,
+    engine_commit_sha: str,
+) -> str:
+    payload = {
+        "engine_version": __version__,
+        "rules_version": rules_version,
+        "engine_commit_sha": engine_commit_sha,
+        "profile": asdict(profile),
+        "cases": [asdict(case) for case in cases],
+        "source_hashes": source_hashes,
+    }
+    raw = json.dumps(
+        payload,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+        default=str,
+    ).encode("utf-8")
+    return hashlib.sha256(raw).hexdigest()
+
+
+def _load_reusable_summary(
+    summary_path: Path,
+    expected_signature: str,
+) -> DailyRunSummary | None:
+    if not summary_path.exists():
+        return None
+    try:
+        payload = json.loads(summary_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+
+    if payload.get("signature") != expected_signature:
+        return None
+    if payload.get("status") == "FAILED_SAFE":
+        return None
+
+    batch_summary = payload.get("batch_summary_json")
+    manifest_json = payload.get("run_manifest_json")
+    if not batch_summary or not Path(batch_summary).exists():
+        return None
+    if not manifest_json or not Path(manifest_json).exists():
+        return None
+
+    payload["reused_run"] = True
+    payload["executed"] = 0
+    payload["started_at"] = _utc_now()
+    payload["finished_at"] = payload["started_at"]
+    return DailyRunSummary(**payload)
+
+
+def _overall_status(batch: SelfServiceBatchSummary) -> str:
+    if batch.error or batch.hold or batch.eligible or batch.tolerance:
+        return "SUCCESS_WITH_REVIEW"
+    return "SUCCESS"
+
+
+def run_daily(
+    *,
+    profile_path: str | Path,
+    run_id: str,
+    rules_version: str = "0.4",
+    engine_commit_sha: str = "LOCAL_OR_UNSET",
+    reuse_completed: bool = True,
+) -> DailyRunSummary:
+    clean_run_id = str(run_id).strip()
+    if not clean_run_id:
+        raise ValueError("run_id este obligatoriu.")
+
+    started_at = _utc_now()
+    profile = load_daily_profile(profile_path)
+    output_root = Path(profile.output_dir)
+    run_root = output_root / clean_run_id.replace("/", "_")
+    run_root.mkdir(parents=True, exist_ok=True)
+
+    summary_path = run_root / "daily_run_summary.json"
+    run_manifest_path = run_root / "run_manifest.json"
+    sources = _sources_from_profile(profile, run_root)
+
+    try:
+        readiness = validate_source_readiness(
+            sources,
+            period=profile.period,
+        )
+        cases = _normalize_cases(
+            load_batch_manifest(profile.manifest),
+            profile,
+        )
+        signature = _signature(
+            profile=profile,
+            cases=cases,
+            source_hashes=readiness.source_hashes,
+            rules_version=rules_version,
+            engine_commit_sha=engine_commit_sha,
+        )
+
+        if reuse_completed:
+            reused = _load_reusable_summary(
+                summary_path,
+                signature,
+            )
+            if reused is not None:
+                _write_json(summary_path, asdict(reused))
+                return reused
+
+        manifest_payload = {
+            "schema_version": "0.9.0-dev",
+            "run_id": clean_run_id,
+            "signature": signature,
+            "engine_version": __version__,
+            "rules_version": rules_version,
+            "engine_commit_sha": engine_commit_sha,
+            "profile_path": str(Path(profile_path)),
+            "profile": asdict(profile),
+            "source_readiness": asdict(readiness),
+            "cases": [asdict(item) for item in cases],
+            "authority": {
+                "human_decision_required": True,
+                "automatic_approval_allowed": False,
+                "registry_apply_allowed": False,
+                "wms_mutation_allowed": False,
+                "wme_mutation_allowed": False,
+            },
+        }
+        _write_json(run_manifest_path, manifest_payload)
+
+        batch = run_self_service_batch(
+            cases=cases,
+            sources=sources,
+            output_dir=run_root / "cases",
+            batch_id=f"DAILY:{clean_run_id}",
+            rules_version=rules_version,
+            engine_commit_sha=engine_commit_sha,
+        )
+        summary = DailyRunSummary(
+            run_id=clean_run_id,
+            status=_overall_status(batch),
+            signature=signature,
+            reused_run=False,
+            started_at=started_at,
+            finished_at=_utc_now(),
+            profile_path=str(Path(profile_path)),
+            manifest_path=profile.manifest,
+            output_dir=str(run_root),
+            source_hashes=readiness.source_hashes,
+            total_cases=batch.total_cases,
+            executed=batch.executed,
+            skipped=batch.skipped,
+            eligible=batch.eligible,
+            tolerance=batch.tolerance,
+            hold=batch.hold,
+            error=batch.error,
+            batch_summary_json=batch.summary_json,
+            run_manifest_json=str(run_manifest_path),
+            summary_json=str(summary_path),
+        )
+        _write_json(summary_path, asdict(summary))
+        return summary
+
+    except Exception as exc:
+        failed = DailyRunSummary(
+            run_id=clean_run_id,
+            status="FAILED_SAFE",
+            signature=None,
+            reused_run=False,
+            started_at=started_at,
+            finished_at=_utc_now(),
+            profile_path=str(Path(profile_path)),
+            manifest_path=profile.manifest,
+            output_dir=str(run_root),
+            source_hashes={},
+            total_cases=0,
+            executed=0,
+            skipped=0,
+            eligible=0,
+            tolerance=0,
+            hold=0,
+            error=1,
+            batch_summary_json=None,
+            run_manifest_json=str(run_manifest_path),
+            summary_json=str(summary_path),
+            error_message=f"{type(exc).__name__}: {exc}",
+        )
+        _write_json(
+            run_manifest_path,
+            {
+                "schema_version": "0.9.0-dev",
+                "run_id": clean_run_id,
+                "status": "FAILED_SAFE",
+                "error": failed.error_message,
+                "authority": {
+                    "registry_apply_allowed": False,
+                    "wms_mutation_allowed": False,
+                    "wme_mutation_allowed": False,
+                },
+            },
+        )
+        _write_json(summary_path, asdict(failed))
+        return failed
