@@ -4,6 +4,8 @@ from dataclasses import replace
 import json
 from pathlib import Path
 
+import pandas as pd
+
 from traceai_reconciliation.investigation.daily import (
     load_daily_profile,
     run_daily,
@@ -14,8 +16,19 @@ from traceai_reconciliation.investigation.self_service import (
 
 
 def _write_sources(root: Path) -> None:
+    pd.DataFrame(
+        [
+            {
+                "CodArticol": "DS001",
+                "DenumireArticol": "Produs test",
+                "QuantityERP": 11.0,
+                "QuantityWMS": 10.0,
+                "QuantityDifference": -1.0,
+            }
+        ]
+    ).to_excel(root / "stock.xlsx", index=False)
+
     files = {
-        "stock.xlsx": b"stock",
         "opening.xlsx": b"opening",
         "wms.csv": b"wms",
         "wme.xlsx": b"wme",
