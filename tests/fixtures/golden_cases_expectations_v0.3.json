@@ -1,0 +1,24 @@
+{
+  "schema_version": "0.3-ci",
+  "source_manifest_version": "0.3",
+  "case_count": 17,
+  "cases": [
+    {"case_id":"CASE-2026-000006","product_code":"DS099904127","difference":-1419.0,"unit":"BUC","explained":-1419.0,"residual":0.0,"evidence":"A","contributing_rules":["DEL-02","PROD-02","GST-04","OPEN-01"],"supporting_rules":["R-DER-001"],"expected_status":"EXACT"},
+    {"case_id":"CASE-2026-000010","product_code":"DS099904230","difference":-617.0,"unit":"BUC","explained":-617.0,"residual":0.0,"evidence":"A","contributing_rules":["OPEN-01","PROD-02","ADJ-01"],"supporting_rules":[],"expected_status":"EXACT"},
+    {"case_id":"CASE-2026-000014","product_code":"50013","difference":-429.4,"unit":"BUC","explained":-429.4,"residual":0.0,"evidence":"A","contributing_rules":["PROD-03"],"supporting_rules":[],"expected_status":"EXACT"},
+    {"case_id":"CASE-2026-000018","product_code":"DS099903936","difference":-206.0,"unit":"KG","explained":-206.0,"residual":0.0,"evidence":"A","contributing_rules":["OPEN-01","PROD-02"],"supporting_rules":[],"expected_status":"EXACT"},
+    {"case_id":"CASE-2026-000026","product_code":"10010","difference":-120.0,"unit":"BUC","explained":-120.0,"residual":0.0,"evidence":"A","contributing_rules":["PROD-03","ADJ-01"],"supporting_rules":[],"expected_status":"EXACT"},
+    {"case_id":"CASE-2026-000027","product_code":"DS099904167","difference":-114.0,"unit":"KG","explained":-114.0,"residual":0.0,"evidence":"A","contributing_rules":["PROD-02","OPEN-01"],"supporting_rules":[],"expected_status":"EXACT"},
+    {"case_id":"CASE-2026-000029","product_code":"DS099904010","difference":-80.0,"unit":"KG","explained":-80.0,"residual":0.0,"evidence":"A","contributing_rules":["ADJ-01","OPEN-01"],"supporting_rules":[],"expected_status":"EXACT"},
+    {"case_id":"CASE-2026-000030","product_code":"DS099904006","difference":-70.0,"unit":"KG","explained":-70.0,"residual":0.0,"evidence":"A","contributing_rules":["OPEN-01","PROD-02","WME-02","DEL-02"],"supporting_rules":[],"expected_status":"EXACT"},
+    {"case_id":"CASE-2026-000036","product_code":"DS099903998","difference":-38.0,"unit":"BUC","explained":-38.0,"residual":0.0,"evidence":"A","contributing_rules":["PROD-02","OPEN-01"],"supporting_rules":[],"expected_status":"EXACT"},
+    {"case_id":"CASE-2026-000041","product_code":"DS099903769","difference":-25.0,"unit":"BUC","explained":-25.0,"residual":0.0,"evidence":"A","contributing_rules":["ADJ-01","OPEN-01"],"supporting_rules":[],"expected_status":"EXACT"},
+    {"case_id":"CASE-2026-000042","product_code":"DS099903883","difference":-24.01,"unit":"KG","explained":-24.01,"residual":0.0,"evidence":"A","contributing_rules":["OPEN-01","DEL-02"],"supporting_rules":[],"expected_status":"EXACT"},
+    {"case_id":"CASE-2026-000051","product_code":"DS099904084","difference":-17.0,"unit":"BUC","explained":-17.0,"residual":0.0,"evidence":"A","contributing_rules":["OPEN-01","WME-02","PROD-02"],"supporting_rules":[],"expected_status":"EXACT"},
+    {"case_id":"CASE-2026-000054","product_code":"DS099904007","difference":-11.8,"unit":"KG","explained":-11.8,"residual":0.0,"evidence":"A","contributing_rules":["ADJ-01"],"supporting_rules":[],"expected_status":"EXACT"},
+    {"case_id":"CASE-2026-000073","product_code":"DS099903895","difference":-4.0,"unit":"BUC","explained":-4.0,"residual":0.0,"evidence":"A","contributing_rules":["OPEN-01","WME-02"],"supporting_rules":[],"expected_status":"EXACT"},
+    {"case_id":"CASE-2026-000064","product_code":"DS099904229","difference":-5.525,"unit":"UM","explained":-5.525,"residual":0.0,"evidence":"A","contributing_rules":["OPEN-01"],"supporting_rules":[],"expected_status":"EXACT"},
+    {"case_id":"CASE-2026-000174","product_code":"DS099903805","difference":-1.0,"unit":"UM","explained":-1.0,"residual":0.0,"evidence":"A","contributing_rules":["OPEN-01"],"supporting_rules":[],"expected_status":"EXACT"},
+    {"case_id":"CASE-2026-000165","product_code":"DS099903810","difference":-1.0,"unit":"UM","explained":-1.0,"residual":0.0,"evidence":"A","contributing_rules":["OPEN-01"],"supporting_rules":[],"expected_status":"EXACT"}
+  ]
+}
