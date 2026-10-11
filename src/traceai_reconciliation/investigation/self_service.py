@@ -339,6 +339,7 @@ class SelfServiceBatchCaseResult:
     next_action: str | None = None
     summary_json: str | None = None
     error: str | None = None
+    reused: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -382,6 +383,10 @@ def run_self_service_batch(
         use_source_index=sources.use_source_index,
     )
 
+    batch_readiness = validate_source_readiness(
+        effective_sources,
+        period=None,
+    )
     results: list[SelfServiceBatchCaseResult] = []
 
     for spec in cases:
@@ -394,6 +399,59 @@ def run_self_service_batch(
                 )
             )
             continue
+
+        case_dir = root / spec.case_id.replace("/", "_")
+        reusable_summary = case_dir / "self_service_summary.json"
+        reusable_case = case_dir / "case.json"
+        if reusable_summary.exists() and reusable_case.exists():
+            try:
+                summary_payload = json.loads(
+                    reusable_summary.read_text(encoding="utf-8")
+                )
+                technical_payload = json.loads(
+                    reusable_case.read_text(encoding="utf-8")
+                )
+                output_paths = (
+                    summary_payload.get("outputs", {})
+                    if isinstance(summary_payload.get("outputs"), dict)
+                    else {}
+                )
+                outputs_complete = bool(output_paths) and all(
+                    Path(str(path)).exists()
+                    for path in output_paths.values()
+                    if str(path).strip()
+                )
+                source_hashes = (
+                    technical_payload.get("source_readiness", {})
+                    .get("source_hashes", {})
+                )
+                reusable = (
+                    summary_payload.get("case_id") == spec.case_id
+                    and summary_payload.get("product_code") == spec.product_code
+                    and summary_payload.get("period") == spec.period
+                    and summary_payload.get("rules_version") == rules_version
+                    and summary_payload.get("engine_commit_sha")
+                    == engine_commit_sha
+                    and source_hashes == batch_readiness.source_hashes
+                    and outputs_complete
+                )
+                if reusable:
+                    results.append(
+                        SelfServiceBatchCaseResult(
+                            case_id=spec.case_id,
+                            product_code=spec.product_code,
+                            status=str(
+                                summary_payload.get("promotion_status")
+                                or "HOLD"
+                            ),
+                            next_action=summary_payload.get("next_action"),
+                            summary_json=str(reusable_summary),
+                            reused=True,
+                        )
+                    )
+                    continue
+            except (OSError, json.JSONDecodeError, AttributeError, TypeError):
+                pass
 
         try:
             run = run_self_service_case(
@@ -448,10 +506,13 @@ def run_self_service_batch(
     counts = {
         "total_cases": len(results),
         "executed": sum(
-            item.status not in {"SKIPPED", "ERROR"}
+            item.status not in {"SKIPPED", "ERROR"} and not item.reused
             for item in results
         ),
-        "skipped": sum(item.status == "SKIPPED" for item in results),
+        "skipped": sum(
+            item.status == "SKIPPED" or item.reused
+            for item in results
+        ),
         "eligible": sum(
             item.status == "ELIGIBLE_FOR_HUMAN_REVIEW"
             for item in results
