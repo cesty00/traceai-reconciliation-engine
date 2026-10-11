@@ -111,3 +111,49 @@ jobs:
               raise SystemExit("Release gate authority boundary missing: " + ", ".join(missing))
           print("Authority boundary present and fail-closed.")
           PY
+
+  release_candidate_gate:
+    name: v0.9-release-candidate-gate
+    runs-on: ubuntu-latest
+    needs:
+      - pytest
+      - daily_release_gate
+    if: ${{ always() }}
+    steps:
+      - name: Evaluate release-candidate prerequisites
+        env:
+          PYTEST_RESULT: ${{ needs.pytest.result }}
+          DAILY_GATE_RESULT: ${{ needs.daily_release_gate.result }}
+        run: |
+          python - <<'PY'
+          import os
+          import sys
+
+          checks = {
+              "pytest": os.environ["PYTEST_RESULT"],
+              "daily-release-gate": os.environ["DAILY_GATE_RESULT"],
+          }
+          failed = {
+              name: result
+              for name, result in checks.items()
+              if result != "success"
+          }
+
+          print("v0.9 release-candidate prerequisite results:")
+          for name, result in checks.items():
+              print(f"- {name}: {result}")
+
+          if failed:
+              print("RELEASE_CANDIDATE_BLOCKED")
+              for name, result in failed.items():
+                  print(f"- blocker: {name}={result}")
+              sys.exit(1)
+
+          print("RELEASE_CANDIDATE_GATE_GREEN")
+          print("- full pytest suite: PASS")
+          print("- official 17-case Golden manifest contract: PASS")
+          print("- daily orchestrator + delta smoke: PASS")
+          print("- fail-closed/source-readiness safety: PASS")
+          print("- idempotency/reuse contract: PASS")
+          print("- authority boundary/no WMS-WME mutation: PASS")
+          PY
