@@ -92,3 +92,22 @@ This branch is the first v0.9 milestone, not yet v1.0 release readiness. Before 
 - add previous-run delta classification: NEW / CHANGED / UNCHANGED;
 - add operational UI;
 - validate multiple consecutive real daily runs.
+
+
+## Daily delta classification
+
+Each successful run stores a lightweight per-case stock snapshot state and compares it with the most recent successful run.
+
+Per case, the classifier emits:
+
+- `NEW`: case did not exist in the previous run;
+- `CHANGED`: reported WMS-WME difference changed;
+- `UNCHANGED`: reported difference is unchanged.
+
+Execution policy remains conservative:
+
+- `ANALYZE` for NEW/CHANGED;
+- `REANALYZE_SOURCE_CHANGED` when the final difference is unchanged but at least one source SHA changed;
+- `REUSE_SAFE` only when both the final difference and all source SHA identities are unchanged.
+
+The run writes `daily_delta.json` and includes the same delta payload in `run_manifest.json`. This classification is a prioritisation and reuse control; it is not itself a reconciliation verdict.
