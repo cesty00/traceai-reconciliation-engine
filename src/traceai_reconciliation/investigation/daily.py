@@ -13,6 +13,13 @@ from traceai_reconciliation import __version__
 
 from .batch import BatchCaseSpec, load_batch_manifest
 from .models import InvestigationSources
+from .daily_delta import (
+    build_snapshot_state,
+    classify_snapshot_delta,
+    delta_payload,
+    find_previous_run_manifest,
+    load_previous_snapshot_state,
+)
 from .self_service import (
     SelfServiceBatchSummary,
     run_self_service_batch,
@@ -55,6 +62,11 @@ class DailyRunSummary:
     tolerance: int
     hold: int
     error: int
+    delta_new: int
+    delta_changed: int
+    delta_unchanged: int
+    delta_json: str | None
+    previous_run_id: str | None
     batch_summary_json: str | None
     run_manifest_json: str
     summary_json: str
@@ -252,6 +264,7 @@ def run_daily(
 
     summary_path = run_root / "daily_run_summary.json"
     run_manifest_path = run_root / "run_manifest.json"
+    delta_path = run_root / "daily_delta.json"
     sources = _sources_from_profile(profile, run_root)
 
     try:
@@ -270,6 +283,64 @@ def run_daily(
             rules_version=rules_version,
             engine_commit_sha=engine_commit_sha,
         )
+
+        previous_manifest_path = find_previous_run_manifest(
+            output_root,
+            clean_run_id,
+        )
+        previous_run_id, previous_snapshot_state = load_previous_snapshot_state(
+            previous_manifest_path
+        )
+        previous_source_hashes: dict[str, str] = {}
+        previous_signature: str | None = None
+        previous_batch_summary: str | None = None
+        if previous_manifest_path is not None:
+            try:
+                previous_manifest_payload = json.loads(
+                    previous_manifest_path.read_text(encoding="utf-8")
+                )
+                raw_hashes = (
+                    previous_manifest_payload.get("source_readiness", {})
+                    .get("source_hashes", {})
+                )
+                if isinstance(raw_hashes, dict):
+                    previous_source_hashes = {
+                        str(key): str(value)
+                        for key, value in raw_hashes.items()
+                    }
+                previous_signature = str(
+                    previous_manifest_payload.get("signature") or ""
+                ) or None
+                previous_summary_path = (
+                    previous_manifest_path.parent / "daily_run_summary.json"
+                )
+                if previous_summary_path.exists():
+                    previous_summary_payload = json.loads(
+                        previous_summary_path.read_text(encoding="utf-8")
+                    )
+                    previous_batch_summary = (
+                        previous_summary_payload.get("batch_summary_json")
+                    )
+            except (OSError, json.JSONDecodeError, AttributeError):
+                previous_source_hashes = {}
+                previous_signature = None
+                previous_batch_summary = None
+
+        snapshot_state = build_snapshot_state(
+            profile.stock_report,
+            cases,
+        )
+        source_hashes_changed = (
+            not previous_source_hashes
+            or previous_source_hashes != readiness.source_hashes
+        )
+        delta = classify_snapshot_delta(
+            current_state=snapshot_state,
+            previous_state=previous_snapshot_state,
+            source_hashes_changed=source_hashes_changed,
+            previous_run_id=previous_run_id,
+        )
+        _write_json(delta_path, delta_payload(delta))
 
         if reuse_completed:
             reused = _load_reusable_summary(
@@ -290,6 +361,8 @@ def run_daily(
             "profile_path": str(Path(profile_path)),
             "profile": asdict(profile),
             "source_readiness": asdict(readiness),
+            "snapshot_state": snapshot_state,
+            "delta": delta_payload(delta),
             "cases": [asdict(item) for item in cases],
             "authority": {
                 "human_decision_required": True,
@@ -300,6 +373,42 @@ def run_daily(
             },
         }
         _write_json(run_manifest_path, manifest_payload)
+
+        if (
+            reuse_completed
+            and previous_signature == signature
+            and previous_batch_summary
+            and Path(previous_batch_summary).exists()
+        ):
+            summary = DailyRunSummary(
+                run_id=clean_run_id,
+                status="SUCCESS",
+                signature=signature,
+                reused_run=True,
+                started_at=started_at,
+                finished_at=_utc_now(),
+                profile_path=str(Path(profile_path)),
+                manifest_path=profile.manifest,
+                output_dir=str(run_root),
+                source_hashes=readiness.source_hashes,
+                total_cases=len(cases),
+                executed=0,
+                skipped=len(cases),
+                eligible=0,
+                tolerance=0,
+                hold=0,
+                error=0,
+                delta_new=delta.new,
+                delta_changed=delta.changed,
+                delta_unchanged=delta.unchanged,
+                delta_json=str(delta_path),
+                previous_run_id=previous_run_id,
+                batch_summary_json=previous_batch_summary,
+                run_manifest_json=str(run_manifest_path),
+                summary_json=str(summary_path),
+            )
+            _write_json(summary_path, asdict(summary))
+            return summary
 
         batch = run_self_service_batch(
             cases=cases,
@@ -327,6 +436,11 @@ def run_daily(
             tolerance=batch.tolerance,
             hold=batch.hold,
             error=batch.error,
+            delta_new=delta.new,
+            delta_changed=delta.changed,
+            delta_unchanged=delta.unchanged,
+            delta_json=str(delta_path),
+            previous_run_id=previous_run_id,
             batch_summary_json=batch.summary_json,
             run_manifest_json=str(run_manifest_path),
             summary_json=str(summary_path),
@@ -353,6 +467,11 @@ def run_daily(
             tolerance=0,
             hold=0,
             error=1,
+            delta_new=0,
+            delta_changed=0,
+            delta_unchanged=0,
+            delta_json=None,
+            previous_run_id=None,
             batch_summary_json=None,
             run_manifest_json=str(run_manifest_path),
             summary_json=str(summary_path),
