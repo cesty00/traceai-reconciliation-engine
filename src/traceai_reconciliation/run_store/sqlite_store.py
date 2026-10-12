@@ -106,6 +106,15 @@ class SQLiteRunStore:
                     rules_version, commit_sha, signature, status,
                     previous_run_id
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(run_id) DO UPDATE SET
+                    started_at=excluded.started_at,
+                    finished_at=excluded.finished_at,
+                    engine_version=excluded.engine_version,
+                    rules_version=excluded.rules_version,
+                    commit_sha=excluded.commit_sha,
+                    signature=excluded.signature,
+                    status=excluded.status,
+                    previous_run_id=excluded.previous_run_id
                 """,
                 (
                     run.run_id,
