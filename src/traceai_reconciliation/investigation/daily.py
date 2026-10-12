@@ -11,6 +11,12 @@ import yaml
 
 from traceai_reconciliation import __version__
 from traceai_reconciliation.version import DAILY_RUN_SCHEMA_VERSION, RULESET_VERSION
+from traceai_reconciliation.run_store import (
+    CaseRecord,
+    RunRecord,
+    SQLiteRunStore,
+    SourceRecord,
+)
 
 from .batch import BatchCaseSpec, load_batch_manifest
 from .models import InvestigationSources
@@ -267,6 +273,7 @@ def run_daily(
     run_manifest_path = run_root / "run_manifest.json"
     delta_path = run_root / "daily_delta.json"
     sources = _sources_from_profile(profile, run_root)
+    run_store = SQLiteRunStore(output_root / ".traceai_state.sqlite")
 
     try:
         readiness = validate_source_readiness(
@@ -343,6 +350,47 @@ def run_daily(
         )
         _write_json(delta_path, delta_payload(delta))
 
+        run_store.begin_run(
+            RunRecord(
+                run_id=clean_run_id,
+                started_at=started_at,
+                engine_version=__version__,
+                rules_version=rules_version,
+                commit_sha=engine_commit_sha,
+                signature=signature,
+                status="RUNNING",
+                previous_run_id=previous_run_id,
+            )
+        )
+        source_records: list[SourceRecord] = []
+        for source_type, source_hash in readiness.source_hashes.items():
+            source_path = getattr(sources, source_type, None)
+            if source_path is None:
+                continue
+            source_path = Path(source_path)
+            source_records.append(
+                SourceRecord(
+                    run_id=clean_run_id,
+                    source_type=source_type,
+                    file_name=source_path.name,
+                    size=source_path.stat().st_size,
+                    sha256=source_hash,
+                )
+            )
+        run_store.save_sources(source_records)
+        for item in delta.items:
+            run_store.save_case(
+                CaseRecord(
+                    run_id=clean_run_id,
+                    case_id=item.case_id,
+                    product_code=item.product_code,
+                    current_difference=item.current_difference,
+                    previous_difference=item.previous_difference,
+                    difference_delta=item.difference_delta,
+                    execution_policy=item.execution_policy,
+                )
+            )
+
         if reuse_completed:
             reused = _load_reusable_summary(
                 summary_path,
@@ -350,6 +398,12 @@ def run_daily(
             )
             if reused is not None:
                 _write_json(summary_path, asdict(reused))
+                run_store.finish_run(
+                    clean_run_id,
+                    status=reused.status,
+                    finished_at=reused.finished_at,
+                    signature=signature,
+                )
                 return reused
 
         manifest_payload = {
@@ -409,6 +463,12 @@ def run_daily(
                 summary_json=str(summary_path),
             )
             _write_json(summary_path, asdict(summary))
+            run_store.finish_run(
+                clean_run_id,
+                status=summary.status,
+                finished_at=summary.finished_at,
+                signature=signature,
+            )
             return summary
 
         batch = run_self_service_batch(
@@ -447,6 +507,12 @@ def run_daily(
             summary_json=str(summary_path),
         )
         _write_json(summary_path, asdict(summary))
+        run_store.finish_run(
+            clean_run_id,
+            status=summary.status,
+            finished_at=summary.finished_at,
+            signature=signature,
+        )
         return summary
 
     except Exception as exc:
@@ -493,4 +559,19 @@ def run_daily(
             },
         )
         _write_json(summary_path, asdict(failed))
+        try:
+            run_store.begin_run(
+                RunRecord(
+                    run_id=clean_run_id,
+                    started_at=started_at,
+                    engine_version=__version__,
+                    rules_version=rules_version,
+                    commit_sha=engine_commit_sha,
+                    signature=None,
+                    status="FAILED_SAFE",
+                    finished_at=failed.finished_at,
+                )
+            )
+        except Exception:
+            pass
         return failed
