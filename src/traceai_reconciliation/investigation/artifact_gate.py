@@ -13,6 +13,7 @@ REQUIRED_CASE_ARTIFACTS = (
     "review_queue.json",
     "self_service_summary.json",
     "daily_operator_result.json",
+    "daily_case_summary.json",
 )
 
 
