@@ -34,6 +34,8 @@ class CaseRecord:
     previous_difference: float | None
     difference_delta: float | None
     execution_policy: str | None
+    delta_status: str | None = None
+    explained_delta: float | None = None
     status: str | None = None
     cause_code: str | None = None
     evidence_level: str | None = None
