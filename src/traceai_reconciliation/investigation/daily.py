@@ -31,6 +31,7 @@ from .daily_delta import (
 from .daily_delta_analysis import analyze_daily_delta_root_causes
 from .daily_operator_delta import enrich_daily_operator_artifacts
 from .daily_operator_history import enrich_operator_history_artifacts
+from .daily_case_summary import write_daily_case_summaries
 from .self_service import (
     SelfServiceBatchSummary,
     run_self_service_batch,
@@ -541,6 +542,11 @@ def run_daily(
         )
         enrich_operator_history_artifacts(
             run_store=run_store,
+            cases=cases,
+            cases_root=cases_root,
+        )
+        write_daily_case_summaries(
+            run_id=clean_run_id,
             cases=cases,
             cases_root=cases_root,
         )
