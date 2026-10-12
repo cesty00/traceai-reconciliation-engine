@@ -6,7 +6,7 @@ import sqlite3
 from .models import CaseRecord, RunRecord, SourceRecord
 
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 
 class SQLiteRunStore:
@@ -59,6 +59,8 @@ class SQLiteRunStore:
                     previous_difference REAL,
                     difference_delta REAL,
                     execution_policy TEXT,
+                    delta_status TEXT,
+                    explained_delta REAL,
                     status TEXT,
                     cause_code TEXT,
                     evidence_level TEXT,
@@ -81,6 +83,25 @@ class SQLiteRunStore:
             if row is None:
                 connection.execute(
                     "INSERT INTO _schema_meta(schema_version) VALUES (?)",
+                    (SCHEMA_VERSION,),
+                )
+            elif int(row[0]) == 1:
+                columns = {
+                    item[1]
+                    for item in connection.execute(
+                        "PRAGMA table_info(cases)"
+                    ).fetchall()
+                }
+                if "delta_status" not in columns:
+                    connection.execute(
+                        "ALTER TABLE cases ADD COLUMN delta_status TEXT"
+                    )
+                if "explained_delta" not in columns:
+                    connection.execute(
+                        "ALTER TABLE cases ADD COLUMN explained_delta REAL"
+                    )
+                connection.execute(
+                    "UPDATE _schema_meta SET schema_version = ?",
                     (SCHEMA_VERSION,),
                 )
             elif int(row[0]) != SCHEMA_VERSION:
@@ -185,15 +206,17 @@ class SQLiteRunStore:
                 INSERT INTO cases (
                     run_id, case_id, product_code, current_difference,
                     previous_difference, difference_delta, execution_policy,
-                    status, cause_code, evidence_level, residual,
-                    operator_action, correction_target
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    delta_status, explained_delta, status, cause_code,
+                    evidence_level, residual, operator_action, correction_target
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(run_id, case_id) DO UPDATE SET
                     product_code=excluded.product_code,
                     current_difference=excluded.current_difference,
                     previous_difference=excluded.previous_difference,
                     difference_delta=excluded.difference_delta,
                     execution_policy=excluded.execution_policy,
+                    delta_status=excluded.delta_status,
+                    explained_delta=excluded.explained_delta,
                     status=excluded.status,
                     cause_code=excluded.cause_code,
                     evidence_level=excluded.evidence_level,
@@ -209,6 +232,8 @@ class SQLiteRunStore:
                     record.previous_difference,
                     record.difference_delta,
                     record.execution_policy,
+                    record.delta_status,
+                    record.explained_delta,
                     record.status,
                     record.cause_code,
                     record.evidence_level,
@@ -250,6 +275,33 @@ class SQLiteRunStore:
                 (run_id, case_id),
             ).fetchone()
         return dict(row) if row is not None else None
+
+    def get_product_history(
+        self,
+        product_code: str,
+        *,
+        limit: int = 30,
+    ) -> list[dict[str, object]]:
+        if limit < 1:
+            raise ValueError("limit must be at least 1.")
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT
+                    c.*,
+                    r.started_at,
+                    r.finished_at,
+                    r.status AS run_status,
+                    r.previous_run_id
+                FROM cases c
+                JOIN runs r ON r.run_id = c.run_id
+                WHERE c.product_code = ?
+                ORDER BY r.started_at DESC, c.run_id DESC
+                LIMIT ?
+                """,
+                (str(product_code).strip(), int(limit)),
+            ).fetchall()
+        return [dict(row) for row in rows]
 
     def get_latest_case_for_product(
         self,
