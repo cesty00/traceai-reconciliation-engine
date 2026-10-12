@@ -1,3 +1,7 @@
 """TraceAI Reconciliation Engine."""
 
-__version__ = "0.9.0"
+from .version import ENGINE_VERSION
+
+__version__ = ENGINE_VERSION
+
+__all__ = ["__version__", "ENGINE_VERSION"]
