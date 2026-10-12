@@ -47,6 +47,11 @@ from .self_service import (
     validate_source_readiness,
 )
 from .daily import DailyProfile, DailyRunSummary, load_daily_profile, run_daily
+from .daily_operator import (
+    DailyOperatorResult,
+    build_daily_operator_result,
+    daily_operator_result_to_dict,
+)
 from .daily_delta import (
     DailyDeltaItem,
     DailyDeltaSummary,
@@ -114,6 +119,9 @@ __all__ = [
     "DailyRunSummary",
     "load_daily_profile",
     "run_daily",
+    "DailyOperatorResult",
+    "build_daily_operator_result",
+    "daily_operator_result_to_dict",
     "DailyDeltaItem",
     "DailyDeltaSummary",
     "build_snapshot_state",
