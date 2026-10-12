@@ -50,6 +50,7 @@ def build_snapshot_state(
         state[case.case_id] = {
             "case_id": case.case_id,
             "product_code": case.product_code,
+            "product_name": audit.product_name,
             "reported_stock_wms": audit.reported_stock_wms,
             "reported_stock_wme": audit.reported_stock_wme,
             "difference_reported": audit.difference_reported,
