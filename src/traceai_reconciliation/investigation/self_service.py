@@ -14,6 +14,7 @@ from .auto_explain import (
     auto_explanation_to_dict,
 )
 from .case_builder import build_case_report
+from .daily_operator import build_daily_operator_result, daily_operator_result_to_dict
 from .engine import investigate_product
 from .human_review_queue import (
     build_human_review_queue_item,
@@ -50,6 +51,7 @@ class SelfServiceRunResult:
     docx: str
     registry_json: str
     review_queue_json: str
+    operator_json: str
     summary_json: str
 
 
@@ -239,6 +241,7 @@ def run_self_service_case(
     docx = case_dir / "case.docx"
     registry_json = case_dir / "registry_update.json"
     review_queue_json = case_dir / "review_queue.json"
+    operator_json = case_dir / "daily_operator_result.json"
     summary_json = case_dir / "self_service_summary.json"
 
     generate_docx_report(case_report, docx)
@@ -252,6 +255,11 @@ def run_self_service_case(
         staged_at=staged_at,
     )
     review_payload = build_review_queue_payload(queue_item)
+    operator_result = build_daily_operator_result(
+        investigation,
+        explanation,
+        assessment,
+    )
 
     technical_payload = {
         "investigation": asdict(investigation),
@@ -269,6 +277,7 @@ def run_self_service_case(
     _write_json(technical_json, technical_payload)
     _write_json(registry_json, registry_update)
     _write_json(review_queue_json, review_payload)
+    _write_json(operator_json, daily_operator_result_to_dict(operator_result))
 
     next_action = _next_action(assessment.status)
     summary = {
@@ -292,11 +301,15 @@ def run_self_service_case(
         "review_status": queue_item.review_status,
         "registry_action": queue_item.registry_action,
         "next_action": next_action,
+        "operator_status": operator_result.operator_status,
+        "operator_action": operator_result.operator_action,
+        "correction_target": operator_result.correction_target,
         "outputs": {
             "case_json": str(technical_json),
             "case_docx": str(docx),
             "registry_update_json": str(registry_json),
             "review_queue_json": str(review_queue_json),
+            "daily_operator_result_json": str(operator_json),
         },
         "authority": {
             "human_decision_required": True,
@@ -318,6 +331,7 @@ def run_self_service_case(
         docx=str(docx),
         registry_json=str(registry_json),
         review_queue_json=str(review_queue_json),
+        operator_json=str(operator_json),
         summary_json=str(summary_json),
     )
 
