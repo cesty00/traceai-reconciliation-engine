@@ -93,7 +93,10 @@ def _fake_batch(**kwargs) -> SelfServiceBatchSummary:
         "self_service_summary.json",
         "daily_operator_result.json",
     ):
-        (case_dir / name).write_bytes(b"stub")
+        if name.endswith(".json"):
+            (case_dir / name).write_text("{}", encoding="utf-8")
+        else:
+            (case_dir / name).write_bytes(b"stub")
     summary_json.write_text(
         json.dumps(
             {
