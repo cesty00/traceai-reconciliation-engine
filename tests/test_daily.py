@@ -11,6 +11,7 @@ from traceai_reconciliation.investigation.daily import (
     run_daily,
 )
 from traceai_reconciliation.investigation.self_service import (
+    SelfServiceBatchCaseResult,
     SelfServiceBatchSummary,
 )
 from traceai_reconciliation.run_store import SQLiteRunStore
@@ -106,6 +107,17 @@ def test_daily_run_writes_manifest_and_summary(
         root.mkdir(parents=True, exist_ok=True)
         summary_json = root / "self_service_batch_summary.json"
         summary_json.write_text("{}", encoding="utf-8")
+        case_dir = root / "CASE-DAILY-001"
+        case_dir.mkdir(parents=True, exist_ok=True)
+        for name in (
+            "case.json",
+            "case.docx",
+            "registry_update.json",
+            "review_queue.json",
+            "self_service_summary.json",
+            "daily_operator_result.json",
+        ):
+            (case_dir / name).write_bytes(b"stub")
         return SelfServiceBatchSummary(
             batch_id=kwargs["batch_id"],
             total_cases=1,
@@ -115,7 +127,13 @@ def test_daily_run_writes_manifest_and_summary(
             tolerance=0,
             hold=0,
             error=0,
-            cases=(),
+            cases=(
+                SelfServiceBatchCaseResult(
+                    case_id="CASE-DAILY-001",
+                    product_code="DS001",
+                    status="ELIGIBLE_FOR_HUMAN_REVIEW",
+                ),
+            ),
             summary_json=str(summary_json),
         )
 
@@ -171,6 +189,17 @@ def test_daily_run_is_idempotent_for_same_signature(
         root.mkdir(parents=True, exist_ok=True)
         summary_json = root / "self_service_batch_summary.json"
         summary_json.write_text("{}", encoding="utf-8")
+        case_dir = root / "CASE-DAILY-001"
+        case_dir.mkdir(parents=True, exist_ok=True)
+        for name in (
+            "case.json",
+            "case.docx",
+            "registry_update.json",
+            "review_queue.json",
+            "self_service_summary.json",
+            "daily_operator_result.json",
+        ):
+            (case_dir / name).write_bytes(b"stub")
         return SelfServiceBatchSummary(
             batch_id=kwargs["batch_id"],
             total_cases=1,
@@ -180,7 +209,13 @@ def test_daily_run_is_idempotent_for_same_signature(
             tolerance=0,
             hold=0,
             error=0,
-            cases=(),
+            cases=(
+                SelfServiceBatchCaseResult(
+                    case_id="CASE-DAILY-001",
+                    product_code="DS001",
+                    status="MATCH_DIRECT",
+                ),
+            ),
             summary_json=str(summary_json),
         )
 
