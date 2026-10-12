@@ -69,3 +69,16 @@ def test_artifact_gate_requires_error_artifact_for_error_case(
     (case_dir / "self_service_error.json").write_bytes(b"error")
     result = validate_batch_artifacts(_batch("ERROR"), tmp_path)
     assert result.complete is True
+
+
+def test_artifact_gate_rejects_missing_daily_case_summary(tmp_path: Path) -> None:
+    case_dir = tmp_path / "CASE-1"
+    case_dir.mkdir()
+    for name in REQUIRED_CASE_ARTIFACTS:
+        if name != "daily_case_summary.json":
+            (case_dir / name).write_bytes(b"ok")
+
+    result = validate_batch_artifacts(_batch(), tmp_path)
+
+    assert result.complete is False
+    assert "CASE-1:daily_case_summary.json" in result.missing
