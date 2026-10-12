@@ -50,6 +50,40 @@ def _normalize_timestamp(value: pd.Timestamp) -> pd.Timestamp:
     return value
 
 
+def _parse_operation_dates(series: pd.Series) -> pd.Series:
+    """Parse heterogeneous operational timestamps conservatively.
+
+    Supported inputs include ISO timestamps, Romanian/day-first text dates,
+    pandas/datetime values, and Excel serial dates commonly present in WME
+    worksheet XML. Numeric values outside a plausible Excel serial range are
+    not guessed.
+    """
+    parsed = pd.Series(pd.NaT, index=series.index, dtype="datetime64[ns]")
+
+    numeric = pd.to_numeric(series, errors="coerce")
+    excel_serial = numeric.between(20000, 80000, inclusive="both")
+    if excel_serial.any():
+        parsed.loc[excel_serial] = pd.to_datetime(
+            numeric.loc[excel_serial],
+            unit="D",
+            origin="1899-12-30",
+            errors="coerce",
+        )
+
+    remaining = ~excel_serial
+    if remaining.any():
+        text = series.loc[remaining]
+        parsed.loc[remaining] = pd.to_datetime(
+            text,
+            errors="coerce",
+            format="mixed",
+            dayfirst=True,
+            utc=True,
+        ).dt.tz_convert(None)
+
+    return parsed
+
+
 def filter_frame_to_window(
     frame: pd.DataFrame,
     window: MovementWindow,
@@ -68,12 +102,7 @@ def filter_frame_to_window(
             "Delta movement window cannot resolve an operation date column."
         )
 
-    parsed = pd.to_datetime(
-        frame[date_column],
-        errors="coerce",
-        dayfirst=True,
-        utc=True,
-    ).dt.tz_convert(None)
+    parsed = _parse_operation_dates(frame[date_column])
 
     if parsed.isna().any():
         invalid = int(parsed.isna().sum())
