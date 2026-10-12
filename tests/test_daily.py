@@ -13,6 +13,7 @@ from traceai_reconciliation.investigation.daily import (
 from traceai_reconciliation.investigation.self_service import (
     SelfServiceBatchSummary,
 )
+from traceai_reconciliation.run_store import SQLiteRunStore
 
 
 def _write_sources(root: Path) -> None:
@@ -143,6 +144,17 @@ def test_daily_run_writes_manifest_and_summary(
     assert manifest["authority"]["registry_apply_allowed"] is False
     assert manifest["authority"]["wms_mutation_allowed"] is False
     assert manifest["source_readiness"]["ready"] is True
+
+    store_path = Path(result.output_dir).parent / ".traceai_state.sqlite"
+    store = SQLiteRunStore(store_path)
+    persisted_run = store.get_run("2026-10-11")
+    persisted_case = store.get_case("2026-10-11", "CASE-DAILY-001")
+    assert persisted_run is not None
+    assert persisted_run["status"] == "SUCCESS_WITH_REVIEW"
+    assert persisted_run["signature"] == result.signature
+    assert persisted_case is not None
+    assert persisted_case["product_code"] == "DS001"
+    assert persisted_case["current_difference"] == -1.0
 
 
 def test_daily_run_is_idempotent_for_same_signature(
