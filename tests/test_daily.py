@@ -117,6 +117,9 @@ def test_daily_run_writes_manifest_and_summary(
             "self_service_summary.json",
             "daily_operator_result.json",
         ):
+            if name.endswith(".json"):
+            (case_dir / name).write_text("{}", encoding="utf-8")
+        else:
             (case_dir / name).write_bytes(b"stub")
         return SelfServiceBatchSummary(
             batch_id=kwargs["batch_id"],
@@ -199,6 +202,9 @@ def test_daily_run_is_idempotent_for_same_signature(
             "self_service_summary.json",
             "daily_operator_result.json",
         ):
+            if name.endswith(".json"):
+            (case_dir / name).write_text("{}", encoding="utf-8")
+        else:
             (case_dir / name).write_bytes(b"stub")
         return SelfServiceBatchSummary(
             batch_id=kwargs["batch_id"],
