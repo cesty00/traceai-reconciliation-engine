@@ -51,8 +51,8 @@ class SelfServiceRunResult:
     docx: str
     registry_json: str
     review_queue_json: str
-    operator_json: str
     summary_json: str
+    operator_json: str | None = None
 
 
 def _utc_now() -> str:
