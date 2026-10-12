@@ -29,6 +29,7 @@ from .daily_delta import (
     load_previous_snapshot_state,
 )
 from .daily_delta_analysis import analyze_daily_delta_root_causes
+from .daily_operator_delta import enrich_daily_operator_artifacts
 from .self_service import (
     SelfServiceBatchSummary,
     run_self_service_batch,
@@ -506,6 +507,10 @@ def run_daily(
             batch_id=f"DAILY:{clean_run_id}",
             rules_version=rules_version,
             engine_commit_sha=engine_commit_sha,
+        )
+        enrich_daily_operator_artifacts(
+            summary=delta_root_cause,
+            cases_root=cases_root,
         )
         require_complete_batch_artifacts(batch, cases_root)
         summary = DailyRunSummary(
