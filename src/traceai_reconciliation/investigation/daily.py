@@ -10,6 +10,7 @@ from typing import Any
 import yaml
 
 from traceai_reconciliation import __version__
+from traceai_reconciliation.version import DAILY_RUN_SCHEMA_VERSION, RULESET_VERSION
 
 from .batch import BatchCaseSpec, load_batch_manifest
 from .models import InvestigationSources
@@ -248,7 +249,7 @@ def run_daily(
     *,
     profile_path: str | Path,
     run_id: str,
-    rules_version: str = "0.4",
+    rules_version: str = RULESET_VERSION,
     engine_commit_sha: str = "LOCAL_OR_UNSET",
     reuse_completed: bool = True,
 ) -> DailyRunSummary:
@@ -352,7 +353,7 @@ def run_daily(
                 return reused
 
         manifest_payload = {
-            "schema_version": "0.9.0-dev",
+            "schema_version": DAILY_RUN_SCHEMA_VERSION,
             "run_id": clean_run_id,
             "signature": signature,
             "engine_version": __version__,
@@ -480,7 +481,7 @@ def run_daily(
         _write_json(
             run_manifest_path,
             {
-                "schema_version": "0.9.0-dev",
+                "schema_version": DAILY_RUN_SCHEMA_VERSION,
                 "run_id": clean_run_id,
                 "status": "FAILED_SAFE",
                 "error": failed.error_message,
