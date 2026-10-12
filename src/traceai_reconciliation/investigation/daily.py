@@ -404,7 +404,18 @@ def run_daily(
                 )
             )
         run_store.save_sources(source_records)
+        delta_root_by_case = {
+            item.case_id: item
+            for item in delta_root_cause.items
+        }
         for item in delta.items:
+            root_item = delta_root_by_case.get(item.case_id)
+            root_payload = (
+                root_item.analysis.get("root_cause", {})
+                if root_item is not None
+                and isinstance(root_item.analysis, dict)
+                else {}
+            )
             run_store.save_case(
                 CaseRecord(
                     run_id=clean_run_id,
@@ -414,6 +425,21 @@ def run_daily(
                     previous_difference=item.previous_difference,
                     difference_delta=item.difference_delta,
                     execution_policy=item.execution_policy,
+                    delta_status=(
+                        root_item.status
+                        if root_item is not None
+                        else None
+                    ),
+                    explained_delta=(
+                        float(root_payload["explained_delta"])
+                        if root_payload.get("explained_delta") is not None
+                        else None
+                    ),
+                    residual=(
+                        float(root_payload["residual_delta"])
+                        if root_payload.get("residual_delta") is not None
+                        else None
+                    ),
                 )
             )
 
