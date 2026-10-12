@@ -28,6 +28,7 @@ from .daily_delta import (
     find_previous_run_manifest,
     load_previous_snapshot_state,
 )
+from .daily_delta_analysis import analyze_daily_delta_root_causes
 from .self_service import (
     SelfServiceBatchSummary,
     run_self_service_batch,
@@ -47,6 +48,7 @@ class DailyProfile:
     output_dir: str
     period: str
     report_date: str | None = None
+    snapshot_at: str | None = None
     opening_absent_means_zero: bool = False
     indexed_cache: bool = True
 
@@ -74,6 +76,7 @@ class DailyRunSummary:
     delta_changed: int
     delta_unchanged: int
     delta_json: str | None
+    delta_root_cause_json: str | None
     previous_run_id: str | None
     batch_summary_json: str | None
     run_manifest_json: str
@@ -147,6 +150,9 @@ def load_daily_profile(path: str | Path) -> DailyProfile:
         period=str(daily["period"]).strip(),
         report_date=(
             str(daily.get("report_date", "")).strip() or None
+        ),
+        snapshot_at=(
+            str(daily.get("snapshot_at", "")).strip() or None
         ),
         opening_absent_means_zero=bool(
             daily.get("opening_absent_means_zero", False)
@@ -243,6 +249,7 @@ def _load_reusable_summary(
     payload["executed"] = 0
     payload["started_at"] = _utc_now()
     payload["finished_at"] = payload["started_at"]
+    payload.setdefault("delta_root_cause_json", None)
     return DailyRunSummary(**payload)
 
 
@@ -273,6 +280,7 @@ def run_daily(
     summary_path = run_root / "daily_run_summary.json"
     run_manifest_path = run_root / "run_manifest.json"
     delta_path = run_root / "daily_delta.json"
+    delta_root_cause_path = run_root / "daily_delta_root_cause.json"
     sources = _sources_from_profile(profile, run_root)
     run_store = SQLiteRunStore(output_root / ".traceai_state.sqlite")
 
@@ -303,6 +311,7 @@ def run_daily(
         previous_source_hashes: dict[str, str] = {}
         previous_signature: str | None = None
         previous_batch_summary: str | None = None
+        previous_snapshot_at: str | None = None
         if previous_manifest_path is not None:
             try:
                 previous_manifest_payload = json.loads(
@@ -320,6 +329,12 @@ def run_daily(
                 previous_signature = str(
                     previous_manifest_payload.get("signature") or ""
                 ) or None
+                previous_profile = previous_manifest_payload.get("profile", {})
+                if isinstance(previous_profile, dict):
+                    previous_snapshot_at = (
+                        str(previous_profile.get("snapshot_at") or "").strip()
+                        or None
+                    )
                 previous_summary_path = (
                     previous_manifest_path.parent / "daily_run_summary.json"
                 )
@@ -334,6 +349,7 @@ def run_daily(
                 previous_source_hashes = {}
                 previous_signature = None
                 previous_batch_summary = None
+                previous_snapshot_at = None
 
         snapshot_state = build_snapshot_state(
             profile.stock_report,
@@ -350,6 +366,14 @@ def run_daily(
             previous_run_id=previous_run_id,
         )
         _write_json(delta_path, delta_payload(delta))
+        delta_root_cause = analyze_daily_delta_root_causes(
+            delta=delta,
+            current_snapshot_state=snapshot_state,
+            previous_snapshot_at=previous_snapshot_at,
+            current_snapshot_at=profile.snapshot_at,
+            sources=sources,
+        )
+        _write_json(delta_root_cause_path, asdict(delta_root_cause))
 
         run_store.begin_run(
             RunRecord(
@@ -419,6 +443,7 @@ def run_daily(
             "source_readiness": asdict(readiness),
             "snapshot_state": snapshot_state,
             "delta": delta_payload(delta),
+            "delta_root_cause": asdict(delta_root_cause),
             "cases": [asdict(item) for item in cases],
             "authority": {
                 "human_decision_required": True,
@@ -458,6 +483,7 @@ def run_daily(
                 delta_changed=delta.changed,
                 delta_unchanged=delta.unchanged,
                 delta_json=str(delta_path),
+                delta_root_cause_json=str(delta_root_cause_path),
                 previous_run_id=previous_run_id,
                 batch_summary_json=previous_batch_summary,
                 run_manifest_json=str(run_manifest_path),
@@ -504,6 +530,7 @@ def run_daily(
             delta_changed=delta.changed,
             delta_unchanged=delta.unchanged,
             delta_json=str(delta_path),
+            delta_root_cause_json=str(delta_root_cause_path),
             previous_run_id=previous_run_id,
             batch_summary_json=batch.summary_json,
             run_manifest_json=str(run_manifest_path),
@@ -541,6 +568,7 @@ def run_daily(
             delta_changed=0,
             delta_unchanged=0,
             delta_json=None,
+            delta_root_cause_json=None,
             previous_run_id=None,
             batch_summary_json=None,
             run_manifest_json=str(run_manifest_path),
