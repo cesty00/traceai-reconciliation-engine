@@ -18,6 +18,7 @@ from traceai_reconciliation.run_store import (
     SourceRecord,
 )
 
+from .artifact_gate import require_complete_batch_artifacts
 from .batch import BatchCaseSpec, load_batch_manifest
 from .models import InvestigationSources
 from .daily_delta import (
@@ -471,14 +472,16 @@ def run_daily(
             )
             return summary
 
+        cases_root = run_root / "cases"
         batch = run_self_service_batch(
             cases=cases,
             sources=sources,
-            output_dir=run_root / "cases",
+            output_dir=cases_root,
             batch_id=f"DAILY:{clean_run_id}",
             rules_version=rules_version,
             engine_commit_sha=engine_commit_sha,
         )
+        require_complete_batch_artifacts(batch, cases_root)
         summary = DailyRunSummary(
             run_id=clean_run_id,
             status=_overall_status(batch),

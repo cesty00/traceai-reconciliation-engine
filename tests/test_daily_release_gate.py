@@ -7,7 +7,10 @@ from pathlib import Path
 import pandas as pd
 
 from traceai_reconciliation.investigation.daily import run_daily
-from traceai_reconciliation.investigation.self_service import SelfServiceBatchSummary
+from traceai_reconciliation.investigation.self_service import (
+    SelfServiceBatchCaseResult,
+    SelfServiceBatchSummary,
+)
 
 
 def _sha(path: Path) -> str:
@@ -80,6 +83,17 @@ def _fake_batch(**kwargs) -> SelfServiceBatchSummary:
     root = Path(kwargs["output_dir"])
     root.mkdir(parents=True, exist_ok=True)
     summary_json = root / "self_service_batch_summary.json"
+    case_dir = root / "CASE-RELEASE-GATE-001"
+    case_dir.mkdir(parents=True, exist_ok=True)
+    for name in (
+        "case.json",
+        "case.docx",
+        "registry_update.json",
+        "review_queue.json",
+        "self_service_summary.json",
+        "daily_operator_result.json",
+    ):
+        (case_dir / name).write_bytes(b"stub")
     summary_json.write_text(
         json.dumps(
             {
@@ -103,7 +117,13 @@ def _fake_batch(**kwargs) -> SelfServiceBatchSummary:
         tolerance=0,
         hold=0,
         error=0,
-        cases=(),
+        cases=(
+            SelfServiceBatchCaseResult(
+                case_id="CASE-RELEASE-GATE-001",
+                product_code="DS-GATE-001",
+                status="ELIGIBLE_FOR_HUMAN_REVIEW",
+            ),
+        ),
         summary_json=str(summary_json),
     )
 
