@@ -249,6 +249,7 @@ def _load_reusable_summary(
     payload["executed"] = 0
     payload["started_at"] = _utc_now()
     payload["finished_at"] = payload["started_at"]
+    payload.setdefault("delta_root_cause_json", None)
     return DailyRunSummary(**payload)
 
 
@@ -529,6 +530,7 @@ def run_daily(
             delta_changed=delta.changed,
             delta_unchanged=delta.unchanged,
             delta_json=str(delta_path),
+            delta_root_cause_json=str(delta_root_cause_path),
             previous_run_id=previous_run_id,
             batch_summary_json=batch.summary_json,
             run_manifest_json=str(run_manifest_path),
