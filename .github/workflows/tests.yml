@@ -113,7 +113,7 @@ jobs:
           PY
 
   release_candidate_gate:
-    name: v0.9-release-candidate-gate
+    name: release-candidate-gate
     runs-on: ubuntu-latest
     needs:
       - pytest
@@ -139,7 +139,7 @@ jobs:
               if result != "success"
           }
 
-          print("v0.9 release-candidate prerequisite results:")
+          print("Release-candidate prerequisite results:")
           for name, result in checks.items():
               print(f"- {name}: {result}")
 

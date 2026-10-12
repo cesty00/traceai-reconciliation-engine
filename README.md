@@ -171,3 +171,18 @@ v0.9 transformă motorul self-service validat în v0.8 într-un flux zilnic cont
 - fără aprobare automată, fără registry apply automat și fără mutații WMS/WME.
 
 Feature merge commit de bază: `81f1fa005208d532d80d0a810465dae5a9d1ddcc`.
+
+
+## v0.10 — Daily Operator View
+
+v0.10 adaugă un rezultat compact, read-only, orientat către operator pentru utilizarea zilnică:
+
+- cauză, reguli, nivel de probă și rezidual;
+- țintă de corecție și acțiune recomandată;
+- output standard `daily_operator_result.json`;
+- separare explicită între diferențe operaționale și diferențe de mapare/raport;
+- nicio mutație automată WMS/WME și fără forced MATCH.
+
+Contractele de versiune sunt centralizate în `src/traceai_reconciliation/version.py`:
+`ENGINE_VERSION`, `RULESET_VERSION`, `DAILY_RUN_SCHEMA_VERSION` și
+`OPERATOR_OUTPUT_SCHEMA_VERSION`.
