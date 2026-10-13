@@ -9,6 +9,7 @@ import pandas as pd
 from .models import InvestigationSources, ProductInvestigationResult
 from .nomenclature_validation import validate_nomenclature
 from .opening_stock_policy import resolve_opening_stock_wms
+from .product_identity import resolve_product_identity
 from .operation_timeline import (
     timeline_from_production,
     timeline_from_wme,
@@ -161,35 +162,17 @@ def investigate_product(
         )
     wme_rows = filter_by_period(wme_all_rows, period)
 
-    if not wms_rows.empty:
-        unit = first_non_empty(wms_rows, "unit")
-        if unit:
-            result.unit = unit
-    if result.unit == "UM" and not wme_rows.empty:
-        wme_units = [
-            str(value).strip()
-            for value in wme_rows["Unit"].dropna().tolist()
-            if str(value).strip()
-        ]
-        if wme_units:
-            result.unit = wme_units[0]
-
-    if not wme_ids:
-        result.technical_warnings.append(
-            f"Denumirea exactă '{product_name}' nu a fost găsită în fișa WME."
-        )
-    elif len(wme_ids) > 1:
-        result.technical_warnings.append(
-            f"Denumirea exactă '{product_name}' este asociată cu mai multe ID-uri WME: "
-            f"{sorted(wme_ids)}."
-        )
-    elif nomenclature_status == "COD_LIPSA":
-        result.technical_warnings.append(
-            f"Codul {product_code} lipsește din nomenclatorul încărcat. "
-            f"Extragerea WME folosește denumirea exactă din raportul de stoc, "
-            f"care conduce univoc la ID WME {next(iter(wme_ids))}. "
-            "Maparea rămâne de validat înainte să devină regulă generală."
-        )
+    identity_resolution = resolve_product_identity(
+        current_unit=result.unit,
+        wms_rows=wms_rows,
+        wme_rows=wme_rows,
+        wme_ids=wme_ids,
+        product_code=product_code,
+        product_name=product_name,
+        nomenclature_status=nomenclature_status,
+    )
+    result.unit = identity_resolution.unit
+    result.technical_warnings.extend(identity_resolution.warnings)
 
     period_start, period_end = parse_period(period)
 
