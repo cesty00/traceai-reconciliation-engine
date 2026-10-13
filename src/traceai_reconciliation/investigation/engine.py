@@ -25,7 +25,10 @@ from .receipt_matching import match_inbound_receipts
 from .special_status_matching import match_special_status_flow
 from .production_input_matching import match_production_inputs
 from .stock_correction_matching import match_generic_wms_stock_corrections
-from .stock_report_zone_matching import reconcile_stock_report_zones
+from .stock_report_zone_matching import (
+    has_offsetting_zone_differences,
+    reconcile_stock_report_zones,
+)
 from .transfer_mose_matching import (
     match_transfer_mose,
     match_transfer_mose_baskets,
@@ -339,6 +342,31 @@ def investigate_product(
             f"{len(stock_zone_match.unresolved_rows)} rânduri de gestiune din "
             "raport nu au putut fi validate automat față de soldurile WME și "
             "rămân REVIEW."
+        )
+
+    offsetting_zone_differences = has_offsetting_zone_differences(
+        stock_zone_match,
+        total_difference=result.initial_difference,
+        tolerance=10 ** (-decimals),
+    )
+    if offsetting_zone_differences:
+        material_rows = [
+            row
+            for row in stock_zone_match.rows
+            if abs(float(row.get("report_difference") or 0.0))
+            > 10 ** (-decimals)
+        ]
+        result.findings.append(
+            {
+                "type": "STOCK_REPORT_OFFSETTING_ZONE_DIFFERENCES",
+                "description": (
+                    "Diferența totală pe produs este zero, dar raportul conține "
+                    f"{len(material_rows)} rânduri de gestiune cu diferențe "
+                    "materiale care se compensează între ele. Cazul nu poate fi "
+                    "închis ca MATCH_DIRECT până la validarea mapării/locației."
+                ),
+                "evidence": "SRC-STOCK-REPORT + STOCK_REPORT_ZONE_MATCHING",
+            }
         )
 
     result.technical_warnings.append(
@@ -1242,15 +1270,29 @@ def investigate_product(
         result.cause_status = "PROBABILA"
         result.evidence_level = "C"
     elif abs(result.initial_difference) <= 10 ** (-decimals):
-        result.verdict = "MATCH_DIRECT"
-        result.evidence_level = "A"
-        result.cause_code = "CAUSE-NONE"
-        result.cause_description = (
-            "Raportul de stoc nu indică diferență materială pentru produs."
-        )
-        result.cause_status = "CONFIRMATA"
-        result.explained_difference = 0.0
-        result.unexplained_difference = 0.0
+        if offsetting_zone_differences:
+            result.verdict = "REVIEW"
+            result.evidence_level = "A"
+            result.cause_code = "CAUSE-OFFSETTING-ZONE-DIFFERENCES"
+            result.cause_description = (
+                "Diferența totală pe produs este zero doar prin compensarea "
+                "unor diferențe materiale între gestiunile/zonele raportului. "
+                "Este necesară validarea mapării operaționale înainte de "
+                "închiderea cazului."
+            )
+            result.cause_status = "CONFIRMATA"
+            result.explained_difference = 0.0
+            result.unexplained_difference = 0.0
+        else:
+            result.verdict = "MATCH_DIRECT"
+            result.evidence_level = "A"
+            result.cause_code = "CAUSE-NONE"
+            result.cause_description = (
+                "Raportul de stoc nu indică diferență materială pentru produs."
+            )
+            result.cause_status = "CONFIRMATA"
+            result.explained_difference = 0.0
+            result.unexplained_difference = 0.0
     elif result.explained_difference == 0:
         result.verdict = "REVIEW"
         result.evidence_level = "B" if len(wme_ids) == 1 else "C"
