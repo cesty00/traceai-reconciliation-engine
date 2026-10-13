@@ -156,7 +156,7 @@ def match_production_inputs(
             ).fillna(0.0)
             details = corrections["Detalii"].fillna("").astype(str)
             for doc in wms_by_doc.index:
-                pattern = rf"(?<!\\d){re.escape(str(doc))}(?!\\d)"
+                pattern = rf"(?<!\d){re.escape(str(doc))}(?!\d)"
                 referenced = corrections[
                     details.str.contains(
                         pattern,
@@ -294,15 +294,12 @@ def match_production_inputs(
         )
         neutralization_reason = None
 
-        if (
-            inventory_checkpoint is not None
-            and pd.notna(last_date)
-            and last_date < inventory_checkpoint
-        ):
-            neutralization_reason = "PRE_INVENTORY_CHECKPOINT"
+        # An inventory checkpoint is not evidence that a BC mismatch was
+        # corrected. Keep the document visible until an explicit reversal or
+        # matching counterpart is identified. Inventory date is diagnostic only.
 
         if neutralization_reason is None and not correction_rows.empty:
-            pattern = rf"(?<!\\d){re.escape(doc)}(?!\\d)"
+            pattern = rf"(?<!\d){re.escape(doc)}(?!\d)"
             referenced = correction_rows[
                 correction_rows["_details"].str.contains(
                     pattern,
