@@ -284,6 +284,75 @@ class SQLiteRunStore:
             return None
         return self.get_run(str(previous_run_id))
 
+    def get_latest_successful_run(
+        self,
+        *,
+        exclude_run_id: str | None = None,
+    ) -> dict[str, object] | None:
+        with self._connect() as connection:
+            if exclude_run_id:
+                row = connection.execute(
+                    """
+                    SELECT *
+                    FROM runs
+                    WHERE status IN ('SUCCESS', 'SUCCESS_WITH_REVIEW')
+                      AND run_id <> ?
+                    ORDER BY started_at DESC, run_id DESC
+                    LIMIT 1
+                    """,
+                    (str(exclude_run_id).strip(),),
+                ).fetchone()
+            else:
+                row = connection.execute(
+                    """
+                    SELECT *
+                    FROM runs
+                    WHERE status IN ('SUCCESS', 'SUCCESS_WITH_REVIEW')
+                    ORDER BY started_at DESC, run_id DESC
+                    LIMIT 1
+                    """
+                ).fetchone()
+        return dict(row) if row is not None else None
+
+    def get_source_hashes(self, run_id: str) -> dict[str, str]:
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT source_type, sha256
+                FROM sources
+                WHERE run_id = ?
+                ORDER BY source_type
+                """,
+                (str(run_id).strip(),),
+            ).fetchall()
+        return {
+            str(row["source_type"]): str(row["sha256"])
+            for row in rows
+        }
+
+    def get_snapshot_state(
+        self,
+        run_id: str,
+    ) -> dict[str, dict[str, object]]:
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT case_id, product_code, current_difference
+                FROM cases
+                WHERE run_id = ?
+                ORDER BY case_id
+                """,
+                (str(run_id).strip(),),
+            ).fetchall()
+        return {
+            str(row["case_id"]): {
+                "case_id": str(row["case_id"]),
+                "product_code": str(row["product_code"]),
+                "difference_reported": row["current_difference"],
+            }
+            for row in rows
+        }
+
     def get_case(
         self,
         run_id: str,
