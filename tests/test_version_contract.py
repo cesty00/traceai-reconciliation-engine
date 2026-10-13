@@ -5,6 +5,7 @@ import tomllib
 
 from traceai_reconciliation import __version__
 from traceai_reconciliation.version import (
+    DAILY_CASE_SUMMARY_SCHEMA_VERSION,
     DAILY_RUN_SCHEMA_VERSION,
     ENGINE_VERSION,
     OPERATOR_OUTPUT_SCHEMA_VERSION,
@@ -24,3 +25,4 @@ def test_version_contracts_are_explicit() -> None:
     assert RULESET_VERSION
     assert DAILY_RUN_SCHEMA_VERSION
     assert OPERATOR_OUTPUT_SCHEMA_VERSION
+    assert DAILY_CASE_SUMMARY_SCHEMA_VERSION == "1.0"
