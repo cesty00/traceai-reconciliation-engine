@@ -317,16 +317,35 @@ def _generic_stock_correction_evidence_level(
     if abs(float(production.get("document_residual_total", 0.0) or 0.0)) > tolerance:
         return "B"
 
-    production_input = details.get("production_input_matching", {}) or {}
-    production_input_residual = float(
-        production_input.get(
-            "persistent_residual_total",
-            production_input.get("residual_total", 0.0),
+    production_input = details.get("production_input_matching", {})
+    # A documented production consumption proves an event, not that its BC
+    # residual caused the final inventory gap. Attribution is an independent
+    # proof obligation; the current investigation payload does not establish it
+    # merely through "applied_to_explanation" or "safe_to_auto_explain".
+    verified_stock_effect = production_input.get("stock_effect_verified") is True
+    if verified_stock_effect and production_input.get("applied_to_explanation", False):
+        effect = round(float(production_input.get("residual_total", 0.0)), decimals)
+    elif verified_stock_effect and production_input.get("safe_to_auto_explain", False):
+        effect = round(float(production_input.get("persistent_residual_total", 0.0)), decimals)
+    else:
+        effect = 0.0
+
+    if effect:
+        components.append(
+            ExplanationComponent(
+                component_id="production_input_persistent_residual",
+                rule_id="PROD-03",
+                effect=effect,
+                description=(
+                    "Rezidual PRODUCTION-IN versus BC asociat cu o contributie "
+                    "la diferenta de stoc verificata independent; documentele "
+                    "corective si contextul operational necesita validare separata."
+                ),
+                evidence_level="B",
+                source="production_input_matching",
+                status="CONFIRMED",
+            )
         )
-        or 0.0
-    )
-    if abs(production_input_residual) > tolerance:
-        return "B"
 
     delivery = details.get("delivery_matching", {}) or {}
     if abs(float(delivery.get("residual_total", 0.0) or 0.0)) > tolerance:
