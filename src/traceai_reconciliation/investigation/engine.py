@@ -7,6 +7,7 @@ from typing import Any
 import pandas as pd
 
 from .models import InvestigationSources, ProductInvestigationResult
+from .nomenclature_validation import validate_nomenclature
 from .operation_timeline import (
     timeline_from_production,
     timeline_from_wme,
@@ -42,40 +43,6 @@ from .source_readers import (
 )
 from .source_hash_cache import hash_sources
 from .source_index import SQLiteSourceIndex
-
-
-def _validate_nomenclature(
-    nomenclature: pd.DataFrame,
-    product_code: str,
-    product_name: str,
-) -> tuple[str, str]:
-    if nomenclature.empty:
-        return "ABSENT", "D"
-
-    code_col = resolve_column(nomenclature.columns, "wms_product_code", required=False)
-    name_col = resolve_column(nomenclature.columns, "product_name", required=False)
-    if code_col is None:
-        return "ABSENT", "D"
-
-    rows = nomenclature[
-        nomenclature[code_col].astype(str).str.strip() == str(product_code).strip()
-    ].copy()
-    if rows.empty:
-        return "COD_LIPSA", "C"
-
-    if name_col is None:
-        return "COD_CONFIRMAT", "B"
-
-    names = {
-        str(value).strip()
-        for value in rows[name_col].dropna().tolist()
-        if str(value).strip()
-    }
-    if product_name in names and len(names) == 1:
-        return "COD_SI_DENUMIRE_CONFIRMATE", "A"
-    if product_name in names:
-        return "COD_CONFIRMAT_DENUMIRE_AMBIGUA", "B"
-    return "COD_CONFIRMAT_DENUMIRE_DIFERITA", "C"
 
 
 def _wme_final_balances(wme_rows: pd.DataFrame) -> tuple[dict[str, float], float | None]:
@@ -367,7 +334,7 @@ def investigate_product(
         )
 
     nomenclature = read_excel_table(sources.nomenclature)
-    nomenclature_status, nomenclature_evidence = _validate_nomenclature(
+    nomenclature_status, nomenclature_evidence = validate_nomenclature(
         nomenclature,
         product_code,
         product_name,
