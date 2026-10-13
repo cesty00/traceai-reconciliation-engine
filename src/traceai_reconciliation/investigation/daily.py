@@ -629,6 +629,7 @@ def run_daily(
             rules_version=rules_version,
             engine_commit_sha=engine_commit_sha,
         )
+        final_status = _overall_status(batch)
         enrich_daily_operator_artifacts(
             summary=delta_root_cause,
             cases_root=cases_root,
@@ -637,6 +638,8 @@ def run_daily(
             run_store=run_store,
             cases=cases,
             cases_root=cases_root,
+            current_run_id=clean_run_id,
+            current_run_status=final_status,
         )
         write_daily_case_summaries(
             run_id=clean_run_id,
@@ -646,7 +649,7 @@ def run_daily(
         require_complete_batch_artifacts(batch, cases_root)
         summary = DailyRunSummary(
             run_id=clean_run_id,
-            status=_overall_status(batch),
+            status=final_status,
             signature=signature,
             reused_run=False,
             started_at=started_at,
