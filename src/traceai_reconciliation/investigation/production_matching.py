@@ -6,6 +6,8 @@ from typing import Any
 
 import pandas as pd
 
+from .source_readers import parse_operational_dates
+
 
 @dataclass(slots=True)
 class ProductionMatchResult:
@@ -108,9 +110,7 @@ def match_production_adjustments(
         )
 
     work = wms_rows.copy()
-    work["Data"] = pd.to_datetime(
-        work["Data"], errors="coerce", dayfirst=True
-    )
+    work["Data"] = parse_operational_dates(work["Data"])
     work["_qty"] = pd.to_numeric(
         work["Cantitate"], errors="coerce"
     ).fillna(0.0)
@@ -135,11 +135,13 @@ def match_production_adjustments(
     )
     work["_op"] = work["Tip operatiune"].astype(str).str.strip()
 
-    positive_mask = work["Tip operatiune"].astype(str).str.strip().eq(
-        "Ajustare pozitiva"
+    # Production matching must never infer production from a generic
+    # positive adjustment merely because it carries a document number.
+    # Only explicit PRODUCTION-OUT rows are eligible for WMS↔WME NP matching.
+    positive_mask = (
+        work["Tip operatiune"].astype(str).str.strip().eq("Ajustare pozitiva")
+        & work["_reason"].eq("PRODUCTION-OUT")
     )
-    if work["_reason"].eq("PRODUCTION-OUT").any():
-        positive_mask &= work["_reason"].eq("PRODUCTION-OUT")
     positives = work[positive_mask & work["_doc"].ne("")].copy()
 
     production_locations = {
