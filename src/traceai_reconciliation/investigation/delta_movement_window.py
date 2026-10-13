@@ -7,7 +7,7 @@ from typing import Any
 import pandas as pd
 
 from .source_index import SQLiteSourceIndex
-from .source_readers import resolve_column
+from .source_readers import parse_operational_dates, resolve_column
 
 
 @dataclass(frozen=True, slots=True)
@@ -51,37 +51,8 @@ def _normalize_timestamp(value: pd.Timestamp) -> pd.Timestamp:
 
 
 def _parse_operation_dates(series: pd.Series) -> pd.Series:
-    """Parse heterogeneous operational timestamps conservatively.
-
-    Supported inputs include ISO timestamps, Romanian/day-first text dates,
-    pandas/datetime values, and Excel serial dates commonly present in WME
-    worksheet XML. Numeric values outside a plausible Excel serial range are
-    not guessed.
-    """
-    parsed = pd.Series(pd.NaT, index=series.index, dtype="datetime64[ns]")
-
-    numeric = pd.to_numeric(series, errors="coerce")
-    excel_serial = numeric.between(20000, 80000, inclusive="both")
-    if excel_serial.any():
-        parsed.loc[excel_serial] = pd.to_datetime(
-            numeric.loc[excel_serial],
-            unit="D",
-            origin="1899-12-30",
-            errors="coerce",
-        )
-
-    remaining = ~excel_serial
-    if remaining.any():
-        text = series.loc[remaining]
-        parsed.loc[remaining] = pd.to_datetime(
-            text,
-            errors="coerce",
-            format="mixed",
-            dayfirst=True,
-            utc=True,
-        ).dt.tz_convert(None)
-
-    return parsed
+    """Use the shared operational-date parser for all delta sources."""
+    return parse_operational_dates(series)
 
 
 def filter_frame_to_window(

@@ -24,6 +24,7 @@ def test_wms_surplus_pair_is_classified_as_reversal() -> None:
                 "Cantitate": 768.0,
                 "Numar comanda": "0029890_AE",
                 "Locatie sursa": "ULMA",
+                "Cod-motiv": "PRODUCTION-OUT",
                 "Lot": "096.26",
             },
             {
@@ -32,6 +33,7 @@ def test_wms_surplus_pair_is_classified_as_reversal() -> None:
                 "Cantitate": 336.0,
                 "Numar comanda": "0029890_AE",
                 "Locatie sursa": "ULMA",
+                "Cod-motiv": "PRODUCTION-OUT",
                 "Lot": "096.26",
             },
             {
@@ -84,6 +86,7 @@ def test_matched_np_positive_is_not_consumed_by_blank_negative() -> None:
                 "Cantitate": 768.0,
                 "Numar comanda": "0031979_AE",
                 "Locatie sursa": "ULMA",
+                "Cod-motiv": "PRODUCTION-OUT",
                 "Lot": "127.26S1",
             },
             {
@@ -92,6 +95,7 @@ def test_matched_np_positive_is_not_consumed_by_blank_negative() -> None:
                 "Cantitate": 768.0,
                 "Numar comanda": "0031979_AE",
                 "Locatie sursa": "ULMA",
+                "Cod-motiv": "PRODUCTION-OUT",
                 "Lot": "127.26S1",
             },
             {
@@ -157,6 +161,7 @@ def test_non_production_positive_adjustment_is_not_compared_to_np() -> None:
                 "Cantitate": 768.0,
                 "Numar comanda": "0031979_AE",
                 "Locatie sursa": "ULMA",
+                "Cod-motiv": "PRODUCTION-OUT",
                 "Lot": "127.26S1",
                 "Cod-motiv": "PRODUCTION-OUT",
             },
@@ -546,6 +551,7 @@ def test_corectie_stoc_duplicate_rows_same_document_is_unambiguous() -> None:
                 "Cantitate": 768.0,
                 "Numar comanda": "0031979_AE",
                 "Locatie sursa": "ULMA",
+                "Cod-motiv": "PRODUCTION-OUT",
                 "Lot": "127.26S1",
                 "Cod-motiv": "PRODUCTION-OUT",
                 "Detalii": "",
@@ -556,6 +562,7 @@ def test_corectie_stoc_duplicate_rows_same_document_is_unambiguous() -> None:
                 "Cantitate": 768.0,
                 "Numar comanda": "0031979_AE",
                 "Locatie sursa": "ULMA",
+                "Cod-motiv": "PRODUCTION-OUT",
                 "Lot": "127.26S1",
                 "Cod-motiv": "PRODUCTION-OUT",
                 "Detalii": "",
@@ -800,3 +807,37 @@ def test_aggregate_reversal_accepts_same_numeric_lot_family() -> None:
         item["document"] != "35077"
         for item in result.document_residuals
     )
+
+
+def test_non_production_positive_is_never_inferred_as_production() -> None:
+    wms = pd.DataFrame(
+        [
+            {
+                "Data": "8/28/2026 5:17:14 PM",
+                "Tip operatiune": "Ajustare pozitiva",
+                "Cantitate": 1.12,
+                "Numar comanda": "28082026",
+                "Locatie sursa": "R02.04.A.2",
+                "Lot": "241.26",
+                "Cod-motiv": "INV-PLS",
+                "Detalii": "",
+            }
+        ]
+    )
+    wme = pd.DataFrame(
+        [
+            {
+                "OperationType": "PV",
+                "Document": "1178",
+                "SignedQuantity": 1.12,
+            }
+        ]
+    )
+
+    result = match_production_adjustments(wms, wme)
+
+    assert result.wms_positive_total == 0.0
+    assert result.wme_np_total == 0.0
+    assert result.matched_documents == []
+    assert result.document_residuals == []
+    assert result.document_residual_total == 0.0

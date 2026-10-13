@@ -146,6 +146,80 @@ def parse_period(period: str) -> tuple[pd.Timestamp, pd.Timestamp]:
     return start, end
 
 
+def parse_operational_dates(series: pd.Series) -> pd.Series:
+    """Parse operational dates using explicit source conventions.
+
+    Supported formats:
+    - WMS / production exports: month-first slash timestamps with AM/PM;
+    - WME / Romanian exports: day-first dotted dates;
+    - ISO timestamps;
+    - Excel serial dates in the plausible operational range.
+
+    Ambiguous slash dates without AM/PM are parsed month-first because the
+    current WMS/production exports use US-style month/day ordering.
+    """
+    parsed = pd.Series(pd.NaT, index=series.index, dtype="datetime64[ns]")
+
+    numeric = pd.to_numeric(series, errors="coerce")
+    excel_serial = numeric.between(20000, 80000, inclusive="both")
+    if excel_serial.any():
+        parsed.loc[excel_serial] = pd.to_datetime(
+            numeric.loc[excel_serial],
+            unit="D",
+            origin="1899-12-30",
+            errors="coerce",
+        )
+
+    remaining = ~excel_serial
+    if not remaining.any():
+        return parsed
+
+    text = series.loc[remaining]
+    text_string = text.astype(str).str.strip()
+
+    dotted = text_string.str.match(
+        r"^\d{1,2}\.\d{1,2}\.\d{4}(?:\s|$)",
+        na=False,
+    )
+    if dotted.any():
+        parsed.loc[text.index[dotted]] = pd.to_datetime(
+            text.loc[dotted],
+            errors="coerce",
+            dayfirst=True,
+        )
+
+    slash = text_string.str.match(
+        r"^\d{1,2}/\d{1,2}/\d{4}(?:\s|$)",
+        na=False,
+    )
+    if slash.any():
+        parsed.loc[text.index[slash]] = pd.to_datetime(
+            text.loc[slash],
+            errors="coerce",
+            dayfirst=False,
+        )
+
+    iso = text_string.str.match(r"^\d{4}-\d{2}-\d{2}", na=False)
+    if iso.any():
+        parsed.loc[text.index[iso]] = pd.to_datetime(
+            text.loc[iso],
+            errors="coerce",
+            yearfirst=True,
+        )
+
+    handled = dotted | slash | iso
+    fallback = ~handled
+    if fallback.any():
+        parsed.loc[text.index[fallback]] = pd.to_datetime(
+            text.loc[fallback],
+            errors="coerce",
+            format="mixed",
+            dayfirst=True,
+        )
+
+    return parsed
+
+
 def filter_by_period(
     df: pd.DataFrame,
     period: str,
@@ -158,7 +232,7 @@ def filter_by_period(
         return df.copy()
 
     start, end = parse_period(period)
-    parsed = pd.to_datetime(df[date_col], errors="coerce", dayfirst=True)
+    parsed = parse_operational_dates(df[date_col])
     mask = parsed.between(start, end + pd.Timedelta(days=1) - pd.Timedelta(microseconds=1))
     result = df.loc[mask].copy()
     result[date_col] = parsed.loc[mask]
