@@ -291,6 +291,13 @@ def test_daily_uses_run_store_when_previous_manifest_is_missing(
 ) -> None:
     _write_sources(tmp_path)
     profile_path = _write_profile(tmp_path)
+    profile_path.write_text(
+        profile_path.read_text(encoding="utf-8").replace(
+            "indexed_cache: true",
+            "indexed_cache: false",
+        ),
+        encoding="utf-8",
+    )
 
     def fake_batch(**kwargs):
         root = Path(kwargs["output_dir"])
