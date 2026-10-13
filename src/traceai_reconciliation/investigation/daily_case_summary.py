@@ -4,6 +4,86 @@ import json
 from pathlib import Path
 from typing import Any, Iterable
 
+from traceai_reconciliation.version import DAILY_CASE_SUMMARY_SCHEMA_VERSION
+
+
+REQUIRED_TOP_LEVEL_FIELDS = (
+    "schema_version",
+    "run_id",
+    "case_id",
+    "product_code",
+    "product_name",
+    "unit",
+    "difference",
+    "cause",
+    "cause_status",
+    "evidence_level",
+    "correction_target",
+    "operator_status",
+    "operator_action",
+    "residual",
+    "daily_delta",
+    "history",
+    "evidence",
+    "blockers",
+    "warnings",
+    "authority",
+)
+
+REQUIRED_AUTHORITY_FIELDS = (
+    "human_decision_required",
+    "automatic_approval_allowed",
+    "registry_apply_allowed",
+    "wms_mutation_allowed",
+    "wme_mutation_allowed",
+)
+
+
+def validate_daily_case_summary_contract(
+    payload: dict[str, Any],
+) -> tuple[str, ...]:
+    """Return contract violations without mutating or normalizing payload."""
+    errors: list[str] = []
+
+    if payload.get("schema_version") != DAILY_CASE_SUMMARY_SCHEMA_VERSION:
+        errors.append(
+            "schema_version:"
+            f"expected={DAILY_CASE_SUMMARY_SCHEMA_VERSION}:"
+            f"actual={payload.get('schema_version')}"
+        )
+
+    for field in REQUIRED_TOP_LEVEL_FIELDS:
+        if field not in payload:
+            errors.append(f"missing:{field}")
+
+    if not isinstance(payload.get("daily_delta"), dict):
+        errors.append("invalid:daily_delta")
+    if not isinstance(payload.get("history"), dict):
+        errors.append("invalid:history")
+    for field in ("evidence", "blockers", "warnings"):
+        if not isinstance(payload.get(field), list):
+            errors.append(f"invalid:{field}")
+
+    authority = payload.get("authority")
+    if not isinstance(authority, dict):
+        errors.append("invalid:authority")
+    else:
+        for field in REQUIRED_AUTHORITY_FIELDS:
+            if field not in authority:
+                errors.append(f"missing:authority.{field}")
+        if authority.get("human_decision_required") is not True:
+            errors.append("authority:human_decision_required")
+        for field in (
+            "automatic_approval_allowed",
+            "registry_apply_allowed",
+            "wms_mutation_allowed",
+            "wme_mutation_allowed",
+        ):
+            if authority.get(field) is not False:
+                errors.append(f"authority:{field}")
+
+    return tuple(errors)
+
 
 def _load_json_object(path: Path) -> dict[str, Any]:
     payload = json.loads(path.read_text(encoding="utf-8"))
@@ -42,7 +122,7 @@ def build_daily_case_summary(
     }
 
     return {
-        "schema_version": "1.0",
+        "schema_version": DAILY_CASE_SUMMARY_SCHEMA_VERSION,
         "run_id": str(run_id),
         "case_id": operator_payload.get("case_id"),
         "product_code": operator_payload.get("product_code"),
@@ -92,6 +172,13 @@ def write_daily_case_summaries(
             run_id=run_id,
             operator_payload=operator_payload,
         )
+        violations = validate_daily_case_summary_contract(summary_payload)
+        if violations:
+            raise ValueError(
+                f"{case_id}: daily case summary contract violation: "
+                + ", ".join(violations)
+            )
+
         summary_path = case_dir / "daily_case_summary.json"
         temporary = summary_path.with_suffix(".json.tmp")
         temporary.write_text(
