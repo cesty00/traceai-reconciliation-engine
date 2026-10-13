@@ -101,7 +101,7 @@ def test_run_store_persists_delta_outcome_and_history(tmp_path: Path) -> None:
     assert history[0]["previous_run_id"] == "RUN-1"
 
 
-def test_run_store_migrates_schema_v1_to_v2(tmp_path: Path) -> None:
+def test_run_store_migrates_schema_v1_to_current(tmp_path: Path) -> None:
     import sqlite3
 
     path = tmp_path / "traceai_state.sqlite"
@@ -167,9 +167,18 @@ def test_run_store_migrates_schema_v1_to_v2(tmp_path: Path) -> None:
             ).fetchall()
         }
 
-    assert version == 2
+    assert version == 3
     assert "delta_status" in columns
     assert "explained_delta" in columns
+
+    with sqlite3.connect(path) as connection:
+        run_columns = {
+            row[1]
+            for row in connection.execute(
+                "PRAGMA table_info(runs)"
+            ).fetchall()
+        }
+    assert "snapshot_at" in run_columns
 
 
 def test_run_store_migrates_schema_v2_to_v3_snapshot_at(tmp_path: Path) -> None:
