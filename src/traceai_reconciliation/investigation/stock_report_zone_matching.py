@@ -151,3 +151,18 @@ def reconcile_stock_report_zones(
         confirmed_report_mapping_rows=confirmed,
         unresolved_rows=unresolved,
     )
+
+
+def has_offsetting_zone_differences(
+    result: StockReportZoneMatchResult,
+    *,
+    total_difference: float,
+    tolerance: float = 0.001,
+) -> bool:
+    """Return True when a zero aggregate hides material per-zone differences."""
+    if abs(float(total_difference)) > tolerance:
+        return False
+    return any(
+        abs(float(row.get("report_difference") or 0.0)) > tolerance
+        for row in result.rows
+    )
