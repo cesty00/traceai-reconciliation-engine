@@ -153,3 +153,58 @@ def test_enrich_operator_history_artifact_reads_run_store(tmp_path: Path) -> Non
     assert payload["product_history"]["runs"][0]["delta_status"] == "EXACT_EVENT"
     assert payload["wms_mutation_allowed"] is False
     assert payload["wme_mutation_allowed"] is False
+
+
+def test_current_run_history_uses_final_status_override(tmp_path: Path) -> None:
+    store = SQLiteRunStore(tmp_path / "state.sqlite")
+    store.begin_run(
+        RunRecord(
+            run_id="RUN-2",
+            started_at="2026-10-12T20:00:00+00:00",
+            engine_version="0.12.0",
+            rules_version="0.4",
+            commit_sha="abc",
+            signature=None,
+            status="RUNNING",
+        )
+    )
+    store.save_case(
+        CaseRecord(
+            run_id="RUN-2",
+            case_id="CASE-1",
+            product_code="DS099904475",
+            current_difference=61.46,
+            previous_difference=None,
+            difference_delta=None,
+            execution_policy="ANALYZE",
+        )
+    )
+
+    case_dir = tmp_path / "cases" / "CASE-1"
+    case_dir.mkdir(parents=True)
+    operator_path = case_dir / "daily_operator_result.json"
+    operator_path.write_text(
+        json.dumps(
+            {
+                "case_id": "CASE-1",
+                "product_code": "DS099904475",
+                "wms_mutation_allowed": False,
+                "wme_mutation_allowed": False,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    enrich_operator_history_artifacts(
+        run_store=store,
+        cases=[Case()],
+        cases_root=tmp_path / "cases",
+        current_run_id="RUN-2",
+        current_run_status="SUCCESS_WITH_REVIEW",
+    )
+
+    payload = json.loads(operator_path.read_text(encoding="utf-8"))
+    assert (
+        payload["product_history"]["runs"][0]["run_status"]
+        == "SUCCESS_WITH_REVIEW"
+    )

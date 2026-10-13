@@ -187,3 +187,32 @@ def test_pilot_rejects_failed_safe_run(tmp_path: Path) -> None:
     assert result.accepted is False
     assert "run_status:FAILED_SAFE" in result.blockers
     assert "run_errors:1" in result.blockers
+
+
+def test_pilot_rejects_current_history_still_marked_running(
+    tmp_path: Path,
+) -> None:
+    summary_path = _write_valid_pilot(tmp_path)
+    summary = json.loads(summary_path.read_text(encoding="utf-8"))
+    case_path = (
+        Path(summary["output_dir"])
+        / "cases"
+        / "CASE-1"
+        / "daily_case_summary.json"
+    )
+    payload = json.loads(case_path.read_text(encoding="utf-8"))
+    payload["history"]["recent_runs"] = [
+        {
+            "run_id": "PILOT-1",
+            "run_status": "RUNNING",
+        }
+    ]
+    _write_json(case_path, payload)
+
+    result = evaluate_pilot_run(summary_path)
+
+    assert result.accepted is False
+    assert (
+        "CASE-1:history:current_run_status=RUNNING"
+        in result.blockers
+    )

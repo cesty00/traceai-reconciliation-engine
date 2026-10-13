@@ -158,6 +158,21 @@ def evaluate_pilot_run(
             for violation in violations
         )
 
+        history = case_payload.get("history")
+        if isinstance(history, dict):
+            recent_runs = history.get("recent_runs")
+            if isinstance(recent_runs, list):
+                for point in recent_runs:
+                    if not isinstance(point, dict):
+                        continue
+                    if (
+                        str(point.get("run_id") or "").strip() == str(run_id or "")
+                        and str(point.get("run_status") or "").strip() == "RUNNING"
+                    ):
+                        blockers.append(
+                            f"{case_id}:history:current_run_status=RUNNING"
+                        )
+
     if enabled_cases and checked_cases != len(enabled_cases):
         blockers.append(
             f"case_count:expected={len(enabled_cases)}:checked={checked_cases}"

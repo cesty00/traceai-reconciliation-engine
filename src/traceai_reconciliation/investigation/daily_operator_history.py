@@ -55,14 +55,24 @@ def build_operator_history_payload(
     *,
     product_code: str,
     history: list[dict[str, object]],
+    current_run_id: str | None = None,
+    current_run_status: str | None = None,
 ) -> dict[str, Any]:
     points: list[dict[str, Any]] = []
     for row in history:
+        row_run_id = row.get("run_id")
+        run_status = row.get("run_status")
+        if (
+            current_run_id
+            and current_run_status
+            and str(row_run_id) == str(current_run_id)
+        ):
+            run_status = current_run_status
         points.append(
             {
-                "run_id": row.get("run_id"),
+                "run_id": row_run_id,
                 "started_at": row.get("started_at"),
-                "run_status": row.get("run_status"),
+                "run_status": run_status,
                 "current_difference": row.get("current_difference"),
                 "previous_difference": row.get("previous_difference"),
                 "difference_delta": row.get("difference_delta"),
@@ -87,6 +97,8 @@ def enrich_operator_history_artifacts(
     cases: Iterable[object],
     cases_root: str | Path,
     limit: int = 10,
+    current_run_id: str | None = None,
+    current_run_status: str | None = None,
 ) -> tuple[str, ...]:
     """Attach persisted product history to existing operator JSON artifacts."""
     root = Path(cases_root)
@@ -111,6 +123,8 @@ def enrich_operator_history_artifacts(
         payload["product_history"] = build_operator_history_payload(
             product_code=product_code,
             history=history,
+            current_run_id=current_run_id,
+            current_run_status=current_run_status,
         )
 
         temporary = operator_path.with_suffix(".json.tmp")
