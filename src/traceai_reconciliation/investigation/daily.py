@@ -354,6 +354,16 @@ def run_daily(
                 previous_batch_summary = None
                 previous_snapshot_at = None
 
+        if previous_run_id:
+            persisted_previous = run_store.get_run(previous_run_id)
+            persisted_snapshot_at = (
+                str(persisted_previous.get("snapshot_at") or "").strip()
+                if persisted_previous is not None
+                else ""
+            )
+            if persisted_snapshot_at:
+                previous_snapshot_at = persisted_snapshot_at
+
         snapshot_state = build_snapshot_state(
             profile.stock_report,
             cases,
@@ -387,6 +397,7 @@ def run_daily(
                 commit_sha=engine_commit_sha,
                 signature=signature,
                 status="RUNNING",
+                snapshot_at=profile.snapshot_at,
                 previous_run_id=previous_run_id,
             )
         )
