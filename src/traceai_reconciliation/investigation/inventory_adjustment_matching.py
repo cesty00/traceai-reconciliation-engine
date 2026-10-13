@@ -61,7 +61,7 @@ def match_inventory_adjustments(
         for (day, reason), group in wms.groupby(["_day", "_reason"]):
             wgroups.append({
                 "day": day, "reason": reason,
-                "qty": float(group["_qty"].sum()),
+                "qty": round(float(group["_qty"].sum()), 6),
                 "rows": len(group),
             })
 
@@ -78,7 +78,7 @@ def match_inventory_adjustments(
                 "day": key[0],
                 "document": str(key[1]) if doc else "",
                 "warehouse": str(key[2 if doc else 1]) if wh else "",
-                "qty": float(group["_qty"].sum()),
+                "qty": round(float(group["_qty"].sum()), 6),
                 "rows": len(group),
                 "indexes": tuple(group.index.tolist()),
             })
@@ -126,14 +126,14 @@ def match_inventory_adjustments(
         for i, p in enumerate(pgroups) if i not in mp
     ]
 
-    rw = float(sum(x["quantity"] for x in residual_wms))
-    rp = float(sum(x["quantity"] for x in residual_wme))
+    rw = round(float(sum(x["quantity"] for x in residual_wms)), 6)
+    rp = round(float(sum(x["quantity"] for x in residual_wme)), 6)
     return InventoryAdjustmentMatchResult(
         matches=matches,
         residual_wms_adjustments=residual_wms,
         residual_wme_pv=residual_wme,
         residual_wms_total=rw,
         residual_wme_total=rp,
-        system_difference_effect=rw-rp,
+        system_difference_effect=round(rw - rp, 6),
         matched_wme_indexes=tuple(matched_indexes),
     )
