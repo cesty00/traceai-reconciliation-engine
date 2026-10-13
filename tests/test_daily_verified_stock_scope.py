@@ -1,9 +1,23 @@
 from pathlib import Path
 from types import SimpleNamespace
+from dataclasses import dataclass
 
 from traceai_reconciliation.investigation import daily_delta_analysis as mod
 from traceai_reconciliation.investigation.daily_delta import DailyDeltaItem, DailyDeltaSummary
 from traceai_reconciliation.investigation.models import InvestigationSources
+
+
+@dataclass
+class FakeWindow:
+    wms_rows: tuple = ()
+    wme_rows: tuple = ()
+    production_rows: tuple = ()
+
+
+@dataclass
+class FakeRootCause:
+    status: str = "UNEXPLAINED"
+    note: str = "review"
 
 
 def test_daily_only_passes_verified_aggregate_scope(monkeypatch, tmp_path: Path):
@@ -16,12 +30,12 @@ def test_daily_only_passes_verified_aggregate_scope(monkeypatch, tmp_path: Path)
     monkeypatch.setattr(mod, "SQLiteSourceIndex", FakeIndex)
     monkeypatch.setattr(
         mod, "build_delta_movement_window",
-        lambda **kwargs: SimpleNamespace(wms_rows=(), wme_rows=(), production_rows=()),
+        lambda **kwargs: FakeWindow(),
     )
     received = []
     def capture(**kwargs):
         received.append(kwargs.get("stock_scope"))
-        return SimpleNamespace(status="UNEXPLAINED", note="review")
+        return FakeRootCause()
     monkeypatch.setattr(mod, "analyze_delta_root_cause", capture)
     delta = DailyDeltaSummary(
         previous_run_id="R1", new=0, changed=1, unchanged=0,
