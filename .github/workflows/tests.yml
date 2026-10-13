@@ -119,7 +119,6 @@ jobs:
     needs:
       - pytest
       - daily_release_gate
-      - release_readiness_gate
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -153,6 +152,7 @@ jobs:
     needs:
       - pytest
       - daily_release_gate
+      - release_readiness_gate
     if: ${{ always() }}
     steps:
       - name: Evaluate release-candidate prerequisites
