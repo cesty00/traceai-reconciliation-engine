@@ -42,3 +42,14 @@ Release readiness nu schimbă regulile de reconciliere și nu autorizează muta�
 Release candidate version: `0.12.0`
 
 Version bump-ul trebuie considerat valid numai dacă workflow-ul complet de pe branch și apoi de pe `main` rămâne verde.
+
+
+## Technical sign-off checkpoint
+
+Technical validation is complete on commit `e784299eeb3e0063bad7c9ab5321db168f3bcb2b`.
+
+Evidence and pilot conclusions are recorded in:
+
+`docs/RELEASE_SIGNOFF_V0_12.md`
+
+Current state: **TECHNICALLY ACCEPTED — PENDING HUMAN RELEASE APPROVAL**.
