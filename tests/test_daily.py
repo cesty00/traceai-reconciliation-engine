@@ -74,6 +74,7 @@ daily:
   output_dir: daily_runs
   period: 01.01.2026-04.10.2026
   report_date: 11.10.2026
+  snapshot_at: "2026-10-11T20:00:00+00:00"
   opening_absent_means_zero: true
   indexed_cache: true
 """.strip(),
@@ -91,6 +92,7 @@ def test_load_daily_profile_resolves_paths(tmp_path: Path) -> None:
     assert Path(profile.stock_report) == (tmp_path / "stock.xlsx").resolve()
     assert Path(profile.manifest) == (tmp_path / "manifest.json").resolve()
     assert Path(profile.output_dir) == (tmp_path / "daily_runs").resolve()
+    assert profile.snapshot_at == "2026-10-11T20:00:00+00:00"
     assert profile.opening_absent_means_zero is True
     assert profile.indexed_cache is True
 
@@ -173,6 +175,7 @@ def test_daily_run_writes_manifest_and_summary(
     assert persisted_run is not None
     assert persisted_run["status"] == "SUCCESS_WITH_REVIEW"
     assert persisted_run["signature"] == result.signature
+    assert persisted_run["snapshot_at"] == "2026-10-11T20:00:00+00:00"
     assert persisted_case is not None
     assert persisted_case["product_code"] == "DS001"
     assert persisted_case["current_difference"] == -1.0
