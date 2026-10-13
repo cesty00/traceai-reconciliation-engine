@@ -15,6 +15,8 @@ from traceai_reconciliation.investigation.self_service import (
     SelfServiceRunResult,
     run_self_service_batch,
     run_self_service_case,
+    validate_self_service_batch_contract,
+    validate_self_service_summary_contract,
     validate_source_readiness,
 )
 
@@ -114,6 +116,8 @@ def test_self_service_runner_stages_only_and_never_approves(
     assert review["values"]["Decizie_umana"] is None
     assert review["values"]["Registry_Action"] == "NONE"
 
+    assert summary["schema_version"] == "0.8.0"
+    assert validate_self_service_summary_contract(summary) == ()
     assert summary["promotion_status"] == "ELIGIBLE_FOR_HUMAN_REVIEW"
     assert summary["authority"]["automatic_approval_allowed"] is False
     assert summary["authority"]["registry_apply_allowed"] is False
@@ -307,6 +311,8 @@ def test_self_service_batch_isolates_errors_and_preserves_authority(
     payload = json.loads(
         Path(summary.summary_json).read_text(encoding="utf-8")
     )
+    assert payload["schema_version"] == "0.8.0"
+    assert validate_self_service_batch_contract(payload) == ()
     assert payload["authority"]["automatic_approval_allowed"] is False
     assert payload["authority"]["registry_apply_allowed"] is False
     assert payload["authority"]["wms_mutation_allowed"] is False
@@ -487,3 +493,59 @@ def test_self_service_batch_does_not_reuse_after_source_change(
     assert summary.executed == 1
     assert summary.skipped == 0
     assert summary.cases[0].reused is False
+
+
+def test_self_service_summary_contract_rejects_authority_drift() -> None:
+    payload = {
+        "schema_version": "0.8.0",
+        "generated_at": "2026-10-13T16:00:00+00:00",
+        "engine_version": "0.10.0",
+        "rules_version": "0.4",
+        "engine_commit_sha": "abc",
+        "case_id": "CASE-1",
+        "product_code": "DS001",
+        "period": "01.01.2026-13.10.2026",
+        "promotion_status": "HOLD",
+        "next_action": "RESOLVE_PROMOTION_BLOCKERS",
+        "outputs": {},
+        "authority": {
+            "human_decision_required": True,
+            "automatic_approval_allowed": False,
+            "registry_apply_allowed": False,
+            "wms_mutation_allowed": True,
+            "wme_mutation_allowed": False,
+        },
+    }
+
+    violations = validate_self_service_summary_contract(payload)
+
+    assert "authority:wms_mutation_allowed" in violations
+
+
+def test_self_service_batch_contract_rejects_missing_cases() -> None:
+    payload = {
+        "schema_version": "0.8.0",
+        "batch_id": "BATCH-1",
+        "engine_version": "0.10.0",
+        "rules_version": "0.4",
+        "engine_commit_sha": "abc",
+        "total_cases": 0,
+        "executed": 0,
+        "skipped": 0,
+        "eligible": 0,
+        "tolerance": 0,
+        "hold": 0,
+        "error": 0,
+        "authority": {
+            "human_decision_required": True,
+            "automatic_approval_allowed": False,
+            "registry_apply_allowed": False,
+            "wms_mutation_allowed": False,
+            "wme_mutation_allowed": False,
+        },
+    }
+
+    violations = validate_self_service_batch_contract(payload)
+
+    assert "missing:cases" in violations
+    assert "invalid:cases" in violations
