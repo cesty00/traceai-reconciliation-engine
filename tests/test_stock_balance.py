@@ -65,7 +65,7 @@ def test_wme_balance_total_at_can_use_strict_opening_cutoff() -> None:
 
     by_warehouse, total = wme_balance_total_at(
         frame,
-        pd.Timestamp("11.10.2026"),
+        pd.Timestamp(year=2026, month=10, day=11),
         strictly_before=True,
     )
 
