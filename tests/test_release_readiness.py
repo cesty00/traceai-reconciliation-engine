@@ -72,3 +72,18 @@ def test_release_readiness_document_exists() -> None:
         "WME mutation disabled",
     ):
         assert required in content
+
+
+def test_controlled_pilot_document_exists() -> None:
+    path = Path("docs/PILOT_V0_12.md")
+
+    assert path.is_file()
+    content = path.read_text(encoding="utf-8")
+    for required in (
+        "traceai-pilot-acceptance",
+        "snapshot_at",
+        "forced MATCH",
+        "mutații automate WMS/WME",
+        "validarea umană",
+    ):
+        assert required in content

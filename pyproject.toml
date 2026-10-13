@@ -20,6 +20,7 @@ dev = ["pytest>=8,<9"]
 
 [project.scripts]
 traceai-reconcile = "traceai_reconciliation.cli:main"
+traceai-pilot-acceptance = "traceai_reconciliation.pilot_acceptance:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
