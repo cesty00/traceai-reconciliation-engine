@@ -800,3 +800,37 @@ def test_aggregate_reversal_accepts_same_numeric_lot_family() -> None:
         item["document"] != "35077"
         for item in result.document_residuals
     )
+
+
+def test_non_production_positive_is_never_inferred_as_production() -> None:
+    wms = pd.DataFrame(
+        [
+            {
+                "Data": "8/28/2026 5:17:14 PM",
+                "Tip operatiune": "Ajustare pozitiva",
+                "Cantitate": 1.12,
+                "Numar comanda": "28082026",
+                "Locatie sursa": "R02.04.A.2",
+                "Lot": "241.26",
+                "Cod-motiv": "INV-PLS",
+                "Detalii": "",
+            }
+        ]
+    )
+    wme = pd.DataFrame(
+        [
+            {
+                "OperationType": "PV",
+                "Document": "1178",
+                "SignedQuantity": 1.12,
+            }
+        ]
+    )
+
+    result = match_production_adjustments(wms, wme)
+
+    assert result.wms_positive_total == 0.0
+    assert result.wme_np_total == 0.0
+    assert result.matched_documents == []
+    assert result.document_residuals == []
+    assert result.document_residual_total == 0.0
