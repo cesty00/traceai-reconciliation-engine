@@ -134,7 +134,10 @@ jobs:
           pip install -e ".[dev]"
 
       - name: Release readiness contract
-        run: pytest -q tests/test_release_readiness.py
+        run: |
+          pytest -q \
+            tests/test_release_readiness.py \
+            tests/test_pilot_acceptance.py
 
       - name: Run store migration contract
         run: pytest -q tests/test_run_store.py
