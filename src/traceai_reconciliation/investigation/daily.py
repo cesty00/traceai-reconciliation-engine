@@ -33,6 +33,7 @@ from .daily_operator_delta import enrich_daily_operator_artifacts
 from .daily_operator_history import enrich_operator_history_artifacts
 from .daily_case_summary import write_daily_case_summaries
 from .self_service import (
+    SelfServiceBatchCaseResult,
     SelfServiceBatchSummary,
     run_self_service_batch,
     validate_source_readiness,
@@ -225,6 +226,54 @@ def _signature(
     return hashlib.sha256(raw).hexdigest()
 
 
+def _load_batch_summary_for_artifact_gate(
+    path: str | Path,
+) -> SelfServiceBatchSummary | None:
+    batch_path = Path(path)
+    if not batch_path.exists():
+        return None
+    try:
+        payload = json.loads(batch_path.read_text(encoding="utf-8"))
+        raw_cases = payload.get("cases")
+        if not isinstance(raw_cases, list):
+            return None
+        cases = tuple(
+            SelfServiceBatchCaseResult(
+                case_id=str(item["case_id"]),
+                product_code=str(item["product_code"]),
+                status=str(item["status"]),
+                next_action=item.get("next_action"),
+                summary_json=item.get("summary_json"),
+                error=item.get("error"),
+                reused=bool(item.get("reused", False)),
+            )
+            for item in raw_cases
+            if isinstance(item, dict)
+        )
+        if len(cases) != len(raw_cases):
+            return None
+        return SelfServiceBatchSummary(
+            batch_id=str(payload["batch_id"]),
+            total_cases=int(payload["total_cases"]),
+            executed=int(payload["executed"]),
+            skipped=int(payload["skipped"]),
+            eligible=int(payload["eligible"]),
+            tolerance=int(payload["tolerance"]),
+            hold=int(payload["hold"]),
+            error=int(payload["error"]),
+            cases=cases,
+            summary_json=str(batch_path),
+        )
+    except (
+        OSError,
+        json.JSONDecodeError,
+        KeyError,
+        TypeError,
+        ValueError,
+    ):
+        return None
+
+
 def _load_reusable_summary(
     summary_path: Path,
     expected_signature: str,
@@ -246,6 +295,16 @@ def _load_reusable_summary(
     if not batch_summary or not Path(batch_summary).exists():
         return None
     if not manifest_json or not Path(manifest_json).exists():
+        return None
+
+    batch = _load_batch_summary_for_artifact_gate(batch_summary)
+    output_dir = str(payload.get("output_dir") or "").strip()
+    if batch is None or not output_dir:
+        return None
+    cases_root = Path(output_dir) / "cases"
+    try:
+        require_complete_batch_artifacts(batch, cases_root)
+    except RuntimeError:
         return None
 
     payload["reused_run"] = True
