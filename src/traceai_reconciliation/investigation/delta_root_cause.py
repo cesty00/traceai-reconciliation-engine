@@ -109,6 +109,7 @@ def analyze_delta_root_cause(
     previous_difference: float,
     current_difference: float,
     tolerance: float = 1e-6,
+    stock_scope: str | None = None,
 ) -> DeltaRootCauseResult:
     """Explain a stock-difference change from new WMS/WME movements only.
 
@@ -122,6 +123,9 @@ def analyze_delta_root_cause(
     - MULTI_EVENT: all non-zero WMS/WME movements jointly explain the delta.
     - UNEXPLAINED: the candidate movements do not close the observed delta.
     """
+    if stock_scope not in (None, "AGGREGATE", "WAREHOUSE"):
+        raise ValueError("stock_scope must be AGGREGATE, WAREHOUSE, or None")
+
     previous = float(previous_difference)
     current = float(current_difference)
     observed = current - previous
@@ -136,6 +140,27 @@ def analyze_delta_root_cause(
             for item in movement_window.wme_rows
         ]
     )
+    internal_transfer = any(
+        item.source == "WMS"
+        and str(item.operation_type or "").strip().casefold()
+        in {"mutare", "mutare intre gestiuni", "mutare între gestiuni"}
+        for item in evidence
+    )
+    # Source extraction currently does not prove whether both transfer ends
+    # are in scope. A single-warehouse or unknown scope must fail closed.
+    if internal_transfer and stock_scope != "AGGREGATE":
+        return DeltaRootCauseResult(
+            product_code=movement_window.product_code,
+            previous_difference=previous,
+            current_difference=current,
+            observed_delta=observed,
+            explained_delta=0.0,
+            residual_delta=observed,
+            status="UNEXPLAINED",
+            evidence=evidence,
+            note="TRANSFER_SCOPE_UNVERIFIED: warehouse scope and transfer direction require review.",
+        )
+
     non_zero = tuple(
         item for item in evidence if abs(item.difference_effect) > tolerance
     )
