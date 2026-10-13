@@ -18,7 +18,7 @@ def _write_sources(tmp_path: Path) -> tuple[Path, Path, Path]:
     pd.DataFrame(
         [
             {
-                "Data": "02/01/2026 08:00:00",
+                "Data": "1/2/2026 08:00:00",
                 "Cod articol": "DS001",
                 "Denumire articol": "Produs test",
                 "Locatie sursa": "ULMA",
@@ -40,7 +40,7 @@ def _write_sources(tmp_path: Path) -> tuple[Path, Path, Path]:
                 "Detalii": "",
             },
             {
-                "Data": "02/01/2026 09:00:00",
+                "Data": "1/2/2026 09:00:00",
                 "Cod articol": "OTHER",
                 "Denumire articol": "Alt produs",
                 "Locatie sursa": "ULMA",
@@ -69,7 +69,7 @@ def _write_sources(tmp_path: Path) -> tuple[Path, Path, Path]:
             {
                 "TipLinie": "PREDARE",
                 "Numar Comanda": "001_AE",
-                "Data Start": "02/01/2026 08:00:00",
+                "Data Start": "1/2/2026 08:00:00",
                 "PRE_Cod Articol": "DS001",
                 "PRE_Cantitate Predare": 10.0,
                 "PRE_U.M.": "BUCATA",
@@ -81,7 +81,7 @@ def _write_sources(tmp_path: Path) -> tuple[Path, Path, Path]:
             {
                 "TipLinie": "CONSUM",
                 "Numar Comanda": "003_AE",
-                "Data Start": "03/01/2026 08:00:00",
+                "Data Start": "1/3/2026 08:00:00",
                 "PRE_Cod Articol": None,
                 "PRE_Cantitate Predare": None,
                 "PRE_U.M.": None,
@@ -164,7 +164,7 @@ def test_sqlite_source_index_invalidates_when_source_changes(
 
     with wms.open("a", encoding="utf-8") as handle:
         handle.write(
-            "\n04/01/2026 10:00:00;DS002;Nou;"
+            "\n1/4/2026 10:00:00;DS002;Nou;"
             "ULMA;ULMA;;;;DP;;Ajustare pozitiva;1;"
             "TEST;PRODUCTION-OUT;;;;BUCATA;TEST;"
         )
@@ -186,7 +186,7 @@ def test_sqlite_source_index_reads_transfer_mose_and_mose_nt(
 
     wms_frame = pd.read_csv(wms, sep=";")
     transfer_row = wms_frame.iloc[0].copy()
-    transfer_row["Data"] = "04/01/2026 10:00:00"
+    transfer_row["Data"] = "1/4/2026 10:00:00"
     transfer_row["Cod articol"] = "DST"
     transfer_row["Denumire articol"] = "Produs transfer"
     transfer_row["Numar comanda"] = "TRANSFER_MOSE-TEST001"
