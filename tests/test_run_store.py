@@ -14,6 +14,7 @@ def test_run_store_roundtrip(tmp_path: Path) -> None:
             commit_sha="abc123",
             signature=None,
             status="RUNNING",
+            snapshot_at="2026-10-12T20:00:00+00:00",
         )
     )
     store.save_case(
@@ -33,6 +34,7 @@ def test_run_store_roundtrip(tmp_path: Path) -> None:
 
     assert run is not None
     assert run["status"] == "RUNNING"
+    assert run["snapshot_at"] == "2026-10-12T20:00:00+00:00"
     assert case is not None
     assert case["product_code"] == "DS099904475"
     assert case["difference_delta"] == -1.44
@@ -168,3 +170,106 @@ def test_run_store_migrates_schema_v1_to_v2(tmp_path: Path) -> None:
     assert version == 2
     assert "delta_status" in columns
     assert "explained_delta" in columns
+
+
+def test_run_store_migrates_schema_v2_to_v3_snapshot_at(tmp_path: Path) -> None:
+    import sqlite3
+
+    path = tmp_path / "traceai_state.sqlite"
+    with sqlite3.connect(path) as connection:
+        connection.executescript(
+            """
+            CREATE TABLE _schema_meta (
+                schema_version INTEGER NOT NULL
+            );
+            INSERT INTO _schema_meta(schema_version) VALUES (2);
+
+            CREATE TABLE runs (
+                run_id TEXT PRIMARY KEY,
+                started_at TEXT NOT NULL,
+                finished_at TEXT,
+                engine_version TEXT NOT NULL,
+                rules_version TEXT NOT NULL,
+                commit_sha TEXT NOT NULL,
+                signature TEXT,
+                status TEXT NOT NULL,
+                previous_run_id TEXT
+            );
+
+            CREATE TABLE sources (
+                run_id TEXT NOT NULL,
+                source_type TEXT NOT NULL,
+                file_name TEXT NOT NULL,
+                size INTEGER NOT NULL,
+                sha256 TEXT NOT NULL,
+                PRIMARY KEY (run_id, source_type)
+            );
+
+            CREATE TABLE cases (
+                run_id TEXT NOT NULL,
+                case_id TEXT NOT NULL,
+                product_code TEXT NOT NULL,
+                current_difference REAL,
+                previous_difference REAL,
+                difference_delta REAL,
+                execution_policy TEXT,
+                delta_status TEXT,
+                explained_delta REAL,
+                status TEXT,
+                cause_code TEXT,
+                evidence_level TEXT,
+                residual REAL,
+                operator_action TEXT,
+                correction_target TEXT,
+                PRIMARY KEY (run_id, case_id)
+            );
+            """
+        )
+
+    store = SQLiteRunStore(path)
+    store.initialize()
+
+    with sqlite3.connect(path) as connection:
+        version = connection.execute(
+            "SELECT schema_version FROM _schema_meta"
+        ).fetchone()[0]
+        run_columns = {
+            row[1]
+            for row in connection.execute(
+                "PRAGMA table_info(runs)"
+            ).fetchall()
+        }
+
+    assert version == 3
+    assert "snapshot_at" in run_columns
+
+
+def test_product_history_exposes_snapshot_at(tmp_path: Path) -> None:
+    store = SQLiteRunStore(tmp_path / "traceai_state.sqlite")
+    store.begin_run(
+        RunRecord(
+            run_id="RUN-1",
+            started_at="2026-10-12T20:05:00+00:00",
+            engine_version="0.10.0",
+            rules_version="0.4",
+            commit_sha="abc123",
+            signature=None,
+            status="SUCCESS",
+            snapshot_at="2026-10-12T20:00:00+00:00",
+        )
+    )
+    store.save_case(
+        CaseRecord(
+            run_id="RUN-1",
+            case_id="CASE-1",
+            product_code="DS099904475",
+            current_difference=61.46,
+            previous_difference=62.9,
+            difference_delta=-1.44,
+            execution_policy="ANALYZE",
+        )
+    )
+
+    history = store.get_product_history("DS099904475")
+
+    assert history[0]["snapshot_at"] == "2026-10-12T20:00:00+00:00"
