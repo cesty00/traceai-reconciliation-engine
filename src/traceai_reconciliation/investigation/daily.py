@@ -308,36 +308,72 @@ def run_daily(
             output_root,
             clean_run_id,
         )
-        previous_run_id, previous_snapshot_state = load_previous_snapshot_state(
-            previous_manifest_path
+
+        persisted_previous = run_store.get_latest_successful_run(
+            exclude_run_id=clean_run_id,
         )
-        previous_source_hashes: dict[str, str] = {}
-        previous_signature: str | None = None
+        previous_run_id = (
+            str(persisted_previous.get("run_id") or "").strip()
+            if persisted_previous is not None
+            else ""
+        ) or None
+        previous_snapshot_state = (
+            run_store.get_snapshot_state(previous_run_id)
+            if previous_run_id
+            else {}
+        )
+        previous_source_hashes = (
+            run_store.get_source_hashes(previous_run_id)
+            if previous_run_id
+            else {}
+        )
+        previous_signature = (
+            str(persisted_previous.get("signature") or "").strip() or None
+            if persisted_previous is not None
+            else None
+        )
+        previous_snapshot_at = (
+            str(persisted_previous.get("snapshot_at") or "").strip() or None
+            if persisted_previous is not None
+            else None
+        )
+
         previous_batch_summary: str | None = None
-        previous_snapshot_at: str | None = None
+        if not previous_run_id or not previous_snapshot_state:
+            manifest_run_id, manifest_snapshot_state = (
+                load_previous_snapshot_state(previous_manifest_path)
+            )
+            if not previous_run_id:
+                previous_run_id = manifest_run_id
+            if not previous_snapshot_state:
+                previous_snapshot_state = manifest_snapshot_state
+
         if previous_manifest_path is not None:
             try:
                 previous_manifest_payload = json.loads(
                     previous_manifest_path.read_text(encoding="utf-8")
                 )
-                raw_hashes = (
-                    previous_manifest_payload.get("source_readiness", {})
-                    .get("source_hashes", {})
-                )
-                if isinstance(raw_hashes, dict):
-                    previous_source_hashes = {
-                        str(key): str(value)
-                        for key, value in raw_hashes.items()
-                    }
-                previous_signature = str(
-                    previous_manifest_payload.get("signature") or ""
-                ) or None
-                previous_profile = previous_manifest_payload.get("profile", {})
-                if isinstance(previous_profile, dict):
-                    previous_snapshot_at = (
-                        str(previous_profile.get("snapshot_at") or "").strip()
-                        or None
+                if not previous_source_hashes:
+                    raw_hashes = (
+                        previous_manifest_payload.get("source_readiness", {})
+                        .get("source_hashes", {})
                     )
+                    if isinstance(raw_hashes, dict):
+                        previous_source_hashes = {
+                            str(key): str(value)
+                            for key, value in raw_hashes.items()
+                        }
+                if previous_signature is None:
+                    previous_signature = str(
+                        previous_manifest_payload.get("signature") or ""
+                    ) or None
+                if previous_snapshot_at is None:
+                    previous_profile = previous_manifest_payload.get("profile", {})
+                    if isinstance(previous_profile, dict):
+                        previous_snapshot_at = (
+                            str(previous_profile.get("snapshot_at") or "").strip()
+                            or None
+                        )
                 previous_summary_path = (
                     previous_manifest_path.parent / "daily_run_summary.json"
                 )
@@ -349,20 +385,7 @@ def run_daily(
                         previous_summary_payload.get("batch_summary_json")
                     )
             except (OSError, json.JSONDecodeError, AttributeError):
-                previous_source_hashes = {}
-                previous_signature = None
                 previous_batch_summary = None
-                previous_snapshot_at = None
-
-        if previous_run_id:
-            persisted_previous = run_store.get_run(previous_run_id)
-            persisted_snapshot_at = (
-                str(persisted_previous.get("snapshot_at") or "").strip()
-                if persisted_previous is not None
-                else ""
-            )
-            if persisted_snapshot_at:
-                previous_snapshot_at = persisted_snapshot_at
 
         snapshot_state = build_snapshot_state(
             profile.stock_report,
