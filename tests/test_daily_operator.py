@@ -6,6 +6,8 @@ from traceai_reconciliation.investigation.auto_explain import (
 )
 from traceai_reconciliation.investigation.daily_operator import (
     build_daily_operator_result,
+    daily_operator_result_to_dict,
+    validate_daily_operator_contract,
 )
 from traceai_reconciliation.investigation.models import ProductInvestigationResult
 from traceai_reconciliation.investigation.promotion_gate import PromotionAssessment
@@ -133,3 +135,61 @@ def test_operator_view_stays_review_on_hold() -> None:
     assert view.correction_target == "REVIEW"
     assert view.residual == 5.0
     assert "Nu corecta stocul inca" in view.operator_action
+
+
+def test_daily_operator_contract_uses_central_schema_version() -> None:
+    result = _investigation()
+    explanation = AutoExplanation(
+        initial_difference=5.0,
+        explained_difference=0.0,
+        residual_difference=5.0,
+        status="PARTIAL",
+        evidence_level="B",
+        rules=(),
+        equation="0 = 5.000 (rezidual 5.000)",
+        components=(),
+    )
+    assessment = PromotionAssessment(
+        status="HOLD",
+        eligible_for_review=False,
+        blockers=("INSUFFICIENT_DIRECT_EVIDENCE",),
+        warnings=(),
+        explanation_status="PARTIAL",
+        evidence_level="B",
+        rules=(),
+    )
+
+    payload = daily_operator_result_to_dict(
+        build_daily_operator_result(result, explanation, assessment)
+    )
+
+    assert payload["schema_version"] == "1.0"
+    assert validate_daily_operator_contract(payload) == ()
+
+
+def test_daily_operator_contract_rejects_mutation_authority_drift() -> None:
+    payload = {
+        "schema_version": "1.0",
+        "case_id": "CASE-1",
+        "product_code": "DS001",
+        "product_name": "Produs",
+        "unit": "KG",
+        "difference": 1.0,
+        "cause": "Cauza",
+        "cause_status": "DETERMINATA",
+        "evidence_level": "A",
+        "rules": [],
+        "correction_target": "REVIEW",
+        "operator_action": "Verifica.",
+        "operator_status": "REVIEW",
+        "residual": 0.0,
+        "evidence": [],
+        "blockers": [],
+        "warnings": [],
+        "wms_mutation_allowed": True,
+        "wme_mutation_allowed": False,
+    }
+
+    violations = validate_daily_operator_contract(payload)
+
+    assert "authority:wms_mutation_allowed" in violations

@@ -2,9 +2,34 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 
+from traceai_reconciliation.version import OPERATOR_OUTPUT_SCHEMA_VERSION
+
 from .auto_explain import AutoExplanation
 from .models import ProductInvestigationResult
 from .promotion_gate import PromotionAssessment
+
+
+REQUIRED_OPERATOR_FIELDS = (
+    "schema_version",
+    "case_id",
+    "product_code",
+    "product_name",
+    "unit",
+    "difference",
+    "cause",
+    "cause_status",
+    "evidence_level",
+    "rules",
+    "correction_target",
+    "operator_action",
+    "operator_status",
+    "residual",
+    "evidence",
+    "blockers",
+    "warnings",
+    "wms_mutation_allowed",
+    "wme_mutation_allowed",
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -155,7 +180,7 @@ def build_daily_operator_result(
         )
 
     return DailyOperatorResult(
-        schema_version="1.0",
+        schema_version=OPERATOR_OUTPUT_SCHEMA_VERSION,
         case_id=result.case_id,
         product_code=result.product_code,
         product_name=result.product_name,
@@ -175,6 +200,29 @@ def build_daily_operator_result(
     )
 
 
+def validate_daily_operator_contract(
+    payload: dict[str, object],
+) -> tuple[str, ...]:
+    errors: list[str] = []
+    if payload.get("schema_version") != OPERATOR_OUTPUT_SCHEMA_VERSION:
+        errors.append(
+            "schema_version:"
+            f"expected={OPERATOR_OUTPUT_SCHEMA_VERSION}:"
+            f"actual={payload.get('schema_version')}"
+        )
+    for field in REQUIRED_OPERATOR_FIELDS:
+        if field not in payload:
+            errors.append(f"missing:{field}")
+    for field in ("rules", "evidence", "blockers", "warnings"):
+        if not isinstance(payload.get(field), list):
+            errors.append(f"invalid:{field}")
+    if payload.get("wms_mutation_allowed") is not False:
+        errors.append("authority:wms_mutation_allowed")
+    if payload.get("wme_mutation_allowed") is not False:
+        errors.append("authority:wme_mutation_allowed")
+    return tuple(errors)
+
+
 def daily_operator_result_to_dict(
     result: DailyOperatorResult,
 ) -> dict[str, object]:
@@ -183,4 +231,9 @@ def daily_operator_result_to_dict(
     payload["evidence"] = list(result.evidence)
     payload["blockers"] = list(result.blockers)
     payload["warnings"] = list(result.warnings)
+    violations = validate_daily_operator_contract(payload)
+    if violations:
+        raise ValueError(
+            "daily operator contract violation: " + ", ".join(violations)
+        )
     return payload

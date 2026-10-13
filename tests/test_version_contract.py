@@ -10,6 +10,8 @@ from traceai_reconciliation.version import (
     ENGINE_VERSION,
     OPERATOR_OUTPUT_SCHEMA_VERSION,
     RULESET_VERSION,
+    SELF_SERVICE_BATCH_SCHEMA_VERSION,
+    SELF_SERVICE_SUMMARY_SCHEMA_VERSION,
 )
 
 
@@ -26,3 +28,6 @@ def test_version_contracts_are_explicit() -> None:
     assert DAILY_RUN_SCHEMA_VERSION
     assert OPERATOR_OUTPUT_SCHEMA_VERSION
     assert DAILY_CASE_SUMMARY_SCHEMA_VERSION == "1.0"
+    assert OPERATOR_OUTPUT_SCHEMA_VERSION == "1.0"
+    assert SELF_SERVICE_SUMMARY_SCHEMA_VERSION == "0.8.0"
+    assert SELF_SERVICE_BATCH_SCHEMA_VERSION == "0.8.0"
