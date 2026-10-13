@@ -6,7 +6,7 @@ import sqlite3
 from .models import CaseRecord, RunRecord, SourceRecord
 
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 
 class SQLiteRunStore:
@@ -38,6 +38,7 @@ class SQLiteRunStore:
                     commit_sha TEXT NOT NULL,
                     signature TEXT,
                     status TEXT NOT NULL,
+                    snapshot_at TEXT,
                     previous_run_id TEXT
                 );
 
@@ -85,30 +86,51 @@ class SQLiteRunStore:
                     "INSERT INTO _schema_meta(schema_version) VALUES (?)",
                     (SCHEMA_VERSION,),
                 )
-            elif int(row[0]) == 1:
-                columns = {
-                    item[1]
-                    for item in connection.execute(
-                        "PRAGMA table_info(cases)"
-                    ).fetchall()
-                }
-                if "delta_status" not in columns:
+            else:
+                version = int(row[0])
+                if version == 1:
+                    columns = {
+                        item[1]
+                        for item in connection.execute(
+                            "PRAGMA table_info(cases)"
+                        ).fetchall()
+                    }
+                    if "delta_status" not in columns:
+                        connection.execute(
+                            "ALTER TABLE cases ADD COLUMN delta_status TEXT"
+                        )
+                    if "explained_delta" not in columns:
+                        connection.execute(
+                            "ALTER TABLE cases ADD COLUMN explained_delta REAL"
+                        )
+                    version = 2
                     connection.execute(
-                        "ALTER TABLE cases ADD COLUMN delta_status TEXT"
+                        "UPDATE _schema_meta SET schema_version = ?",
+                        (version,),
                     )
-                if "explained_delta" not in columns:
+
+                if version == 2:
+                    run_columns = {
+                        item[1]
+                        for item in connection.execute(
+                            "PRAGMA table_info(runs)"
+                        ).fetchall()
+                    }
+                    if "snapshot_at" not in run_columns:
+                        connection.execute(
+                            "ALTER TABLE runs ADD COLUMN snapshot_at TEXT"
+                        )
+                    version = 3
                     connection.execute(
-                        "ALTER TABLE cases ADD COLUMN explained_delta REAL"
+                        "UPDATE _schema_meta SET schema_version = ?",
+                        (version,),
                     )
-                connection.execute(
-                    "UPDATE _schema_meta SET schema_version = ?",
-                    (SCHEMA_VERSION,),
-                )
-            elif int(row[0]) != SCHEMA_VERSION:
-                raise RuntimeError(
-                    "Unsupported run-store schema version: "
-                    f"{row[0]} (expected {SCHEMA_VERSION})"
-                )
+
+                if version != SCHEMA_VERSION:
+                    raise RuntimeError(
+                        "Unsupported run-store schema version: "
+                        f"{version} (expected {SCHEMA_VERSION})"
+                    )
             connection.commit()
 
     def _connect(self) -> sqlite3.Connection:
@@ -125,8 +147,8 @@ class SQLiteRunStore:
                 INSERT INTO runs (
                     run_id, started_at, finished_at, engine_version,
                     rules_version, commit_sha, signature, status,
-                    previous_run_id
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    snapshot_at, previous_run_id
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(run_id) DO UPDATE SET
                     started_at=excluded.started_at,
                     finished_at=excluded.finished_at,
@@ -135,6 +157,7 @@ class SQLiteRunStore:
                     commit_sha=excluded.commit_sha,
                     signature=excluded.signature,
                     status=excluded.status,
+                    snapshot_at=excluded.snapshot_at,
                     previous_run_id=excluded.previous_run_id
                 """,
                 (
@@ -146,6 +169,7 @@ class SQLiteRunStore:
                     run.commit_sha,
                     run.signature,
                     run.status,
+                    run.snapshot_at,
                     run.previous_run_id,
                 ),
             )
@@ -292,6 +316,7 @@ class SQLiteRunStore:
                     r.started_at,
                     r.finished_at,
                     r.status AS run_status,
+                    r.snapshot_at,
                     r.previous_run_id
                 FROM cases c
                 JOIN runs r ON r.run_id = c.run_id
