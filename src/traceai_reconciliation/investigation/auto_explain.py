@@ -640,16 +640,13 @@ def components_from_investigation(
                 )
 
     production_input = details.get("production_input_matching", {})
-    if production_input.get("applied_to_explanation", False):
-        effect = round(
-            float(production_input.get("residual_total", 0.0)),
-            decimals,
-        )
-    elif production_input.get("safe_to_auto_explain", False):
-        effect = round(
-            float(production_input.get("persistent_residual_total", 0.0)),
-            decimals,
-        )
+    # A production report corroborates consumption, not the causal stock effect.
+    # Only independently verified effects may be used by Auto Explain.
+    stock_effect_verified = production_input.get("stock_effect_verified") is True
+    if stock_effect_verified and production_input.get("applied_to_explanation", False):
+        effect = round(float(production_input.get("residual_total", 0.0)), decimals)
+    elif stock_effect_verified and production_input.get("safe_to_auto_explain", False):
+        effect = round(float(production_input.get("persistent_residual_total", 0.0)), decimals)
     else:
         effect = 0.0
 
@@ -660,13 +657,12 @@ def components_from_investigation(
                 rule_id="PROD-03",
                 effect=effect,
                 description=(
-                    "Rezidual persistent PRODUCTION-IN↔BC după excluderea "
-                    "reversărilor PROD-05, a diferențelor anterioare ultimului "
-                    "checkpoint de inventar și a neutralizărilor COR STOC "
-                    "explicite; consumul este confirmat de raportul de producție."
+                    "Rezidual PRODUCTION-IN versus BC cu efect asupra diferentei "
+                    "de stoc verificat independent; cauza operationala poate "
+                    "necesita in continuare validare."
                 ),
-                evidence_level="A",
-                source="production_input_matching.persistent_residual_total",
+                evidence_level="B",
+                source="production_input_matching",
                 status="CONFIRMED",
             )
         )
