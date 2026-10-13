@@ -54,7 +54,7 @@ _wme_final_balances = wme_final_balances
 _wms_total_net_movement = wms_total_net_movement
 from .source_provenance import source_paths, source_usage
 from .source_hash_cache import hash_sources
-from .source_index import SQLiteSourceIndex
+from .source_index_policy import resolve_source_index
 
 
 def investigate_product(
@@ -104,28 +104,9 @@ def investigate_product(
         )
     )
 
-    source_index = None
-    if sources.use_source_index:
-        if sources.cache_dir is None:
-            raise ValueError(
-                "use_source_index=True necesită cache_dir."
-            )
-        source_index = SQLiteSourceIndex(sources.cache_dir)
-        index_rebuilt = source_index.ensure_index(
-            sources.wms_movements,
-            sources.wme_ledger,
-            sources.production,
-        )
-        result.details["source_index"] = {
-            "enabled": True,
-            "rebuilt": index_rebuilt,
-            "database": str(source_index.db_path),
-        }
-    else:
-        result.details["source_index"] = {
-            "enabled": False,
-            "rebuilt": False,
-        }
+    source_index_resolution = resolve_source_index(sources)
+    source_index = source_index_resolution.index
+    result.details["source_index"] = source_index_resolution.details
 
     opening_resolution = resolve_opening_stock_wms(
         sources,
