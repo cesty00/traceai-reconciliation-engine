@@ -24,6 +24,7 @@ def test_wms_surplus_pair_is_classified_as_reversal() -> None:
                 "Cantitate": 768.0,
                 "Numar comanda": "0029890_AE",
                 "Locatie sursa": "ULMA",
+                "Cod-motiv": "PRODUCTION-OUT",
                 "Lot": "096.26",
             },
             {
@@ -32,6 +33,7 @@ def test_wms_surplus_pair_is_classified_as_reversal() -> None:
                 "Cantitate": 336.0,
                 "Numar comanda": "0029890_AE",
                 "Locatie sursa": "ULMA",
+                "Cod-motiv": "PRODUCTION-OUT",
                 "Lot": "096.26",
             },
             {
@@ -84,6 +86,7 @@ def test_matched_np_positive_is_not_consumed_by_blank_negative() -> None:
                 "Cantitate": 768.0,
                 "Numar comanda": "0031979_AE",
                 "Locatie sursa": "ULMA",
+                "Cod-motiv": "PRODUCTION-OUT",
                 "Lot": "127.26S1",
             },
             {
@@ -92,6 +95,7 @@ def test_matched_np_positive_is_not_consumed_by_blank_negative() -> None:
                 "Cantitate": 768.0,
                 "Numar comanda": "0031979_AE",
                 "Locatie sursa": "ULMA",
+                "Cod-motiv": "PRODUCTION-OUT",
                 "Lot": "127.26S1",
             },
             {
@@ -157,6 +161,7 @@ def test_non_production_positive_adjustment_is_not_compared_to_np() -> None:
                 "Cantitate": 768.0,
                 "Numar comanda": "0031979_AE",
                 "Locatie sursa": "ULMA",
+                "Cod-motiv": "PRODUCTION-OUT",
                 "Lot": "127.26S1",
                 "Cod-motiv": "PRODUCTION-OUT",
             },
@@ -546,6 +551,7 @@ def test_corectie_stoc_duplicate_rows_same_document_is_unambiguous() -> None:
                 "Cantitate": 768.0,
                 "Numar comanda": "0031979_AE",
                 "Locatie sursa": "ULMA",
+                "Cod-motiv": "PRODUCTION-OUT",
                 "Lot": "127.26S1",
                 "Cod-motiv": "PRODUCTION-OUT",
                 "Detalii": "",
@@ -556,6 +562,7 @@ def test_corectie_stoc_duplicate_rows_same_document_is_unambiguous() -> None:
                 "Cantitate": 768.0,
                 "Numar comanda": "0031979_AE",
                 "Locatie sursa": "ULMA",
+                "Cod-motiv": "PRODUCTION-OUT",
                 "Lot": "127.26S1",
                 "Cod-motiv": "PRODUCTION-OUT",
                 "Detalii": "",
