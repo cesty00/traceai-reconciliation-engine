@@ -5,6 +5,7 @@ from pathlib import Path
 
 from traceai_reconciliation.investigation.daily_case_summary import (
     build_daily_case_summary,
+    validate_daily_case_summary_contract,
     write_daily_case_summaries,
 )
 
@@ -88,3 +89,70 @@ def test_write_daily_case_summary_creates_artifact(tmp_path: Path) -> None:
     payload = json.loads(path.read_text(encoding="utf-8"))
     assert payload["daily_delta"]["status"] == "NOT_AVAILABLE"
     assert payload["history"]["history_status"] == "NO_HISTORY"
+
+
+def test_daily_case_summary_contract_accepts_valid_payload() -> None:
+    payload = build_daily_case_summary(
+        run_id="RUN-1",
+        operator_payload={
+            "case_id": "CASE-1",
+            "product_code": "DS001",
+            "product_name": "Produs",
+            "unit": "KG",
+            "difference": 1.0,
+            "cause": "Cauza.",
+            "cause_status": "DETERMINATA",
+            "evidence_level": "A",
+            "correction_target": "REVIEW",
+            "operator_status": "REVIEW",
+            "operator_action": "Verifica.",
+            "residual": 0.0,
+            "evidence": [],
+            "blockers": [],
+            "warnings": [],
+        },
+    )
+
+    assert validate_daily_case_summary_contract(payload) == ()
+
+
+def test_daily_case_summary_contract_rejects_authority_drift() -> None:
+    payload = build_daily_case_summary(
+        run_id="RUN-1",
+        operator_payload={
+            "case_id": "CASE-1",
+            "product_code": "DS001",
+            "product_name": "Produs",
+            "unit": "KG",
+            "difference": 1.0,
+            "evidence": [],
+            "blockers": [],
+            "warnings": [],
+        },
+    )
+    payload["authority"]["wms_mutation_allowed"] = True
+
+    violations = validate_daily_case_summary_contract(payload)
+
+    assert "authority:wms_mutation_allowed" in violations
+
+
+def test_daily_case_summary_contract_rejects_missing_required_field() -> None:
+    payload = build_daily_case_summary(
+        run_id="RUN-1",
+        operator_payload={
+            "case_id": "CASE-1",
+            "product_code": "DS001",
+            "product_name": "Produs",
+            "unit": "KG",
+            "difference": 1.0,
+            "evidence": [],
+            "blockers": [],
+            "warnings": [],
+        },
+    )
+    del payload["operator_status"]
+
+    violations = validate_daily_case_summary_contract(payload)
+
+    assert "missing:operator_status" in violations
