@@ -143,10 +143,20 @@ def analyze_daily_delta_root_causes(
             start_exclusive=previous_snapshot_at,
             end_inclusive=current_snapshot_at,
         )
+        # Stock report totals do not prove which warehouses were included.
+        # Do not pass AGGREGATE based on a total alone: a transfer can affect
+        # one-warehouse stock while leaving company-wide stock unchanged.
+        scope = (
+            "AGGREGATE"
+            if current.get("stock_scope") == "AGGREGATE"
+            and current.get("stock_scope_verified") is True
+            else None
+        )
         root_cause = analyze_delta_root_cause(
             movement_window=movement_window,
             previous_difference=item.previous_difference,
             current_difference=item.current_difference,
+            stock_scope=scope,
         )
         results.append(
             DailyDeltaRootCauseItem(
