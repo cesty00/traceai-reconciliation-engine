@@ -41,117 +41,12 @@ from .source_readers import (
     resolve_column,
     sha256_file,
 )
+from .stock_balance import (
+    wme_balance_total_at,
+    wms_total_net_movement,
+)
 from .source_hash_cache import hash_sources
 from .source_index import SQLiteSourceIndex
-
-
-def _wme_final_balances(wme_rows: pd.DataFrame) -> tuple[dict[str, float], float | None]:
-    if wme_rows.empty:
-        return {}, None
-
-    work = wme_rows.copy()
-    work["Date"] = pd.to_datetime(work["Date"], errors="coerce", dayfirst=True)
-    work["LineNo"] = pd.to_numeric(work["LineNo"], errors="coerce")
-    work["Balance"] = pd.to_numeric(work["Balance"], errors="coerce")
-
-    group_keys = ["Warehouse"]
-    if "Account" in work.columns:
-        group_keys.append("Account")
-
-    balances_by_warehouse: dict[str, float] = {}
-    for keys, group in work.groupby(group_keys, dropna=False):
-        ordered = group.sort_values(["Date", "LineNo"], na_position="first")
-        balances = ordered["Balance"].dropna()
-        if balances.empty:
-            continue
-        warehouse = keys[0] if isinstance(keys, tuple) else keys
-        balances_by_warehouse[str(warehouse)] = (
-            balances_by_warehouse.get(str(warehouse), 0.0)
-            + float(balances.iloc[-1])
-        )
-
-    if not balances_by_warehouse:
-        return {}, None
-    return balances_by_warehouse, float(sum(balances_by_warehouse.values()))
-
-
-
-def _wme_balance_total_at(
-    wme_rows: pd.DataFrame,
-    cutoff: pd.Timestamp,
-    strictly_before: bool = False,
-) -> tuple[dict[str, float], float | None]:
-    if wme_rows.empty:
-        return {}, None
-
-    work = wme_rows.copy()
-    work["Date"] = pd.to_datetime(work["Date"], errors="coerce", dayfirst=True)
-    work["LineNo"] = pd.to_numeric(work["LineNo"], errors="coerce")
-    work["Balance"] = pd.to_numeric(work["Balance"], errors="coerce")
-
-    if strictly_before:
-        work = work[work["Date"] < cutoff]
-    else:
-        work = work[work["Date"] <= cutoff]
-
-    group_keys = ["Warehouse"]
-    if "Account" in work.columns:
-        group_keys.append("Account")
-
-    balances_by_warehouse: dict[str, float] = {}
-    for keys, group in work.groupby(group_keys, dropna=False):
-        ordered = group.sort_values(["Date", "LineNo"], na_position="first")
-        balances = ordered["Balance"].dropna()
-        if balances.empty:
-            continue
-        warehouse = keys[0] if isinstance(keys, tuple) else keys
-        balances_by_warehouse[str(warehouse)] = (
-            balances_by_warehouse.get(str(warehouse), 0.0)
-            + float(balances.iloc[-1])
-        )
-
-    if not balances_by_warehouse:
-        return {}, None
-    return balances_by_warehouse, float(sum(balances_by_warehouse.values()))
-
-
-def _wms_total_net_movement(
-    wms_rows: pd.DataFrame,
-) -> tuple[float | None, list[str]]:
-    if wms_rows.empty:
-        return 0.0, []
-
-    op_col = resolve_column(wms_rows.columns, "operation_type")
-    qty_col = resolve_column(wms_rows.columns, "quantity")
-    quantities = pd.to_numeric(wms_rows[qty_col], errors="coerce").fillna(0.0)
-
-    stock_effect_operations = {
-        "Ajustare pozitiva",
-        "Ajustare negativa",
-        "Receptie",
-        "Livrare",
-    }
-    internal_operations = {
-        "Mutare",
-        "Mutare intre gestiuni",
-        "Incarcare Camion",
-    }
-
-    operations = wms_rows[op_col].astype(str).str.strip()
-    unknown = sorted(
-        {
-            value
-            for value in operations.unique().tolist()
-            if value
-            and value not in stock_effect_operations
-            and value not in internal_operations
-        }
-    )
-    if unknown:
-        return None, unknown
-
-    mask = operations.isin(stock_effect_operations)
-    return float(quantities.loc[mask].sum()), []
 
 
 def investigate_product(
@@ -385,12 +280,12 @@ def investigate_product(
 
     period_start, period_end = parse_period(period)
 
-    opening_wme_by_warehouse, opening_wme_total = _wme_balance_total_at(
+    opening_wme_by_warehouse, opening_wme_total = wme_balance_total_at(
         wme_all_rows,
         period_start,
         strictly_before=True,
     )
-    final_wme_by_warehouse, final_wme_total = _wme_balance_total_at(
+    final_wme_by_warehouse, final_wme_total = wme_balance_total_at(
         wme_all_rows,
         period_end + pd.Timedelta(days=1) - pd.Timedelta(microseconds=1),
         strictly_before=False,
@@ -424,7 +319,7 @@ def investigate_product(
             }
         )
 
-    wms_net_movement, unknown_wms_operations = _wms_total_net_movement(wms_rows)
+    wms_net_movement, unknown_wms_operations = wms_total_net_movement(wms_rows)
     if unknown_wms_operations:
         result.technical_warnings.append(
             "Reconstrucția totală WMS nu a fost calculată deoarece există tipuri de "
