@@ -43,8 +43,14 @@ from .source_readers import (
 )
 from .stock_balance import (
     wme_balance_total_at,
+    wme_final_balances,
     wms_total_net_movement,
 )
+
+# Backward-compatible private aliases kept during incremental refactoring.
+_wme_balance_total_at = wme_balance_total_at
+_wme_final_balances = wme_final_balances
+_wms_total_net_movement = wms_total_net_movement
 from .source_hash_cache import hash_sources
 from .source_index import SQLiteSourceIndex
 
