@@ -16,6 +16,7 @@ class WmeResidualMovementResult:
 def match_wme_residual_movements(
     wme_rows: pd.DataFrame,
     excluded_warehouses: set[str] | None = None,
+    excluded_indexes: set[object] | None = None,
 ) -> WmeResidualMovementResult:
     """
     Identify WME stock-affecting rows outside the standard operational set.
@@ -40,6 +41,8 @@ def match_wme_residual_movements(
     }
 
     work = wme_rows.copy()
+    if excluded_indexes:
+        work = work.loc[~work.index.isin(excluded_indexes)].copy()
     work["_type"] = (
         work["OperationType"].astype(str).str.strip().str.upper()
     )

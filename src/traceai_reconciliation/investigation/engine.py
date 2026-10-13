@@ -34,6 +34,7 @@ from .transfer_mose_matching import (
     match_transfer_mose_baskets,
 )
 from .wme_residual_matching import match_wme_residual_movements
+from .inventory_adjustment_matching import match_inventory_adjustments
 from .source_readers import (
     filter_by_period,
     first_non_empty,
@@ -987,9 +988,128 @@ def investigate_product(
             result.cause_status = "PROBABILA"
             result.evidence_level = "B"
 
+    inventory_adjustment_match = match_inventory_adjustments(
+        wms_rows,
+        wme_rows,
+    )
+    result.details["inventory_adjustment_matching"] = {
+        "matches": inventory_adjustment_match.matches,
+        "residual_wms_adjustments": (
+            inventory_adjustment_match.residual_wms_adjustments
+        ),
+        "residual_wme_pv": inventory_adjustment_match.residual_wme_pv,
+        "residual_wms_total": round(
+            inventory_adjustment_match.residual_wms_total,
+            decimals,
+        ),
+        "residual_wme_total": round(
+            inventory_adjustment_match.residual_wme_total,
+            decimals,
+        ),
+        "system_difference_effect": round(
+            inventory_adjustment_match.system_difference_effect,
+            decimals,
+        ),
+        "applied_to_explanation": False,
+    }
+
+    if inventory_adjustment_match.matches:
+        matched_total = sum(
+            float(item["quantity"])
+            for item in inventory_adjustment_match.matches
+        )
+        result.findings.append(
+            {
+                "type": "INVENTORY_ADJUSTMENT_MATCH",
+                "description": (
+                    f"{len(inventory_adjustment_match.matches)} eveniment(e) "
+                    f"de inventar WMS INV-PLS/INV-MIN au corespondent PV WME "
+                    f"unic, total {matched_total:.3f} {result.unit}. "
+                    "Aceste perechi se neutralizează între sisteme."
+                ),
+                "evidence": "SRC-WMS(INV-PLS/INV-MIN) + SRC-WME(PV)",
+            }
+        )
+
+    if inventory_adjustment_match.residual_wms_adjustments:
+        for item in inventory_adjustment_match.residual_wms_adjustments:
+            result.unmatched_operations.append(
+                {
+                    "date": item["date"],
+                    "system": "WMS",
+                    "document": "-",
+                    "operation_type": item["reason"],
+                    "quantity": item["quantity"],
+                    "reason": (
+                        "Ajustare de inventar WMS fără PV WME unic "
+                        "în fereastra validată."
+                    ),
+                    "status": item["status"],
+                }
+            )
+
+    if inventory_adjustment_match.residual_wme_pv:
+        for item in inventory_adjustment_match.residual_wme_pv:
+            result.unmatched_operations.append(
+                {
+                    "date": item["date"],
+                    "system": "WME",
+                    "document": item["document"],
+                    "operation_type": "PV",
+                    "quantity": -float(item["quantity"]),
+                    "reason": (
+                        "PV WME fără ajustare WMS INV-PLS/INV-MIN unică "
+                        "în fereastra validată."
+                    ),
+                    "status": item["status"],
+                }
+            )
+
+    inventory_effect = round(
+        inventory_adjustment_match.system_difference_effect,
+        decimals,
+    )
+    if (
+        inventory_effect != 0
+        and result.initial_difference != 0
+        and (inventory_effect > 0)
+        == (result.initial_difference > 0)
+        and abs(
+            result.explained_difference + inventory_effect
+        )
+        <= abs(result.initial_difference) + 10 ** (-decimals)
+    ):
+        result.explained_difference = round(
+            result.explained_difference + inventory_effect,
+            decimals,
+        )
+        result.unexplained_difference = round(
+            result.initial_difference - result.explained_difference,
+            decimals,
+        )
+        result.details["inventory_adjustment_matching"][
+            "applied_to_explanation"
+        ] = True
+        result.cause_code = "CAUSE-INVENTORY-ADJUSTMENT"
+        result.cause_description = (
+            "Diferența este explicată de ajustări de inventar WMS "
+            "INV-PLS/INV-MIN fără corespondent PV WME, după neutralizarea "
+            "perechilor de inventar documentate în ambele sisteme."
+        )
+        result.cause_status = (
+            "CONFIRMATA"
+            if abs(result.unexplained_difference) <= 10 ** (-decimals)
+            else "PROBABILA"
+        )
+        result.evidence_level = "A"
+        result.verdict = "REVIEW"
+
     wme_residual_match = match_wme_residual_movements(
         wme_rows,
         excluded_warehouses={"DETERIORATE", "PROTAN", "MOSTRE"},
+        excluded_indexes=set(
+            inventory_adjustment_match.matched_wme_indexes
+        ),
     )
     result.details["wme_residual_movements"] = {
         "residual_movements": len(

@@ -428,6 +428,29 @@ def components_from_investigation(
                 )
             )
 
+    inventory = details.get("inventory_adjustment_matching", {})
+    if inventory.get("applied_to_explanation", False):
+        effect = round(
+            float(inventory.get("system_difference_effect", 0.0)),
+            decimals,
+        )
+        if effect:
+            components.append(
+                ExplanationComponent(
+                    component_id="inventory_adjustment_residual",
+                    rule_id="INV-01",
+                    effect=effect,
+                    description=(
+                        "Efect net confirmat al ajustărilor de inventar WMS "
+                        "INV-PLS/INV-MIN rămase după neutralizarea PV WME "
+                        "corespondente."
+                    ),
+                    evidence_level="A",
+                    source="inventory_adjustment_matching",
+                    status="CONFIRMED",
+                )
+            )
+
     production = details.get("production_matching", {})
     production_chain_applied = False
     production_document_total = round(

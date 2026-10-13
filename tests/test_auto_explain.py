@@ -783,3 +783,22 @@ def test_generic_stock_correction_stays_level_b_when_major_flow_is_unresolved() 
     assert explanation.status == "EXACT"
     assert explanation.rules == ("ADJ-01",)
     assert explanation.evidence_level == "B"
+
+
+def test_inventory_adjustment_component_can_close_exact_difference() -> None:
+    result = investigation_result(
+        initial_difference=48.0,
+        details={
+            "inventory_adjustment_matching": {
+                "system_difference_effect": 48.0,
+                "applied_to_explanation": True,
+            },
+        },
+    )
+
+    explanation = auto_explanation_from_investigation(result)
+
+    assert explanation.status == "EXACT"
+    assert explanation.explained_difference == 48.0
+    assert explanation.residual_difference == 0.0
+    assert explanation.rules == ("INV-01",)
