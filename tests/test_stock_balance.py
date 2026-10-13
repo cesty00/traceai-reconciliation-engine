@@ -13,21 +13,21 @@ def test_wme_balance_total_at_uses_latest_balance_per_warehouse() -> None:
     frame = pd.DataFrame(
         [
             {
-                "Date": "2026-10-10",
+                "Date": "10.10.2026",
                 "LineNo": 1,
                 "Warehouse": "DP",
                 "Account": "371",
                 "Balance": 10.0,
             },
             {
-                "Date": "2026-10-11",
+                "Date": "11.10.2026",
                 "LineNo": 2,
                 "Warehouse": "DP",
                 "Account": "371",
                 "Balance": 12.0,
             },
             {
-                "Date": "2026-10-11",
+                "Date": "11.10.2026",
                 "LineNo": 1,
                 "Warehouse": "MOSE",
                 "Account": "371",
@@ -49,13 +49,13 @@ def test_wme_balance_total_at_can_use_strict_opening_cutoff() -> None:
     frame = pd.DataFrame(
         [
             {
-                "Date": "2026-10-10",
+                "Date": "10.10.2026",
                 "LineNo": 1,
                 "Warehouse": "DP",
                 "Balance": 10.0,
             },
             {
-                "Date": "2026-10-11",
+                "Date": "11.10.2026",
                 "LineNo": 2,
                 "Warehouse": "DP",
                 "Balance": 12.0,
@@ -65,7 +65,7 @@ def test_wme_balance_total_at_can_use_strict_opening_cutoff() -> None:
 
     by_warehouse, total = wme_balance_total_at(
         frame,
-        pd.Timestamp("2026-10-11"),
+        pd.Timestamp("11.10.2026"),
         strictly_before=True,
     )
 
@@ -77,13 +77,13 @@ def test_wme_final_balances_returns_latest_known_balances() -> None:
     frame = pd.DataFrame(
         [
             {
-                "Date": "2026-10-10",
+                "Date": "10.10.2026",
                 "LineNo": 1,
                 "Warehouse": "DP",
                 "Balance": 10.0,
             },
             {
-                "Date": "2026-10-11",
+                "Date": "11.10.2026",
                 "LineNo": 2,
                 "Warehouse": "DP",
                 "Balance": 12.0,
