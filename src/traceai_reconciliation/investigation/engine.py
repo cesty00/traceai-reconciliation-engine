@@ -51,6 +51,7 @@ from .stock_balance import (
 _wme_balance_total_at = wme_balance_total_at
 _wme_final_balances = wme_final_balances
 _wms_total_net_movement = wms_total_net_movement
+from .source_provenance import source_paths, source_usage
 from .source_hash_cache import hash_sources
 from .source_index import SQLiteSourceIndex
 
@@ -93,62 +94,13 @@ def investigate_product(
     )
 
     result.sources_used.extend(
-        [
-            {
-                "source_id": "SRC-STOCK-REPORT",
-                "name": sources.stock_report.name,
-                "period": period,
-                "role": "diferență de pornire",
-                "status": "VERIFICAT",
-            },
-            {
-                "source_id": "SRC-OPENING-WMS",
-                "name": sources.opening_stock_wms.name,
-                "period": "01.01.2026",
-                "role": "stoc inițial WMS",
-                "status": "VERIFICAT",
-            },
-            {
-                "source_id": "SRC-WMS",
-                "name": sources.wms_movements.name,
-                "period": period,
-                "role": "mișcări WMS",
-                "status": "VERIFICAT",
-            },
-            {
-                "source_id": "SRC-WME",
-                "name": sources.wme_ledger.name,
-                "period": period,
-                "role": "fișă magazie WME",
-                "status": "VERIFICAT",
-            },
-            {
-                "source_id": "SRC-PROD",
-                "name": sources.production.name,
-                "period": period,
-                "role": "producție",
-                "status": "VERIFICAT",
-            },
-            {
-                "source_id": "SRC-NOM",
-                "name": sources.nomenclature.name,
-                "period": "-",
-                "role": "nomenclator produs",
-                "status": "VERIFICAT",
-            },
-        ]
+        source_usage(sources, period=period)
     )
-
-    source_paths = {
-        "stock_report": sources.stock_report,
-        "opening_stock_wms": sources.opening_stock_wms,
-        "wms_movements": sources.wms_movements,
-        "wme_ledger": sources.wme_ledger,
-        "production": sources.production,
-        "nomenclature": sources.nomenclature,
-    }
     result.source_hashes.update(
-        hash_sources(source_paths, cache_dir=sources.cache_dir)
+        hash_sources(
+            source_paths(sources),
+            cache_dir=sources.cache_dir,
+        )
     )
 
     source_index = None
