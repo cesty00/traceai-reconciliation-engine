@@ -8,6 +8,10 @@ from typing import Any
 
 from traceai_reconciliation import __version__
 from traceai_reconciliation.reports import generate_docx_report
+from traceai_reconciliation.version import (
+    SELF_SERVICE_BATCH_SCHEMA_VERSION,
+    SELF_SERVICE_SUMMARY_SCHEMA_VERSION,
+)
 
 from .auto_explain import (
     auto_explanation_from_investigation,
@@ -157,6 +161,122 @@ def validate_source_readiness(
         period=normalized_period,
     )
 
+REQUIRED_SELF_SERVICE_AUTHORITY_FIELDS = (
+    "human_decision_required",
+    "automatic_approval_allowed",
+    "registry_apply_allowed",
+    "wms_mutation_allowed",
+    "wme_mutation_allowed",
+)
+
+
+def validate_self_service_summary_contract(
+    payload: dict[str, Any],
+) -> tuple[str, ...]:
+    errors: list[str] = []
+
+    if payload.get("schema_version") != SELF_SERVICE_SUMMARY_SCHEMA_VERSION:
+        errors.append(
+            "schema_version:"
+            f"expected={SELF_SERVICE_SUMMARY_SCHEMA_VERSION}:"
+            f"actual={payload.get('schema_version')}"
+        )
+
+    for field in (
+        "generated_at",
+        "engine_version",
+        "rules_version",
+        "engine_commit_sha",
+        "case_id",
+        "product_code",
+        "period",
+        "promotion_status",
+        "next_action",
+        "outputs",
+        "authority",
+    ):
+        if field not in payload:
+            errors.append(f"missing:{field}")
+
+    outputs = payload.get("outputs")
+    if not isinstance(outputs, dict):
+        errors.append("invalid:outputs")
+
+    authority = payload.get("authority")
+    if not isinstance(authority, dict):
+        errors.append("invalid:authority")
+    else:
+        for field in REQUIRED_SELF_SERVICE_AUTHORITY_FIELDS:
+            if field not in authority:
+                errors.append(f"missing:authority.{field}")
+        if authority.get("human_decision_required") is not True:
+            errors.append("authority:human_decision_required")
+        for field in (
+            "automatic_approval_allowed",
+            "registry_apply_allowed",
+            "wms_mutation_allowed",
+            "wme_mutation_allowed",
+        ):
+            if authority.get(field) is not False:
+                errors.append(f"authority:{field}")
+
+    return tuple(errors)
+
+
+def validate_self_service_batch_contract(
+    payload: dict[str, Any],
+) -> tuple[str, ...]:
+    errors: list[str] = []
+
+    if payload.get("schema_version") != SELF_SERVICE_BATCH_SCHEMA_VERSION:
+        errors.append(
+            "schema_version:"
+            f"expected={SELF_SERVICE_BATCH_SCHEMA_VERSION}:"
+            f"actual={payload.get('schema_version')}"
+        )
+
+    for field in (
+        "batch_id",
+        "engine_version",
+        "rules_version",
+        "engine_commit_sha",
+        "total_cases",
+        "executed",
+        "skipped",
+        "eligible",
+        "tolerance",
+        "hold",
+        "error",
+        "cases",
+        "authority",
+    ):
+        if field not in payload:
+            errors.append(f"missing:{field}")
+
+    if not isinstance(payload.get("cases"), list):
+        errors.append("invalid:cases")
+
+    authority = payload.get("authority")
+    if not isinstance(authority, dict):
+        errors.append("invalid:authority")
+    else:
+        for field in REQUIRED_SELF_SERVICE_AUTHORITY_FIELDS:
+            if field not in authority:
+                errors.append(f"missing:authority.{field}")
+        if authority.get("human_decision_required") is not True:
+            errors.append("authority:human_decision_required")
+        for field in (
+            "automatic_approval_allowed",
+            "registry_apply_allowed",
+            "wms_mutation_allowed",
+            "wme_mutation_allowed",
+        ):
+            if authority.get(field) is not False:
+                errors.append(f"authority:{field}")
+
+    return tuple(errors)
+
+
 def _next_action(promotion_status: str) -> str:
     if promotion_status == "ELIGIBLE_FOR_HUMAN_REVIEW":
         return "HUMAN_REVIEW"
@@ -281,7 +401,7 @@ def run_self_service_case(
 
     next_action = _next_action(assessment.status)
     summary = {
-        "schema_version": "0.8.0",
+        "schema_version": SELF_SERVICE_SUMMARY_SCHEMA_VERSION,
         "generated_at": staged_at or _utc_now(),
         "engine_version": __version__,
         "rules_version": rules_version,
@@ -319,6 +439,11 @@ def run_self_service_case(
             "wme_mutation_allowed": False,
         },
     }
+    violations = validate_self_service_summary_contract(summary)
+    if violations:
+        raise ValueError(
+            "self-service summary contract violation: " + ", ".join(violations)
+        )
     _write_json(summary_json, summary)
 
     return SelfServiceRunResult(
@@ -494,7 +619,7 @@ def run_self_service_batch(
             _write_json(
                 error_path,
                 {
-                    "schema_version": "0.8.0",
+                    "schema_version": SELF_SERVICE_SUMMARY_SCHEMA_VERSION,
                     "batch_id": batch_clean,
                     "case_id": spec.case_id,
                     "product_code": spec.product_code,
@@ -539,7 +664,7 @@ def run_self_service_batch(
         "error": sum(item.status == "ERROR" for item in results),
     }
     payload = {
-        "schema_version": "0.8.0",
+        "schema_version": SELF_SERVICE_BATCH_SCHEMA_VERSION,
         "batch_id": batch_clean,
         "engine_version": __version__,
         "rules_version": rules_version,
@@ -554,6 +679,11 @@ def run_self_service_batch(
             "wme_mutation_allowed": False,
         },
     }
+    violations = validate_self_service_batch_contract(payload)
+    if violations:
+        raise ValueError(
+            "self-service batch contract violation: " + ", ".join(violations)
+        )
     _write_json(summary_path, payload)
 
     return SelfServiceBatchSummary(
