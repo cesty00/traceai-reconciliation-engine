@@ -8,6 +8,7 @@ import pandas as pd
 
 from .models import InvestigationSources, ProductInvestigationResult
 from .nomenclature_validation import validate_nomenclature
+from .opening_stock_policy import resolve_opening_stock_wms
 from .operation_timeline import (
     timeline_from_production,
     timeline_from_wme,
@@ -126,42 +127,15 @@ def investigate_product(
             "rebuilt": False,
         }
 
-    opening_rows = read_filtered(
-        sources.opening_stock_wms,
-        "product_code",
-        [product_code],
+    opening_resolution = resolve_opening_stock_wms(
+        sources,
+        product_code=product_code,
+        decimals=decimals,
     )
-    if opening_rows.empty:
-        if sources.opening_absent_means_zero:
-            result.opening_stock_wms = 0.0
-            result.technical_warnings.append(
-                f"Produsul {product_code} nu a fost găsit în stocul inițial WMS; "
-                "politica explicită opening_absent_means_zero=True îl tratează ca 0."
-            )
-            result.details["opening_stock_policy"] = {
-                "opening_absent_means_zero": True,
-                "product_absent": True,
-                "applied_value": 0.0,
-            }
-        else:
-            result.technical_warnings.append(
-                f"Produsul {product_code} nu a fost găsit în stocul inițial WMS."
-            )
-            result.details["opening_stock_policy"] = {
-                "opening_absent_means_zero": False,
-                "product_absent": True,
-                "applied_value": None,
-            }
-    else:
-        result.opening_stock_wms = round(
-            numeric_sum(opening_rows, "initial_stock"),
-            decimals,
-        )
-        result.details["opening_stock_policy"] = {
-            "opening_absent_means_zero": sources.opening_absent_means_zero,
-            "product_absent": False,
-            "applied_value": result.opening_stock_wms,
-        }
+    result.opening_stock_wms = opening_resolution.value
+    if opening_resolution.warning:
+        result.technical_warnings.append(opening_resolution.warning)
+    result.details["opening_stock_policy"] = opening_resolution.details
 
     if source_index is not None:
         wms_rows = source_index.read_wms_product(
