@@ -186,3 +186,21 @@ v0.10 adaugă un rezultat compact, read-only, orientat către operator pentru ut
 Contractele de versiune sunt centralizate în `src/traceai_reconciliation/version.py`:
 `ENGINE_VERSION`, `RULESET_VERSION`, `DAILY_RUN_SCHEMA_VERSION` și
 `OPERATOR_OUTPUT_SCHEMA_VERSION`.
+
+
+## v0.12 — Persistent Daily Reconciliation & Release Readiness
+
+v0.12 consolidează fluxul DAILY pentru utilizare internă controlată:
+
+- Run Store persistent SQLite pentru rulări, surse și istoric pe produs;
+- `snapshot_at` explicit ca limită temporală reală a snapshot-ului;
+- Run Store ca sursă principală pentru previous-run state;
+- analiză `Delta Movement Window` și `Delta Root Cause` pentru cazurile CHANGED;
+- operator view îmbogățit cu delta și istoric;
+- artefact consolidat `daily_case_summary.json` cu contract de schemă versionat;
+- artifact completeness gate și validare completă înainte de idempotent reuse;
+- contracte centralizate pentru output-uri DAILY și self-service;
+- release-readiness gate dedicat în CI;
+- refactorizare incrementală a `engine.py` fără schimbare de business logic.
+
+Regulile de siguranță rămân neschimbate: nu se forțează MATCH, aprobarea umană rămâne obligatorie, registry apply este dezactivat, iar motorul nu execută mutații automate WMS/WME.

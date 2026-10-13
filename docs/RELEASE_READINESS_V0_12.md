@@ -35,3 +35,10 @@ Release-ul este blocat dacă oricare dintre condițiile de mai jos nu este înde
 ## Reguli de siguranță
 
 Release readiness nu schimbă regulile de reconciliere și nu autorizează mutații WMS/WME. Un caz insuficient demonstrat rămâne `REVIEW / ASTEPTARE_VALIDARE`.
+
+
+## Candidate version
+
+Release candidate version: `0.12.0`
+
+Version bump-ul trebuie considerat valid numai dacă workflow-ul complet de pe branch și apoi de pe `main` rămâne verde.

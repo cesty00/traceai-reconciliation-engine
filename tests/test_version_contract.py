@@ -23,7 +23,7 @@ def test_package_version_matches_engine_contract() -> None:
 
 
 def test_version_contracts_are_explicit() -> None:
-    assert ENGINE_VERSION == "0.10.0"
+    assert ENGINE_VERSION == "0.12.0"
     assert RULESET_VERSION
     assert DAILY_RUN_SCHEMA_VERSION
     assert OPERATOR_OUTPUT_SCHEMA_VERSION
