@@ -1,6 +1,11 @@
 from pathlib import Path
 
-from traceai_reconciliation.run_store import (\n    CaseRecord,\n    RunRecord,\n    SQLiteRunStore,\n    SourceRecord,\n)
+from traceai_reconciliation.run_store import (
+    CaseRecord,
+    RunRecord,
+    SQLiteRunStore,
+    SourceRecord,
+)
 
 
 def test_run_store_roundtrip(tmp_path: Path) -> None:
