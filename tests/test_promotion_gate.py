@@ -131,10 +131,11 @@ def test_prod03_exact_is_blocked_if_large_generic_correction_is_unowned() -> Non
 
     assessment = assess_auto_explain_promotion(investigation, explanation)
 
-    assert explanation.status == "EXACT"
-    assert explanation.rules == ("PROD-03",)
+    # A BC residual without verified stock effect is NOT an exact explanation.
+    assert explanation.status == "NONE"
+    assert explanation.rules == ()
     assert assessment.status == "HOLD"
-    assert "UNRESOLVED_GENERIC_STOCK_CORRECTION" in assessment.blockers
+    assert "AUTO_EXPLAIN_NOT_EXACT" in assessment.blockers
 
 
 def test_tolerance_only_exact_is_classified_separately() -> None:
@@ -241,14 +242,12 @@ def test_prod03_exact_ignores_generic_corrections_absorbed_by_checkpoint_and_neu
 
     assessment = assess_auto_explain_promotion(investigation, explanation)
 
-    assert explanation.status == "EXACT"
-    assert explanation.rules == ("PROD-03",)
-    assert assessment.status == "ELIGIBLE_FOR_HUMAN_REVIEW"
-    assert "UNRESOLVED_GENERIC_STOCK_CORRECTION" not in assessment.blockers
-    assert (
-        "GENERIC_CORRECTIONS_ABSORBED_BY_PROD03_CHECKPOINT"
-        in assessment.warnings
-    )
+    # A checkpoint plus a linked correction does not by itself prove the
+    # contribution of the BC residual to the final stock difference.
+    assert explanation.status == "NONE"
+    assert explanation.rules == ()
+    assert assessment.status == "HOLD"
+    assert "AUTO_EXPLAIN_NOT_EXACT" in assessment.blockers
 
 
 def test_exact_stock_report_mapping_is_reviewable_when_system_movements_balance() -> None:
