@@ -12,6 +12,7 @@ class RunRecord:
     commit_sha: str
     signature: str | None
     status: str
+    snapshot_at: str | None = None
     previous_run_id: str | None = None
     finished_at: str | None = None
 
