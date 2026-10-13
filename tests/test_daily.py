@@ -311,6 +311,93 @@ def test_daily_run_is_idempotent_for_same_signature(
     assert first.signature == second.signature
 
 
+def test_daily_reuse_rejects_missing_daily_case_summary(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    _write_sources(tmp_path)
+    profile_path = _write_profile(tmp_path)
+    calls = {"count": 0}
+
+    def fake_batch(**kwargs):
+        calls["count"] += 1
+        root = Path(kwargs["output_dir"])
+        root.mkdir(parents=True, exist_ok=True)
+        summary_json = root / "self_service_batch_summary.json"
+        _write_fake_batch_summary(
+            summary_json,
+            batch_id=kwargs["batch_id"],
+            status="HOLD",
+        )
+        case_dir = root / "CASE-DAILY-001"
+        case_dir.mkdir(parents=True, exist_ok=True)
+        for name in (
+            "case.json",
+            "case.docx",
+            "registry_update.json",
+            "review_queue.json",
+            "self_service_summary.json",
+            "daily_operator_result.json",
+        ):
+            if name.endswith(".json"):
+                (case_dir / name).write_text("{}", encoding="utf-8")
+            else:
+                (case_dir / name).write_bytes(b"stub")
+        return SelfServiceBatchSummary(
+            batch_id=kwargs["batch_id"],
+            total_cases=1,
+            executed=1,
+            skipped=0,
+            eligible=0,
+            tolerance=0,
+            hold=1,
+            error=0,
+            cases=(
+                SelfServiceBatchCaseResult(
+                    case_id="CASE-DAILY-001",
+                    product_code="DS001",
+                    status="HOLD",
+                ),
+            ),
+            summary_json=str(summary_json),
+        )
+
+    monkeypatch.setattr(
+        "traceai_reconciliation.investigation.daily.run_self_service_batch",
+        fake_batch,
+    )
+
+    first = run_daily(
+        profile_path=profile_path,
+        run_id="2026-10-11",
+        rules_version="0.9-dev",
+        engine_commit_sha="abc123",
+    )
+    assert first.status == "SUCCESS_WITH_REVIEW"
+    assert calls["count"] == 1
+
+    summary_artifact = (
+        Path(first.output_dir)
+        / "cases"
+        / "CASE-DAILY-001"
+        / "daily_case_summary.json"
+    )
+    assert summary_artifact.exists()
+    summary_artifact.unlink()
+
+    second = run_daily(
+        profile_path=profile_path,
+        run_id="2026-10-11",
+        rules_version="0.9-dev",
+        engine_commit_sha="abc123",
+    )
+
+    assert calls["count"] == 2
+    assert second.reused_run is False
+    assert second.status == "SUCCESS_WITH_REVIEW"
+    assert summary_artifact.exists()
+
+
 def test_daily_run_fails_closed_before_batch_on_missing_source(
     tmp_path: Path,
     monkeypatch,
