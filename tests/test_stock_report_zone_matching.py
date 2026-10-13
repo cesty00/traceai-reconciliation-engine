@@ -3,6 +3,7 @@ from __future__ import annotations
 import pandas as pd
 
 from traceai_reconciliation.investigation.stock_report_zone_matching import (
+    has_offsetting_zone_differences,
     reconcile_stock_report_zones,
 )
 
@@ -91,3 +92,55 @@ def test_peste_proaspat_maps_to_depozit_peste_proaspat() -> None:
     assert result.mapping_effect_total == 0.0
     assert result.rows[0]["actual_system_difference"] == -651.0
     assert result.rows[0]["status"] == "MAPPED"
+
+
+def test_zero_total_can_hide_material_zone_differences() -> None:
+    stock_rows = pd.DataFrame(
+        [
+            {
+                "Gestiune": "Depozitare",
+                "QuantityERP": 11350.0,
+                "QuantityWMS": 5350.0,
+                "QuantityDifference": -6000.0,
+            },
+            {
+                "Gestiune": "Receptie",
+                "QuantityERP": 0.0,
+                "QuantityWMS": 6000.0,
+                "QuantityDifference": 6000.0,
+            },
+        ]
+    )
+
+    result = reconcile_stock_report_zones(
+        stock_rows,
+        {"DEPOZIT PRINCIPAL": 11350.0},
+    )
+
+    assert has_offsetting_zone_differences(
+        result,
+        total_difference=0.0,
+    ) is True
+
+
+def test_true_zero_without_zone_difference_is_not_offsetting() -> None:
+    stock_rows = pd.DataFrame(
+        [
+            {
+                "Gestiune": "Depozitare",
+                "QuantityERP": 10.0,
+                "QuantityWMS": 10.0,
+                "QuantityDifference": 0.0,
+            }
+        ]
+    )
+
+    result = reconcile_stock_report_zones(
+        stock_rows,
+        {"DEPOZIT PRINCIPAL": 10.0},
+    )
+
+    assert has_offsetting_zone_differences(
+        result,
+        total_difference=0.0,
+    ) is False
