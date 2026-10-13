@@ -282,3 +282,97 @@ def test_product_history_exposes_snapshot_at(tmp_path: Path) -> None:
     history = store.get_product_history("DS099904475")
 
     assert history[0]["snapshot_at"] == "2026-10-12T20:00:00+00:00"
+
+
+def test_run_store_returns_latest_successful_run_and_snapshot_state(
+    tmp_path: Path,
+) -> None:
+    store = SQLiteRunStore(tmp_path / "traceai_state.sqlite")
+
+    store.begin_run(
+        RunRecord(
+            run_id="RUN-OLD",
+            started_at="2026-10-11T20:05:00+00:00",
+            engine_version="0.10.0",
+            rules_version="0.4",
+            commit_sha="abc",
+            signature="sig-old",
+            status="SUCCESS",
+            snapshot_at="2026-10-11T20:00:00+00:00",
+        )
+    )
+    store.save_sources(
+        [
+            SourceRecord(
+                run_id="RUN-OLD",
+                source_type="wms_movements",
+                file_name="wms.csv",
+                size=10,
+                sha256="hash-wms",
+            )
+        ]
+    )
+    store.save_case(
+        CaseRecord(
+            run_id="RUN-OLD",
+            case_id="CASE-1",
+            product_code="DS001",
+            current_difference=3.5,
+            previous_difference=None,
+            difference_delta=None,
+            execution_policy="ANALYZE",
+        )
+    )
+
+    store.begin_run(
+        RunRecord(
+            run_id="RUN-FAILED",
+            started_at="2026-10-12T20:05:00+00:00",
+            engine_version="0.10.0",
+            rules_version="0.4",
+            commit_sha="abc",
+            signature="sig-failed",
+            status="FAILED_SAFE",
+            snapshot_at="2026-10-12T20:00:00+00:00",
+        )
+    )
+
+    latest = store.get_latest_successful_run()
+
+    assert latest is not None
+    assert latest["run_id"] == "RUN-OLD"
+    assert latest["snapshot_at"] == "2026-10-11T20:00:00+00:00"
+    assert store.get_source_hashes("RUN-OLD") == {
+        "wms_movements": "hash-wms"
+    }
+    assert store.get_snapshot_state("RUN-OLD") == {
+        "CASE-1": {
+            "case_id": "CASE-1",
+            "product_code": "DS001",
+            "difference_reported": 3.5,
+        }
+    }
+
+
+def test_latest_successful_run_can_exclude_current_run(tmp_path: Path) -> None:
+    store = SQLiteRunStore(tmp_path / "traceai_state.sqlite")
+    for run_id, started in (
+        ("RUN-1", "2026-10-11T20:05:00+00:00"),
+        ("RUN-2", "2026-10-12T20:05:00+00:00"),
+    ):
+        store.begin_run(
+            RunRecord(
+                run_id=run_id,
+                started_at=started,
+                engine_version="0.10.0",
+                rules_version="0.4",
+                commit_sha="abc",
+                signature=f"sig-{run_id}",
+                status="SUCCESS",
+            )
+        )
+
+    latest = store.get_latest_successful_run(exclude_run_id="RUN-2")
+
+    assert latest is not None
+    assert latest["run_id"] == "RUN-1"
