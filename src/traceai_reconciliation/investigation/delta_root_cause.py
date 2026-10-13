@@ -63,7 +63,15 @@ def _evidence_from_record(
     # Therefore a signed WMS movement changes the difference by +q,
     # while the equivalent WME movement changes it by -q.
     if source == "WMS":
-        effect = quantity
+        # Internal warehouse relocations affect location balances, not the
+        # aggregate physical inventory across the in-scope warehouses.
+        # The event remains in evidence but must not create a stock delta.
+        operation = _value(record, "operation_type")
+        normalized_operation = str(operation or "").strip().casefold()
+        if normalized_operation in {"mutare", "mutare intre gestiuni", "mutare între gestiuni"}:
+            effect = 0.0
+        else:
+            effect = quantity
     elif source == "WME":
         effect = -quantity
     else:
