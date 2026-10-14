@@ -10,6 +10,7 @@ from traceai_reconciliation.reports import case_report_from_dict, generate_docx_
 from .daily_delta_analysis import DailyDeltaRootCauseSummary
 from .delta_movement_window import DeltaMovementWindowResult
 from .daily_provenance_report import append_daily_source_provenance
+from .case_publication import publication_payload, verify_case_publication, MARKER_NAME
 
 
 def enrich_daily_case_reports(
@@ -46,7 +47,13 @@ def enrich_daily_case_reports(
         candidate_json = case_path.with_name("case.json.provenance.tmp")
         backup_docx = docx_path.with_name("case.docx.provenance.bak")
         backup_json = case_path.with_name("case.json.provenance.bak")
-        artifacts = (candidate_docx, candidate_json, backup_docx, backup_json)
+        marker = case_dir / MARKER_NAME
+        candidate_marker = case_dir / (MARKER_NAME + ".tmp")
+        artifacts = (candidate_docx, candidate_json, backup_docx, backup_json, candidate_marker)
+        if marker.exists():
+            # Existing marked pair must be coherent; never overwrite a verified publication.
+            verify_case_publication(case_dir, case_id=item.case_id)
+            raise RuntimeError(f"{item.case_id}: case already published; rerun requires a new output directory")
         if any(artifact.exists() for artifact in artifacts):
             raise RuntimeError(
                 f"{item.case_id}: unfinished evidence publication; "
@@ -64,9 +71,16 @@ def enrich_daily_case_reports(
             try:
                 candidate_docx.replace(docx_path)
                 candidate_json.replace(case_path)
+                candidate_marker.write_text(
+                    json.dumps(publication_payload(item.case_id, case_path, docx_path), sort_keys=True),
+                    encoding="utf-8",
+                )
+                candidate_marker.replace(marker)
+                verify_case_publication(case_dir, case_id=item.case_id)
                 rollback_complete = True
             except Exception:
                 # Do not discard recovery copies when rollback itself fails.
+                marker.unlink(missing_ok=True)
                 backup_docx.replace(docx_path)
                 backup_json.replace(case_path)
                 rollback_complete = True
@@ -75,6 +89,7 @@ def enrich_daily_case_reports(
             if rollback_complete:
                 candidate_docx.unlink(missing_ok=True)
                 candidate_json.unlink(missing_ok=True)
+                candidate_marker.unlink(missing_ok=True)
                 backup_docx.unlink(missing_ok=True)
                 backup_json.unlink(missing_ok=True)
             else:
