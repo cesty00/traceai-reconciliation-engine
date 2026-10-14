@@ -26,3 +26,24 @@ def test_wme_xlsx_physical_source_rows(tmp_path: Path):
         idx._build_wme(connection,path)
         result=connection.execute("SELECT SourceRowNumber,SignedQuantity FROM wme ORDER BY SourceRowNumber").fetchall()
     assert result==[(2,4950.0),(3,-4950.0)]
+
+
+def test_csv_physical_lines_with_multiline_and_blank_rows(tmp_path: Path):
+    path = tmp_path / "multiline.csv"
+    path.write_bytes(
+        b'Cod articol;Note;Cantitate\r\n'
+        b'10002;"first\r\nsecond";4\r\n'
+        b'\r\n'
+        b'10002;normal;7\r\n'
+    )
+    chunks = list(_csv_chunks(path, chunksize=1))
+    assert [int(v) for x in chunks for v in x["SourceRowNumber"]] == [2, 5]
+    assert [int(v) for x in chunks for v in x["Cantitate"]] == [4, 7]
+
+
+def test_csv_malformed_row_is_not_indexed_with_false_provenance(tmp_path: Path):
+    import pytest
+    path = tmp_path / "broken.csv"
+    path.write_text("Cod articol;Cantitate\n10002;4\n10002;7;EXTRA\n", encoding="utf-8")
+    with pytest.raises((ValueError, Exception)):
+        list(_csv_chunks(path, chunksize=1))
