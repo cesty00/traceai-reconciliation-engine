@@ -1012,23 +1012,32 @@ def investigate_product(
             "evidence": "SRC-WMS(COR STOC) + SRC-WME(PV); document/date/gestiune/proveniență",
         })
         for candidate in cor_stoc_pv_candidates:
+            difference = round(
+                candidate["explicit_wms_quantity"] - candidate["pv_quantity"],
+                decimals,
+            )
             checks = (
-                f"cantitate={candidate['quantity_equal_explicit_rows']}; "
-                f"dată={candidate['dates_equal']}; "
-                f"gestiune={candidate['warehouses_equal']}; "
-                f"rânduri_sursă={candidate['provenance_complete']}; "
-                f"unicitate={candidate['reference_unique']}"
+                f"WMS rânduri {candidate['wms_source_rows']}; "
+                f"WME rânduri {candidate['wme_source_rows']}; "
+                f"cantități WMS={candidate['explicit_wms_quantity']}, "
+                f"WME={candidate['pv_quantity']}, diferență documentară={difference}; "
+                f"dată {'OK' if candidate['dates_equal'] else 'DE VERIFICAT'}; "
+                f"gestiune {'OK' if candidate['warehouses_equal'] else 'DE VERIFICAT'}; "
+                f"proveniență {'OK' if candidate['provenance_complete'] else 'INCOMPLETĂ'}; "
+                f"unicitate {'DA' if candidate['reference_unique'] else 'NU'}"
             )
             result.unmatched_operations.append({
                 "date": "-",
                 "system": "WMS↔WME",
                 "document": "PV " + candidate["pv_document"],
                 "operation_type": "COR_STOC_PV_DOCUMENTARY_CANDIDATE",
-                "quantity": round(
-                    candidate["explicit_wms_quantity"] - candidate["pv_quantity"],
-                    decimals,
+                # This is an evidence annotation, not an additional stock residual.
+                "quantity": 0.0,
+                "reason": (
+                    checks + "; ACȚIUNE: verificați documentul PV, rândurile "
+                    "originale și gestiunea înainte de validare. Indicator "
+                    "informativ: NU se adună la reziduuri, NU se neutralizează."
                 ),
-                "reason": checks + "; doar candidat, fără neutralizare",
                 "status": "COR_STOC_PV_SOURCE_REVIEW",
             })
 
