@@ -45,5 +45,5 @@ def test_csv_malformed_row_is_not_indexed_with_false_provenance(tmp_path: Path):
     import pytest
     path = tmp_path / "broken.csv"
     path.write_text("Cod articol;Cantitate\n10002;4\n10002;7;EXTRA\n", encoding="utf-8")
-    with pytest.raises((ValueError, Exception)):
+    with pytest.raises(ValueError):
         list(_csv_chunks(path, chunksize=1))
