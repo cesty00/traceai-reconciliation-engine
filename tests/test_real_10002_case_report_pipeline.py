@@ -138,7 +138,7 @@ def test_g15_pv_actions_are_sorted_by_actual_displayed_priority(tmp_path):
     generate_docx_report(report, output)
     doc = Document(output)
     action_table = next(t for t in doc.tables
-                        if "Verificarea operatorului" in t.rows[0].cells[2].text)
+                        if len(t.rows[0].cells) > 2 and "Verificarea operatorului" in t.rows[0].cells[2].text)
     observed = [(row.cells[0].text, row.cells[1].text)
                 for row in action_table.rows[1:]]
     assert observed == [("P1", "PV 2265"), ("P1", "PV 2676"), ("P2", "PV 2277")]
