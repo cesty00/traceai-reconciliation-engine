@@ -304,7 +304,10 @@ def _load_reusable_summary(
         return None
     cases_root = Path(output_dir) / "cases"
     try:
-        require_complete_batch_artifacts(batch, cases_root)
+        require_complete_batch_artifacts(
+            batch, cases_root,
+            published_case_ids=frozenset(published_case_ids),
+        )
     except RuntimeError:
         return None
 
@@ -631,7 +634,7 @@ def run_daily(
             engine_commit_sha=engine_commit_sha,
         )
         final_status = _overall_status(batch)
-        enrich_daily_case_reports(
+        published_case_ids = enrich_daily_case_reports(
             summary=delta_root_cause,
             cases_root=cases_root,
         )
