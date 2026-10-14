@@ -418,3 +418,14 @@ def test_four_real_bc_rows_reach_full_product_investigation(
             assert by_doc[doc]["difference"] == pytest.approx(expected)
         assert result.verdict == "REVIEW"
         assert result.cause_code == "CAUSE-BC-QUANTITY-MISMATCH"
+        report = build_case_report(result, engine_version="test", engine_commit_sha="PR43")
+        bc_entries = [entry for entry in report.conclusion_traceability
+                      if entry.get("step") == "PRODUCTION_INPUT_BC"]
+        assert len(bc_entries) == 4
+        assert {entry["key"] for entry in bc_entries} == {
+            "BC=23448", "BC=23454", "BC=23462", "BC=23467"
+        }
+        assert all("HUMAN_VALIDATION_NOT_ATTACHED" in entry["result"]
+                   for entry in bc_entries)
+        assert all("SOURCE_ROWS_NOT_VERIFIED" in entry["result"]
+                   for entry in bc_entries)
