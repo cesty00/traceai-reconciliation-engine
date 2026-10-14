@@ -525,3 +525,53 @@ def test_daily_uses_run_store_when_previous_manifest_is_missing(
     assert delta["previous_run_id"] == "RUN-1"
     assert delta["items"][0]["previous_difference"] == -1.0
     assert delta["items"][0]["current_difference"] == -2.0
+
+
+def test_daily_reuse_rejects_deleted_required_publication_manifest(tmp_path: Path):
+    """Recorded publication obligations survive deletion of the marker itself."""
+    from dataclasses import asdict
+    from traceai_reconciliation.investigation.daily import (
+        DailyRunSummary, _load_reusable_summary,
+    )
+    from traceai_reconciliation.investigation.case_publication import (
+        MARKER_NAME, publication_payload,
+    )
+
+    case_dir = tmp_path / "run" / "cases" / "CASE-DAILY-001"
+    case_dir.mkdir(parents=True)
+    for name in (
+        "case.json", "case.docx", "registry_update.json",
+        "review_queue.json", "self_service_summary.json",
+        "daily_operator_result.json", "daily_case_summary.json",
+    ):
+        (case_dir / name).write_bytes(b"nonempty")
+    marker = case_dir / MARKER_NAME
+    marker.write_text(
+        json.dumps(publication_payload(
+            "CASE-DAILY-001", case_dir / "case.json", case_dir / "case.docx"
+        )), encoding="utf-8",
+    )
+    batch_path = tmp_path / "batch.json"
+    _write_fake_batch_summary(
+        batch_path, batch_id="DAILY:test", status="MATCH_DIRECT",
+    )
+    run_manifest = tmp_path / "run_manifest.json"
+    run_manifest.write_text("{}", encoding="utf-8")
+    summary = DailyRunSummary(
+        run_id="test", status="SUCCESS", signature="signature",
+        reused_run=False, started_at="2026-10-11",
+        finished_at="2026-10-11", profile_path="profile.yml",
+        manifest_path="manifest.csv", output_dir=str(tmp_path / "run"),
+        source_hashes={}, total_cases=1, executed=1, skipped=0,
+        eligible=0, tolerance=0, hold=0, error=0,
+        delta_new=0, delta_changed=0, delta_unchanged=1,
+        delta_json=None, delta_root_cause_json=None,
+        previous_run_id=None, batch_summary_json=str(batch_path),
+        run_manifest_json=str(run_manifest), summary_json=str(tmp_path / "summary.json"),
+        published_case_ids=("CASE-DAILY-001",),
+    )
+    summary_path = tmp_path / "summary.json"
+    summary_path.write_text(json.dumps(asdict(summary)), encoding="utf-8")
+    assert _load_reusable_summary(summary_path, "signature") is not None
+    marker.unlink()
+    assert _load_reusable_summary(summary_path, "signature") is None
