@@ -73,3 +73,62 @@ def link_bc_rows(
         "human_validation": "NOT_ATTACHED",
         "economic_match": False,
     }
+
+
+def append_verified_bc_link(report: Any, link: dict[str, Any]) -> Any:
+    """Attach a previously checked BC documentary link to a CaseReport.
+
+    Fail closed on case/article mismatch and never change the stock verdict,
+    economic interpretation or human-validation status.
+    """
+    if str(report.product_code).strip() != str(link.get("article_code", "")).strip():
+        raise ValueError("BC link belongs to another product")
+    if link.get("status") != "QTY_DIFF" or link.get("human_validation") != "NOT_ATTACHED":
+        raise ValueError("BC link has unexpected status or human validation")
+    if link.get("economic_match") is not False:
+        raise ValueError("BC documentary link must not certify economic MATCH")
+    document = normalize_document(link.get("bc_document"))
+    if not document:
+        raise ValueError("BC link document missing")
+    import math
+    for key in ("wms_qty", "wme_qty", "difference"):
+        if not math.isfinite(float(link[key])):
+            raise ValueError("BC link nonfinite quantity")
+    if abs(float(link["wms_qty"]) - float(link["wme_qty"]) - float(link["difference"])) > 0.001:
+        raise ValueError("BC link arithmetic mismatch")
+    for system in ("wms", "wme"):
+        n = link.get(system + "_row")
+        digest = link.get(system + "_sha256", "")
+        name = link.get(system + "_file", "")
+        if isinstance(n, bool) or not isinstance(n, int) or n < 1:
+            raise ValueError("BC link lacks source row")
+        if not name or not isinstance(digest, str) or not re.fullmatch(r"[a-fA-F0-9]{64}", digest):
+            raise ValueError("BC link lacks valid source identity")
+
+    # Deduplicate by (document, article); a different existing entry is
+    # ambiguous and must be investigated rather than silently overwritten.
+    key = f"BC={document} ARTICLE={link['article_code']}"
+    existing = [
+        item for item in report.conclusion_traceability
+        if item.get("step") == "BC_VERIFIED_SOURCE_LINK" and item.get("key") == key
+    ]
+    if existing:
+        raise ValueError("BC link already attached; manual review required")
+    report.conclusion_traceability.append({
+        "step": "BC_VERIFIED_SOURCE_LINK",
+        "source": (
+            f"WMS {link['wms_file']} / WME {link['wme_file']}"
+        ),
+        "key": key,
+        "rule": "EXACT_BC_DOCUMENT_ARTICLE_SOURCE_ROW",
+        "result": (
+            f"WMS_ROW={link['wms_row']} SHA256={link['wms_sha256']} "
+            f"WMS={link['wms_qty']:.3f}; "
+            f"WME_ROW={link['wme_row']} SHA256={link['wme_sha256']} "
+            f"WME={link['wme_qty']:.3f}; "
+            f"DIFF={link['difference']:.3f}; "
+            "HUMAN_VALIDATION_NOT_ATTACHED; NOT_ECONOMIC_MATCH"
+        ),
+        "evidence_level": "D",
+    })
+    return report
