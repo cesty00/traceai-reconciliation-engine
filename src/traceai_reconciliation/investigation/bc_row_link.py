@@ -105,6 +105,30 @@ def append_verified_bc_link(report: Any, link: dict[str, Any]) -> Any:
         if not name or not isinstance(digest, str) or not re.fullmatch(r"[a-fA-F0-9]{64}", digest):
             raise ValueError("BC link lacks valid source identity")
 
+    # Require a matching BC discrepancy already calculated by the motor.
+    # A valid row pair alone cannot establish the identity of a report finding.
+    bc_key = f"BC={document}"
+    calculated = [
+        item for item in report.conclusion_traceability
+        if item.get("step") == "PRODUCTION_INPUT_BC"
+        and item.get("key") == bc_key
+    ]
+    if len(calculated) != 1:
+        raise ValueError("BC link lacks unique calculated report discrepancy")
+    expected = calculated[0].get("result", "")
+    def expected_field(label: str) -> float:
+        found = re.search(rf"(?:^|;\\s*){label}=(-?\\d+(?:\\.\\d+)?)", expected)
+        if not found:
+            raise ValueError("BC report discrepancy lacks quantity fields")
+        return float(found.group(1))
+    for label, measured in (
+        ("WMS", float(link["wms_qty"])),
+        ("WME", float(link["wme_qty"])),
+        ("DIFF", float(link["difference"])),
+    ):
+        if abs(expected_field(label) - measured) > 0.001:
+            raise ValueError("BC source rows contradict calculated report discrepancy")
+
     # Deduplicate by (document, article); a different existing entry is
     # ambiguous and must be investigated rather than silently overwritten.
     key = f"BC={document} ARTICLE={link['article_code']}"
