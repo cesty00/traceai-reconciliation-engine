@@ -48,3 +48,27 @@ def test_bridge_rejects_mismatched_source_hash_without_mutation():
     with pytest.raises(ValueError,match="source identity"):
         attach_bc_from_index(r,Index(mismatch=True),"1494")
     assert r.conclusion_traceability==before
+
+
+def test_cross_period_equal_bc_is_review_not_false_quantity_mismatch():
+    class CrossPeriodIndex(Index):
+        def read_wms_product(self, code):
+            return Frame([{"Cod articol":"10002","Numar comanda":"0023385_DC",
+                "Tip operatiune":"Ajustare negativa","Cod-motiv":"PRODUCTION-IN",
+                "Cantitate":-75,"Data":"12/30/2025 8:06:55 PM",
+                "SourceRowNumber":281539}])
+        def read_wme_product(self, name):
+            return Frame([{"OperationType":"BC","Document":"23385",
+                "WMEItemId":"1494","SignedQuantity":-75,"Date":"05.01.2026",
+                "SourceRowNumber":48181}]), {"1494"}
+    r=report()
+    r.period="01.01.2026-11.10.2026"
+    r.conclusion_traceability=[{
+        "step":"PRODUCTION_INPUT_BC","key":"BC=23385",
+        "result":"WMS=0.000; WME=-75.000; DIFF=75.000",
+    }]
+    assert attach_bc_from_index(r,CrossPeriodIndex(),"1494")==0
+    review=[x for x in r.conclusion_traceability if x.get("step")=="BC_SOURCE_REVIEW"]
+    assert len(review)==1
+    assert review[0]["rule"]=="BC_CROSS_PERIOD_REVIEW"
+    assert r.verdict=="REVIEW"
