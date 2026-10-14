@@ -47,3 +47,48 @@ def test_csv_malformed_row_is_not_indexed_with_false_provenance(tmp_path: Path):
     path.write_text("Cod articol;Cantitate\n10002;4\n10002;7;EXTRA\n", encoding="utf-8")
     with pytest.raises(ValueError):
         list(_csv_chunks(path, chunksize=1))
+
+
+def test_index_end_to_end_provenance_and_cache_reuse(tmp_path: Path):
+    """Full index (three sources) retains coordinates and invalidates changed data."""
+    wms = tmp_path / "wms.csv"
+    wms.write_bytes(
+        b'Cod articol;Data;Note\r\n'
+        b'10002;2026-02-18;"first\r\nsecond"\r\n'
+        b'10002;2026-02-19;normal\r\n'
+    )
+    production = tmp_path / "production.csv"
+    production.write_text(
+        "PRE_Cod Articol;CON_Cod Articol\n10002;10002\n",
+        encoding="utf-8",
+    )
+    wme = tmp_path / "wme.xlsx"
+    wb = Workbook()
+    ws = wb.active
+    ws.append(["header"] * 17)
+    ws.append([
+        101, "NT", "9833", "2026-02-18", 4950, 0, 0, 0,
+        "", "", "CUTIE", "", "1494", "DEPOZIT PRINCIPAL",
+        "BUC", "", "",
+    ])
+    wb.save(wme)
+    index = SQLiteSourceIndex(tmp_path / "cache")
+    assert index.ensure_index(wms, wme, production) is True
+    with sqlite3.connect(index.db_path) as con:
+        assert con.execute(
+            'SELECT SourceRowNumber FROM wms ORDER BY SourceRowNumber'
+        ).fetchall() == [(2,), (4,)]
+        assert con.execute(
+            'SELECT SourceRowNumber,Document,SignedQuantity FROM wme'
+        ).fetchall() == [(2, "9833", 4950.0)]
+        hashes = dict(con.execute(
+            "SELECT source_key,sha256 FROM _source_meta"
+        ).fetchall())
+        assert len(hashes) == 3
+        assert all(len(value) == 64 for value in hashes.values())
+    assert index.ensure_index(wms, wme, production) is False
+
+    wms.write_bytes(wms.read_bytes() + b'10002;2026-02-20;updated\r\n')
+    assert index.ensure_index(wms, wme, production) is True
+    with sqlite3.connect(index.db_path) as con:
+        assert con.execute("SELECT COUNT(*) FROM wms").fetchone()[0] == 3
