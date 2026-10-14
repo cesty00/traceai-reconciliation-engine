@@ -8,6 +8,7 @@ from .daily_delta import DailyDeltaSummary
 from .delta_movement_window import build_delta_movement_window
 from .delta_root_cause import analyze_delta_root_cause
 from .models import InvestigationSources
+from .nt_daily_adapter import analyze_nt_candidates_in_window
 from .source_index import SQLiteSourceIndex
 
 
@@ -167,6 +168,7 @@ def analyze_daily_delta_root_causes(
                 analysis={
                     "movement_window": asdict(movement_window),
                     "root_cause": asdict(root_cause),
+                    "nt_transfer_diagnostics": analyze_nt_candidates_in_window(movement_window),
                 },
             )
         )
