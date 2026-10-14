@@ -45,6 +45,13 @@ def enrich_daily_case_reports(
         candidate_json = case_path.with_name("case.json.provenance.tmp")
         backup_docx = docx_path.with_name("case.docx.provenance.bak")
         backup_json = case_path.with_name("case.json.provenance.bak")
+        artifacts = (candidate_docx, candidate_json, backup_docx, backup_json)
+        if any(artifact.exists() for artifact in artifacts):
+            raise RuntimeError(
+                f"{item.case_id}: unfinished evidence publication; "
+                "manual artifact recovery required"
+            )
+        rollback_complete = False
         try:
             generate_docx_report(report, candidate_docx)
             candidate_json.write_text(
@@ -56,15 +63,21 @@ def enrich_daily_case_reports(
             try:
                 candidate_docx.replace(docx_path)
                 candidate_json.replace(case_path)
+                rollback_complete = True
             except Exception:
-                # Restore the original pair; propagate any rollback failure.
+                # Do not discard recovery copies when rollback itself fails.
                 backup_docx.replace(docx_path)
                 backup_json.replace(case_path)
+                rollback_complete = True
                 raise
         finally:
-            candidate_docx.unlink(missing_ok=True)
-            candidate_json.unlink(missing_ok=True)
-            backup_docx.unlink(missing_ok=True)
-            backup_json.unlink(missing_ok=True)
+            if rollback_complete:
+                candidate_docx.unlink(missing_ok=True)
+                candidate_json.unlink(missing_ok=True)
+                backup_docx.unlink(missing_ok=True)
+                backup_json.unlink(missing_ok=True)
+            else:
+                # Preserve all intermediate evidence for manual recovery.
+                pass
         updated.append(item.case_id)
     return tuple(updated)
