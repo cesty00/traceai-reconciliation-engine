@@ -5,10 +5,11 @@ on:
     branches:
       - main
       - "feature/**"
+      - "feat/**"
+      - "fix/**"
+      - "docs/**"
       - "release/**"
   pull_request:
-    branches:
-      - main
 
 jobs:
   pytest:
