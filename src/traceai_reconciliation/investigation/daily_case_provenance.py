@@ -40,19 +40,31 @@ def enrich_daily_case_reports(
         append_daily_source_provenance(report, window)
         payload["case_report"] = asdict(report)
 
-        # Stage both replacements; any failure blocks Daily completion.
+        # Stage both replacements. Roll back both artifacts if publication fails.
         candidate_docx = docx_path.with_name("case.docx.provenance.tmp")
         candidate_json = case_path.with_name("case.json.provenance.tmp")
+        backup_docx = docx_path.with_name("case.docx.provenance.bak")
+        backup_json = case_path.with_name("case.json.provenance.bak")
         try:
             generate_docx_report(report, candidate_docx)
             candidate_json.write_text(
                 json.dumps(payload, ensure_ascii=False, indent=2, default=str),
                 encoding="utf-8",
             )
-            candidate_docx.replace(docx_path)
-            candidate_json.replace(case_path)
+            backup_docx.write_bytes(docx_path.read_bytes())
+            backup_json.write_bytes(case_path.read_bytes())
+            try:
+                candidate_docx.replace(docx_path)
+                candidate_json.replace(case_path)
+            except Exception:
+                # Restore the original pair; propagate any rollback failure.
+                backup_docx.replace(docx_path)
+                backup_json.replace(case_path)
+                raise
         finally:
             candidate_docx.unlink(missing_ok=True)
             candidate_json.unlink(missing_ok=True)
+            backup_docx.unlink(missing_ok=True)
+            backup_json.unlink(missing_ok=True)
         updated.append(item.case_id)
     return tuple(updated)
