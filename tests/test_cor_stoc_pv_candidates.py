@@ -126,3 +126,16 @@ def test_g10_review_candidate_keeps_economic_effect_zero():
     assert item["stock_effect_verified"] is False
     assert item["human_validation"] == "NOT_ATTACHED"
     assert item["status"] == "COR_STOC_PV_SOURCE_REVIEW"
+
+
+def test_g11_normalized_timestamp_values_from_real_index_are_same_day():
+    from pandas import Timestamp
+    wms = [{"Cod-motiv": "COR STOC", "Detalii": "PV 2277",
+            "Cantitate": -450, "Data": Timestamp("2026-02-23 10:49:57"),
+            "Depozit": "Depozit Principal", "SourceRowNumber": 274964}]
+    wme = [{"OperationType": "PV", "Document": "2277",
+            "SignedQuantity": -450, "Date": Timestamp("2026-02-23 00:00:00"),
+            "Warehouse": "DEPOZIT PRINCIPAL", "SourceRowNumber": 47777}]
+    item = find_cor_stoc_pv_candidates(wms, wme)[0]
+    assert item["dates_equal"] is True
+    assert item["economic_match"] is False
