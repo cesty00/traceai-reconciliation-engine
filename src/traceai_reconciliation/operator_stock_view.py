@@ -18,7 +18,8 @@ def build_product_list(report: pd.DataFrame) -> pd.DataFrame:
         raise ValueError("Raportul de stoc nu conține coloanele: " + ", ".join(sorted(missing)))
     frame = report.copy()
     frame["CodArticol"] = frame["CodArticol"].astype("string").str.strip()
-    frame = frame[frame["CodArticol"].notna() & frame["CodArticol"].ne("")]
+    if frame["CodArticol"].isna().any() or frame["CodArticol"].eq("").any():
+        raise ValueError("CodArticol lipsă: importul trebuie verificat.")
     for field in ("QuantityWMS", "QuantityERP"):
         frame[field] = pd.to_numeric(frame[field], errors="coerce")
         if frame[field].isna().any():
