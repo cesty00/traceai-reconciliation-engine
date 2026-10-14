@@ -109,3 +109,38 @@ def test_g14_operator_actions_are_visible_but_not_added_to_stock(tmp_path):
     assert report.initial_difference == -872
     assert report.explained_difference == 0
     assert report.unexplained_difference == -872
+
+
+def test_g15_pv_actions_are_sorted_by_actual_displayed_priority(tmp_path):
+    from docx import Document
+    result = ProductInvestigationResult(
+        case_id="G15-SORT-PV", product_code="10002", product_name="CUTIE FRESH",
+        unit="BUC", period="2026-01-01 - 2026-10-11", report_date="2026-10-14",
+        initial_difference=-872, explained_difference=0,
+        unexplained_difference=-872, verdict="REVIEW",
+        unmatched_operations=[
+            {"document": "PV 2277", "quantity": 0.0,
+             "operation_type": "COR_STOC_PV_DOCUMENTARY_CANDIDATE",
+             "status": "COR_STOC_PV_SOURCE_REVIEW",
+             "reason": "cantități WMS=-450, WME=-450, diferență documentară=0.0; gestiune OK"},
+            {"document": "PV 2676", "quantity": 0.0,
+             "operation_type": "COR_STOC_PV_DOCUMENTARY_CANDIDATE",
+             "status": "COR_STOC_PV_SOURCE_REVIEW",
+             "reason": "cantități WMS=-595, WME=-1045, diferență documentară=450.0; gestiune OK"},
+            {"document": "PV 2265", "quantity": 0.0,
+             "operation_type": "COR_STOC_PV_DOCUMENTARY_CANDIDATE",
+             "status": "COR_STOC_PV_SOURCE_REVIEW",
+             "reason": "cantități WMS=-450, WME=-450, diferență documentară=0.0; gestiune DE VERIFICAT"},
+        ],
+    )
+    report = build_case_report(result, engine_version="g15")
+    output = tmp_path / "ordered.docx"
+    generate_docx_report(report, output)
+    doc = Document(output)
+    action_table = next(t for t in doc.tables
+                        if "Verificarea operatorului" in t.rows[0].cells[2].text)
+    observed = [(row.cells[0].text, row.cells[1].text)
+                for row in action_table.rows[1:]]
+    assert observed == [("P1", "PV 2265"), ("P1", "PV 2676"), ("P2", "PV 2277")]
+    assert report.initial_difference == -872
+    assert report.explained_difference == 0
