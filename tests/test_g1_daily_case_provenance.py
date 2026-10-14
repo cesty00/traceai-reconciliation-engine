@@ -68,3 +68,52 @@ def test_daily_case_artifacts_enriched_and_fail_closed(tmp_path):
     with pytest.raises(ValueError, match="row coordinate"):
         enrich_daily_case_reports(summary=bad_summary, cases_root=tmp_path)
     assert (case_dir / "case.json").read_bytes() == before
+
+
+def test_publication_failure_restores_original_pair(tmp_path, monkeypatch):
+    case_dir = tmp_path / "CASE-G1"
+    case_dir.mkdir()
+    report = CaseReport(
+        case_id="CASE-G1", product_code="10002", product_name="CUTIE",
+        period="2026", report_date="2026-10-14", initial_difference=1,
+        explained_difference=0, unexplained_difference=1, unit="BUC",
+        verdict="REVIEW", evidence_level="D", cause_code="UNKNOWN",
+        cause_description="NEVERIFICAT", cause_status="NEDETERMINATA",
+        executive_summary="Nu exista cauza demonstrata.",
+    )
+    (case_dir / "case.json").write_text(
+        json.dumps({"case_report": asdict(report)}), encoding="utf-8"
+    )
+    generate_docx_report(report, case_dir / "case.docx")
+    before_json = (case_dir / "case.json").read_bytes()
+    before_docx = (case_dir / "case.docx").read_bytes()
+    manifest = {
+        key: {"file_name": key + ".source", "sha256": char * 64}
+        for key, char in (("wms", "a"), ("wme", "b"), ("production", "c"))
+    }
+    window = DeltaMovementWindowResult(
+        product_code="10002", product_name="CUTIE",
+        start_exclusive="2026-10-11", end_inclusive="2026-10-12",
+        wms_count=0, wme_count=1, production_count=0,
+        wms_rows=(), wme_rows=({"SourceRowNumber": 15},),
+        production_rows=(), source_manifest=manifest,
+    )
+    item = DailyDeltaRootCauseItem(
+        case_id="CASE-G1", product_code="10002", status="UNEXPLAINED",
+        reason="ANALYZED", analysis={"movement_window": asdict(window)},
+    )
+    summary = DailyDeltaRootCauseSummary(
+        previous_snapshot_at="2026-10-11", current_snapshot_at="2026-10-12",
+        analyzed=1, skipped=0, exact_event=0, multi_event=0,
+        unexplained=1, items=(item,),
+    )
+    original_replace = type(case_dir).replace
+    def fail_once(self, target):
+        if self.name == "case.json.provenance.tmp":
+            raise OSError("simulated JSON publication failure")
+        return original_replace(self, target)
+    monkeypatch.setattr(type(case_dir), "replace", fail_once)
+    with pytest.raises(OSError, match="simulated"):
+        enrich_daily_case_reports(summary=summary, cases_root=tmp_path)
+    assert (case_dir / "case.json").read_bytes() == before_json
+    assert (case_dir / "case.docx").read_bytes() == before_docx
