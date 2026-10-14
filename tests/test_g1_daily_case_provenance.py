@@ -47,6 +47,8 @@ def test_daily_case_artifacts_enriched_and_fail_closed(tmp_path):
     )
     assert enrich_daily_case_reports(summary=summary, cases_root=tmp_path) == (case_id,)
     saved = json.loads((case_dir / "case.json").read_text(encoding="utf-8"))
+    from traceai_reconciliation.investigation.case_publication import verify_case_publication
+    assert verify_case_publication(case_dir, case_id=case_id)
     assert saved["case_report"]["verdict"] == "REVIEW"
     assert saved["case_report"]["source_hashes"]["daily_wme"] == "b" * 64
     with ZipFile(case_dir / "case.docx") as archive:
@@ -234,3 +236,21 @@ def test_analyzed_case_missing_artifact_fails_closed(tmp_path):
     )
     with pytest.raises(ValueError, match="missing JSON or DOCX"):
         enrich_daily_case_reports(summary=summary, cases_root=tmp_path)
+
+
+def test_published_pair_detects_tampered_docx(tmp_path):
+    from traceai_reconciliation.investigation.case_publication import (
+        publication_payload, verify_case_publication, MARKER_NAME,
+    )
+    case_dir = tmp_path / "CASE-G1"
+    case_dir.mkdir()
+    a, b = case_dir / "case.json", case_dir / "case.docx"
+    a.write_text('{"case":"CASE-G1"}', encoding="utf-8")
+    b.write_bytes(b"original docx content")
+    (case_dir / MARKER_NAME).write_text(
+        json.dumps(publication_payload("CASE-G1", a, b)), encoding="utf-8"
+    )
+    assert verify_case_publication(case_dir, case_id="CASE-G1")
+    b.write_bytes(b"tampered")
+    with pytest.raises(ValueError, match="hash mismatch"):
+        verify_case_publication(case_dir, case_id="CASE-G1")
