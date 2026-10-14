@@ -82,3 +82,20 @@ def test_artifact_gate_rejects_missing_daily_case_summary(tmp_path: Path) -> Non
 
     assert result.complete is False
     assert "CASE-1:daily_case_summary.json" in result.missing
+
+
+def test_artifact_gate_rejects_tampered_published_docx(tmp_path: Path) -> None:
+    import json
+    from traceai_reconciliation.investigation.case_publication import publication_payload, MARKER_NAME
+    case_dir = tmp_path / "CASE-1"
+    case_dir.mkdir()
+    for name in REQUIRED_CASE_ARTIFACTS:
+        (case_dir / name).write_bytes(b"valid content")
+    marker = publication_payload("CASE-1", case_dir / "case.json", case_dir / "case.docx")
+    (case_dir / MARKER_NAME).write_text(json.dumps(marker), encoding="utf-8")
+    approved = validate_batch_artifacts(_batch(), tmp_path, published_case_ids=frozenset({"CASE-1"}))
+    assert approved.complete
+    (case_dir / "case.docx").write_bytes(b"tampered")
+    rejected = validate_batch_artifacts(_batch(), tmp_path, published_case_ids=frozenset({"CASE-1"}))
+    assert not rejected.complete
+    assert any("invalid-case-publication" in value for value in rejected.missing)
