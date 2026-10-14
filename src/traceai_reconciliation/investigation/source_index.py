@@ -60,6 +60,8 @@ def _csv_chunks(
                 encoding=encoding,
             )
             for chunk in iterator:
+                # CSV header is physical row 1; first data row is row 2.
+                chunk["SourceRowNumber"] = chunk.index.to_numpy() + 2
                 yield chunk
             return
         except UnicodeDecodeError as exc:
@@ -111,6 +113,13 @@ class SQLiteSourceIndex:
         )
         try:
             with sqlite3.connect(self.db_path) as connection:
+                # Old indexes have no per-row provenance and must be rebuilt.
+                for table in ("wms", "wme"):
+                    cols = {row[1] for row in connection.execute(
+                        f"PRAGMA table_info({table})"
+                    )}
+                    if "SourceRowNumber" not in cols:
+                        return False
                 rows = connection.execute(
                     """
                     SELECT source_key, file_name, size, sha256
@@ -319,15 +328,17 @@ class SQLiteSourceIndex:
                 Unit,
                 Note,
                 InternalRef,
-                SignedQuantity REAL
+                SignedQuantity REAL,
+                SourceRowNumber INTEGER
             )
             """
         )
 
-        placeholders = ",".join("?" for _ in WME_STANDARD_COLUMNS)
+        wme_columns = [*WME_STANDARD_COLUMNS, "SourceRowNumber"]
+        placeholders = ",".join("?" for _ in wme_columns)
         insert_sql = (
             "INSERT INTO wme ("
-            + ",".join(WME_STANDARD_COLUMNS)
+            + ",".join(wme_columns)
             + ") VALUES ("
             + placeholders
             + ")"
@@ -443,6 +454,7 @@ class SQLiteSourceIndex:
                             values.get("P"),
                             values.get("Q"),
                             incoming - outgoing,
+                            int(row_element.get("r")),
                         )
                         batch.append(
                             tuple(
