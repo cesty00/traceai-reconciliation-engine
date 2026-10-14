@@ -86,6 +86,10 @@ def test_index_end_to_end_provenance_and_cache_reuse(tmp_path: Path):
         ).fetchall())
         assert len(hashes) == 3
         assert all(len(value) == 64 for value in hashes.values())
+    manifest = index.source_manifest()
+    assert set(manifest) == {"wms", "wme", "production"}
+    assert manifest["wms"]["file_name"] == "wms.csv"
+    assert len(manifest["wme"]["sha256"]) == 64
     assert index.ensure_index(wms, wme, production) is False
 
     wms.write_bytes(wms.read_bytes() + b'10002;2026-02-20;updated\r\n')
