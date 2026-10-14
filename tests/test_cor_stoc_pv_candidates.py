@@ -46,3 +46,43 @@ def test_equal_quantity_different_document_does_not_match():
     wms = [{"Cod-motiv": "COR STOC", "Detalii": "PV 9999", "Cantitate": -450}]
     wme = [{"OperationType": "PV", "Document": "PV 2265", "SignedQuantity": -450}]
     assert find_cor_stoc_pv_candidates(wms, wme) == []
+
+
+def test_g8_complete_date_warehouse_and_source_rows_are_verified():
+    wms = [{"Cod-motiv": "COR STOC", "Detalii": "PV 2277",
+            "Cantitate": -450, "Data": "2/20/2026 5:17:14 PM",
+            "Warehouse": "Depozit Principal", "SourceRowNumber": 274970}]
+    wme = [{"OperationType": "PV", "Document": "PV 2277",
+            "SignedQuantity": -450, "Date": "20.02.2026",
+            "Warehouse": "depozit principal", "SourceRowNumber": 48060}]
+    item = find_cor_stoc_pv_candidates(wms, wme)[0]
+    assert item["dates_equal"] is True
+    assert item["warehouses_equal"] is True
+    assert item["provenance_complete"] is True
+    assert item["reference_unique"] is True
+    assert item["economic_match"] is False
+
+
+def test_g8_missing_dates_warehouses_source_rows_fail_closed():
+    wms = [{"Cod-motiv": "COR STOC", "Detalii": "PV 2265",
+            "Cantitate": -450, "SourceRowNumber": 12}]
+    wme = [{"OperationType": "PV", "Document": "PV 2265",
+            "SignedQuantity": -450, "SourceRowNumber": None}]
+    item = find_cor_stoc_pv_candidates(wms, wme)[0]
+    assert item["dates_equal"] is False
+    assert item["warehouses_equal"] is False
+    assert item["provenance_complete"] is False
+    assert item["economic_match"] is False
+
+
+def test_g8_duplicated_source_line_blocks_provenance():
+    wms = [{"Cod-motiv": "COR STOC", "Detalii": "PV 2676",
+            "Cantitate": -200, "SourceRowNumber": 42},
+           {"Cod-motiv": "COR STOC", "Detalii": "PV 2676",
+            "Cantitate": -250, "SourceRowNumber": 42}]
+    wme = [{"OperationType": "PV", "Document": "PV 2676",
+            "SignedQuantity": -450, "SourceRowNumber": 21}]
+    item = find_cor_stoc_pv_candidates(wms, wme)[0]
+    assert item["provenance_complete"] is False
+    assert item["reference_unique"] is False
+    assert item["economic_match"] is False
