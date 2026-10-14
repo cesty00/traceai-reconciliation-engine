@@ -9,6 +9,7 @@ import streamlit as st
 
 from traceai_reconciliation.investigation import InvestigationSources, run_self_service_case
 from traceai_reconciliation.loaders import read_table
+from traceai_reconciliation.local_source_detection import discover_source_files
 
 
 REQUIRED_INPUTS = {
@@ -41,24 +42,48 @@ def main() -> None:
     if "pilot_workspace" not in st.session_state:
         st.session_state.pilot_workspace = tempfile.mkdtemp(prefix="traceai-operator-")
     workspace = Path(st.session_state.pilot_workspace)
-    with st.expander("1. Importă sursele", expanded=True):
-        uploads = {}
+    with st.expander("1. Selectează folderul local cu exporturi", expanded=True):
+        folder_text = st.text_input(
+            "Calea folderului de pe calculatorul pe care rulează Streamlit",
+            placeholder=r"C:\\TraceAI\\Import\\2026-10-22",
+        )
+        period = st.text_input("Perioada investigației", value="01.01.2026 - 11.10.2026")
+        st.caption("Streamlit rulează local; folderul trebuie să existe pe același calculator.")
+        if not folder_text.strip():
+            st.info("Introdu calea folderului local care conține exporturile.")
+            return
+        try:
+            root = Path(folder_text.strip().strip('"')).expanduser().resolve()
+            detected, problems = discover_source_files(root)
+            available = sorted(
+                p for p in root.iterdir()
+                if p.is_file() and p.suffix.lower() in {".csv", ".xls", ".xlsx"}
+                and not p.name.startswith("~$")
+            )
+        except (ValueError, OSError) as exc:
+            st.error(f"Folder indisponibil: {exc}")
+            return
+        paths = {}
         for key, label in REQUIRED_INPUTS.items():
-            uploads[key] = st.file_uploader(label, type=["csv", "xls", "xlsx"], key=f"upload_{key}")
-        period = st.text_input("Perioada investigației (exact ca în exporturi)", value="01.01.2026 - 11.10.2026")
-        st.caption("Toate cele șase surse sunt obligatorii pentru investigație. Nicio sursă absentă nu este tratată drept zero.")
-    stock_upload = uploads["stock_report"]
-    if stock_upload is None:
-        st.info("Importă raportul de stoc pentru a vedea toate articolele.")
-        return
+            default = detected.get(key)
+            names = ["— Selectează fișierul —"] + [p.name for p in available]
+            position = names.index(default.name) if default and default.name in names else 0
+            selected_name = st.selectbox(label, names, index=position, key=f"local_{key}")
+            if selected_name != names[0]:
+                paths[key] = root / selected_name
+            elif key in problems and problems[key]:
+                st.warning(f"{label}: mai multe fișiere candidate. Alege manual.")
+        duplicates = [p for p in paths.values() if list(paths.values()).count(p) > 1]
+        if duplicates:
+            st.error("Același fișier este asociat mai multor surse. Corectează selecția.")
+            return
+        if "stock_report" not in paths:
+            st.info("Asociază raportul de stoc pentru a vedea lista articolelor.")
+            return
     try:
-        paths = {
-            key: _write_uploaded_file(value, workspace / "sources")
-            for key, value in uploads.items() if value is not None
-        }
         table = build_product_list(read_table(paths["stock_report"]))
     except (ValueError, OSError, KeyError) as exc:
-        st.error(f"Import blocat: {exc}")
+        st.error(f"Raport de stoc invalid: {exc}")
         return
 
     st.subheader("2. Articole și diferențe")
