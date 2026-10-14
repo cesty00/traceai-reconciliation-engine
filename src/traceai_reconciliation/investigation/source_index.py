@@ -521,6 +521,26 @@ class SQLiteSourceIndex:
                 if batch:
                     connection.executemany(insert_sql, batch)
 
+    def source_manifest(self) -> dict[str, dict[str, str]]:
+        """Read source identities saved with the indexed rows.
+
+        A source filename alone is not evidence: require SHA-256 metadata.
+        """
+        with sqlite3.connect(self.db_path) as connection:
+            rows = connection.execute(
+                "SELECT source_key, file_name, sha256 FROM _source_meta"
+            ).fetchall()
+        result = {
+            str(key): {"file_name": str(name), "sha256": str(digest)}
+            for key, name, digest in rows
+        }
+        if any(
+            key not in result or len(result[key]["sha256"]) != 64
+            for key in ("wms", "wme", "production")
+        ):
+            raise ValueError("Source index provenance metadata missing")
+        return result
+
     def read_wms_product(
         self,
         product_code: str,
