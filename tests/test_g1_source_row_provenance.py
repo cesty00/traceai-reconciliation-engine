@@ -96,3 +96,42 @@ def test_index_end_to_end_provenance_and_cache_reuse(tmp_path: Path):
     assert index.ensure_index(wms, wme, production) is True
     with sqlite3.connect(index.db_path) as con:
         assert con.execute("SELECT COUNT(*) FROM wms").fetchone()[0] == 3
+
+
+def test_daily_window_carries_original_source_coordinates_and_hashes(tmp_path: Path):
+    from dataclasses import asdict
+    from traceai_reconciliation.investigation.delta_movement_window import (
+        build_delta_movement_window,
+    )
+
+    wms = tmp_path / "wms.csv"
+    wms.write_text(
+        'Cod articol;Data;Cantitate\n'
+        '10002;2026-02-18 10:00:00;7\n', encoding="utf-8"
+    )
+    production = tmp_path / "production.csv"
+    production.write_text(
+        "PRE_Cod Articol;CON_Cod Articol;Data Start\n"
+        "10002;10002;2026-02-18 09:00:00\n", encoding="utf-8"
+    )
+    wme = tmp_path / "wme.xlsx"
+    wb = Workbook()
+    ws = wb.active
+    ws.append(["header"] * 17)
+    ws.append([
+        101, "NT", "9833", "2026-02-18", 4950, 0, 0, 0,
+        "", "", "CUTIE", "", "1494", "DEPOZIT PRINCIPAL",
+        "BUC", "", "",
+    ])
+    wb.save(wme)
+    index = SQLiteSourceIndex(tmp_path / "cache")
+    index.ensure_index(wms, wme, production)
+    result = asdict(build_delta_movement_window(
+        source_index=index, product_code="10002", product_name="CUTIE",
+        start_exclusive="2026-02-17", end_inclusive="2026-02-19",
+    ))
+    assert result["wms_rows"][0]["SourceRowNumber"] == 2
+    assert result["wme_rows"][0]["SourceRowNumber"] == 2
+    assert result["wme_rows"][0]["Document"] == "9833"
+    assert result["source_manifest"] == index.source_manifest()
+    assert all(len(v["sha256"]) == 64 for v in result["source_manifest"].values())
