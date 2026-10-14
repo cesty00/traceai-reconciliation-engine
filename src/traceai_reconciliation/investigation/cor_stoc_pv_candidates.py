@@ -17,7 +17,7 @@ def _document(value: object) -> str:
 
 def _day(value: object) -> str | None:
     text = str(value or "").strip()
-    for fmt in ("%m/%d/%Y %I:%M:%S %p", "%d.%m.%Y", "%Y-%m-%d"):
+    for fmt in ("%m/%d/%Y %I:%M:%S %p", "%d.%m.%Y", "%Y-%m-%d", "%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M:%S.%f"):
         try:
             return datetime.strptime(text, fmt).date().isoformat()
         except ValueError:
