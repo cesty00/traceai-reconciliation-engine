@@ -390,6 +390,11 @@ class SQLiteSourceIndex:
                     tag=xml_ns + "row",
                 )
                 for _, row_element in context:
+                    # Row 1 is the export header, not an operational event.
+                    # Preserve original worksheet coordinates for data rows.
+                    if row_element.get("r") == "1":
+                        row_element.clear()
+                        continue
                     values: dict[str, object] = {}
 
                     for cell in row_element.findall(xml_ns + "c"):
