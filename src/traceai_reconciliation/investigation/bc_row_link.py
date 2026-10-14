@@ -117,7 +117,7 @@ def append_verified_bc_link(report: Any, link: dict[str, Any]) -> Any:
         raise ValueError("BC link lacks unique calculated report discrepancy")
     expected = calculated[0].get("result", "")
     def expected_field(label: str) -> float:
-        found = re.search(rf"(?:^|;\\s*){label}=(-?\\d+(?:\\.\\d+)?)", expected)
+        found = re.search(rf"(?:^|;\s*){label}=(-?\d+(?:\.\d+)?)", expected)
         if not found:
             raise ValueError("BC report discrepancy lacks quantity fields")
         return float(found.group(1))
