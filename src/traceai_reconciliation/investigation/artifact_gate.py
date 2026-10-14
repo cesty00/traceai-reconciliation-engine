@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .self_service import SelfServiceBatchSummary
+from .case_publication import verify_case_publication
 
 
 REQUIRED_CASE_ARTIFACTS = (
@@ -27,6 +28,7 @@ class ArtifactGateResult:
 def validate_batch_artifacts(
     batch: SelfServiceBatchSummary,
     cases_root: str | Path,
+    published_case_ids: frozenset[str] = frozenset(),
 ) -> ArtifactGateResult:
     """Validate that every completed batch case has its required artifacts.
 
@@ -55,6 +57,12 @@ def validate_batch_artifacts(
                 missing.append(f"{item.case_id}:self_service_error.json")
             continue
 
+        if item.case_id in published_case_ids:
+            try:
+                verify_case_publication(case_dir, case_id=item.case_id)
+            except (ValueError, OSError) as exc:
+                missing.append(f"{item.case_id}:invalid-case-publication:{exc}")
+
         for name in REQUIRED_CASE_ARTIFACTS:
             path = case_dir / name
             if not path.is_file() or path.stat().st_size <= 0:
@@ -70,8 +78,9 @@ def validate_batch_artifacts(
 def require_complete_batch_artifacts(
     batch: SelfServiceBatchSummary,
     cases_root: str | Path,
+    published_case_ids: frozenset[str] = frozenset(),
 ) -> ArtifactGateResult:
-    result = validate_batch_artifacts(batch, cases_root)
+    result = validate_batch_artifacts(batch, cases_root, published_case_ids=published_case_ids)
     if not result.complete:
         raise RuntimeError(
             "Artifact completeness gate failed: " + ", ".join(result.missing)
