@@ -32,6 +32,7 @@ from .daily_delta_analysis import analyze_daily_delta_root_causes
 from .daily_operator_delta import enrich_daily_operator_artifacts
 from .daily_operator_history import enrich_operator_history_artifacts
 from .daily_case_summary import write_daily_case_summaries
+from .daily_case_provenance import enrich_daily_case_reports
 from .self_service import (
     SelfServiceBatchCaseResult,
     SelfServiceBatchSummary,
@@ -630,6 +631,10 @@ def run_daily(
             engine_commit_sha=engine_commit_sha,
         )
         final_status = _overall_status(batch)
+        enrich_daily_case_reports(
+            summary=delta_root_cause,
+            cases_root=cases_root,
+        )
         enrich_daily_operator_artifacts(
             summary=delta_root_cause,
             cases_root=cases_root,
