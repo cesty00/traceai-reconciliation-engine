@@ -335,7 +335,10 @@ def test_missing_opening_remains_unknown_by_default(tmp_path: Path) -> None:
     }
 
 
-def test_four_real_bc_rows_reach_full_product_investigation(tmp_path: Path) -> None:
+@pytest.mark.parametrize("all_bc_quantities_equal", [False, True])
+def test_four_real_bc_rows_reach_full_product_investigation(
+    tmp_path: Path, all_bc_quantities_equal: bool,
+) -> None:
     """Source-format fixture from operator-verified 10002 BC documents.
 
     This validates the investigation pipeline, not current-stock reconciliation.
@@ -347,6 +350,9 @@ def test_four_real_bc_rows_reach_full_product_investigation(tmp_path: Path) -> N
         ("0023462_DC", -880, "23462", 110, -770),
         ("0023467_DC", -400, "23467", 50, -350),
     ]
+    if all_bc_quantities_equal:
+        records = [(order, -consumed, doc, consumed, 0)
+                   for order, _, doc, consumed, _ in records]
     pd.DataFrame([{
         "CodArticol": "10002", "DenumireArticol": "CUTIE FRESH",
         "QuantityERP": 0, "QuantityWMS": 0, "QuantityDifference": 0,
@@ -397,11 +403,18 @@ def test_four_real_bc_rows_reach_full_product_investigation(tmp_path: Path) -> N
         report_date="14.10.2026",
     )
     matching = result.details["production_input_matching"]
-    assert matching["residual_total"] == pytest.approx(-2100)
-    assert matching["persistent_residual_total"] == pytest.approx(-2100)
-    assert len(matching["persistent_residual_documents"]) == 4
+    expected_total = 0 if all_bc_quantities_equal else -2100
+    assert matching["residual_total"] == pytest.approx(expected_total)
+    assert matching["persistent_residual_total"] == pytest.approx(expected_total)
+    persistent = matching["persistent_residual_documents"]
+    assert len(persistent) == (0 if all_bc_quantities_equal else 4)
     assert matching["neutralized_residual_documents"] == []
-    by_doc = {item["document"]: item for item in matching["persistent_residual_documents"]}
-    for _, _, doc, _, expected in records:
-        assert by_doc[doc]["difference"] == pytest.approx(expected)
-    assert result.verdict == "REVIEW"
+    if all_bc_quantities_equal:
+        assert result.verdict == "MATCH_DIRECT"
+        assert result.cause_code == "CAUSE-NONE"
+    else:
+        by_doc = {item["document"]: item for item in persistent}
+        for _, _, doc, _, expected in records:
+            assert by_doc[doc]["difference"] == pytest.approx(expected)
+        assert result.verdict == "REVIEW"
+        assert result.cause_code == "CAUSE-BC-QUANTITY-MISMATCH"
