@@ -21,6 +21,7 @@ def test_bc_source_link_in_docx(tmp_path):
         verdict="REVIEW",evidence_level="D",cause_code="UNKNOWN",
         cause_description="Unverified stock cause",cause_status="NEDETERMINATA",
         executive_summary="Document quantity mismatch")
+    report.conclusion_traceability.append({"step":"PRODUCTION_INPUT_BC","key":"BC=23448","result":"WMS=-720.000; WME=-90.000; DIFF=-630.000"})
     append_verified_bc_link(report, link)
     path=tmp_path/"case.docx"
     generate_docx_report(report,path)
