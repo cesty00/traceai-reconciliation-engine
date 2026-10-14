@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import csv
 import os
 import re
 import sqlite3
@@ -48,28 +49,64 @@ def _csv_chunks(
     path: Path,
     chunksize: int = 50000,
 ) -> Iterator[pd.DataFrame]:
+    """Stream CSV with verified physical line starts (multiline aware).
+
+    CSV parsing and pandas must agree on the number of fields per record.
+    Ambiguous row alignment aborts indexing instead of fabricating provenance.
+    """
     delimiter = detect_csv_delimiter(path)
     last_error: Exception | None = None
     for encoding in ("utf-8-sig", "cp1250", "latin1"):
         try:
-            iterator = pd.read_csv(
-                path,
-                sep=delimiter,
-                chunksize=chunksize,
-                low_memory=False,
-                encoding=encoding,
-            )
-            for chunk in iterator:
-                # CSV header is physical row 1; first data row is row 2.
-                chunk["SourceRowNumber"] = chunk.index.to_numpy() + 2
-                yield chunk
+            with path.open("r", encoding=encoding, newline="") as handle:
+                reader = csv.reader(handle, delimiter=delimiter)
+                header = next(reader)
+                expected_fields = len(header)
+                previous_end = reader.line_num
+
+                def data_rows() -> Iterator[int]:
+                    nonlocal previous_end
+                    for record in reader:
+                        start_line = previous_end + 1
+                        previous_end = reader.line_num
+                        if not record:  # pandas skips blank physical lines
+                            continue
+                        if len(record) != expected_fields:
+                            raise ValueError(
+                                f"{path.name}: CSV record at line {start_line} has "
+                                f"{len(record)} fields, expected {expected_fields}"
+                            )
+                        yield start_line
+
+                positions = data_rows()
+                iterator = pd.read_csv(
+                    path,
+                    sep=delimiter,
+                    chunksize=chunksize,
+                    low_memory=False,
+                    encoding=encoding,
+                )
+                for chunk in iterator:
+                    lines = []
+                    for _ in range(len(chunk)):
+                        try:
+                            lines.append(next(positions))
+                        except StopIteration as exc:
+                            raise ValueError(
+                                f"{path.name}: CSV/pandas source rows diverged"
+                            ) from exc
+                    chunk["SourceRowNumber"] = lines
+                    yield chunk
+                if next(positions, None) is not None:
+                    raise ValueError(
+                        f"{path.name}: unindexed CSV records remain"
+                    )
             return
         except UnicodeDecodeError as exc:
             last_error = exc
             continue
     if last_error:
         raise last_error
-
 
 class SQLiteSourceIndex:
     """
