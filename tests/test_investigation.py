@@ -429,3 +429,14 @@ def test_four_real_bc_rows_reach_full_product_investigation(
                    for entry in bc_entries)
         assert all("SOURCE_ROWS_NOT_VERIFIED" in entry["result"]
                    for entry in bc_entries)
+        from zipfile import ZipFile
+        from traceai_reconciliation.reports import generate_docx_report
+        output = tmp_path / "investigated_10002.docx"
+        generate_docx_report(report, output)
+        with ZipFile(output) as archive:
+            document_xml = archive.read("word/document.xml").decode("utf-8")
+        for _, _, document, _, expected in records:
+            assert f"BC={document}" in document_xml
+            assert f"DIFF={float(expected):.3f}" in document_xml
+        assert "SOURCE_ROWS_NOT_VERIFIED" in document_xml
+        assert "HUMAN_VALIDATION_NOT_ATTACHED" in document_xml
