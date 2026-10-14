@@ -425,6 +425,40 @@ def generate_docx_report(report: CaseReport, output_path: str | Path) -> Path:
             "înaintea oricărei corecții."
         )
 
+    # G14 operator action overview: presentation-only, no balance effects.
+    pv_actions = [
+        item for item in report.unmatched_operations
+        if item.get("operation_type") == "COR_STOC_PV_DOCUMENTARY_CANDIDATE"
+        and item.get("status") == "COR_STOC_PV_SOURCE_REVIEW"
+    ]
+    if pv_actions:
+        _add_heading(doc, "9A. Acțiuni necesare operatorului — documente PV")
+        doc.add_paragraph(
+            "Candidați documentari pentru verificare umană. Aceleași operațiuni "
+            "pot apărea și în anexele cu reziduuri WMS/WME; rândurile de mai jos "
+            "NU reprezintă diferențe suplimentare de stoc, NU se însumează și "
+            "NU autorizează corecții sau neutralizări automate."
+        )
+        def _pv_action(item):
+            details = str(item.get("reason", ""))
+            if "gestiune DE VERIFICAT" in details:
+                priority, action = "P1", "Verificați gestiunea documentului PV și transferurile dintre gestiuni."
+            elif "cantități WMS=" in details and "diferență documentară=0.0;" not in details:
+                priority, action = "P1", "Verificați rândurile WMS neasociate explicit și documentul PV."
+            else:
+                priority, action = "P2", "Confirmați legătura documentară și validarea operațională."
+            return (priority, str(item.get("document", "-")), action, details)
+        pv_actions.sort(key=lambda item: (
+            0 if "gestiune DE VERIFICAT" in str(item.get("reason", "")) else 1,
+            str(item.get("document", ""))
+        ))
+        _add_table(
+            doc,
+            ["Prioritate", "PV", "Verificarea operatorului", "Dovezi / rânduri originale"],
+            [_pv_action(item) for item in pv_actions],
+            7.2,
+        )
+
     _add_heading(doc, "10. Recomandări de rezolvare")
     if report.recommendations:
         rows = [
