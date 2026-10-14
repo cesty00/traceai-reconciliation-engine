@@ -26,7 +26,7 @@ def _day(value: object) -> str | None:
 
 
 def _warehouse(row: dict[str, Any]) -> str | None:
-    for key in ("Warehouse", "Gestiune"):
+    for key in ("Warehouse", "Depozit", "Gestiune"):
         value = str(row.get(key) or "").strip().casefold()
         if value:
             return " ".join(value.split())
