@@ -111,3 +111,18 @@ def test_g9_different_real_warehouses_remain_review():
     item = find_cor_stoc_pv_candidates(wms, wme)[0]
     assert item["warehouses_equal"] is False
     assert item["economic_match"] is False
+
+
+def test_g10_review_candidate_keeps_economic_effect_zero():
+    wms = [{"Cod-motiv": "COR STOC", "Detalii": "PV 2277",
+            "Cantitate": -450, "Data": "2/23/2026 5:17:14 PM",
+            "Depozit": "Depozit Principal", "SourceRowNumber": 274964}]
+    wme = [{"OperationType": "PV", "Document": "2277",
+            "SignedQuantity": -450, "Date": "23.02.2026",
+            "Warehouse": "DEPOZIT PRINCIPAL", "SourceRowNumber": 47777}]
+    item = find_cor_stoc_pv_candidates(wms, wme)[0]
+    assert item["quantity_equal_explicit_rows"]
+    assert item["economic_match"] is False
+    assert item["stock_effect_verified"] is False
+    assert item["human_validation"] == "NOT_ATTACHED"
+    assert item["status"] == "COR_STOC_PV_SOURCE_REVIEW"
