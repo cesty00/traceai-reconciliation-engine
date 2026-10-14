@@ -448,8 +448,10 @@ def generate_docx_report(report: CaseReport, output_path: str | Path) -> Path:
             else:
                 priority, action = "P2", "Confirmați legătura documentară și validarea operațională."
             return (priority, str(item.get("document", "-")), action, details)
+        # Sort using the same computed priority shown in the table; otherwise
+        # a P1 quantity discrepancy can appear after P2 documentary checks.
         pv_actions.sort(key=lambda item: (
-            0 if "gestiune DE VERIFICAT" in str(item.get("reason", "")) else 1,
+            0 if _pv_action(item)[0] == "P1" else 1,
             str(item.get("document", ""))
         ))
         _add_table(
