@@ -87,6 +87,7 @@ class DailyRunSummary:
     run_manifest_json: str
     summary_json: str
     error_message: str | None = None
+    published_case_ids: tuple[str, ...] = ()
 
 
 def _utc_now() -> str:
@@ -305,11 +306,17 @@ def _load_reusable_summary(
     cases_root = Path(output_dir) / "cases"
     # Reuse must validate manifests that exist without assuming new-run locals.
     # Legacy runs without a publication marker remain under the artifact gate.
-    published_case_ids = frozenset(
-        item.case_id
-        for item in batch.cases
-        if (cases_root / item.case_id.replace("/", "_") / "case_publication.json").is_file()
-    )
+    recorded_ids = payload.get("published_case_ids")
+    if recorded_ids is not None:
+        if not isinstance(recorded_ids, list) or not all(isinstance(x, str) for x in recorded_ids):
+            return None
+        published_case_ids = frozenset(recorded_ids)
+    else:
+        # Explicit compatibility for older runs without a publication contract.
+        published_case_ids = frozenset(
+            item.case_id for item in batch.cases
+            if (cases_root / item.case_id.replace("/", "_") / "case_publication.json").is_file()
+        )
     try:
         require_complete_batch_artifacts(
             batch, cases_root,
@@ -661,7 +668,9 @@ def run_daily(
             cases=cases,
             cases_root=cases_root,
         )
-        require_complete_batch_artifacts(batch, cases_root)
+        require_complete_batch_artifacts(
+            batch, cases_root, published_case_ids=frozenset(published_case_ids),
+        )
         summary = DailyRunSummary(
             run_id=clean_run_id,
             status=final_status,
@@ -687,6 +696,7 @@ def run_daily(
             delta_root_cause_json=str(delta_root_cause_path),
             previous_run_id=previous_run_id,
             batch_summary_json=batch.summary_json,
+            published_case_ids=tuple(published_case_ids),
             run_manifest_json=str(run_manifest_path),
             summary_json=str(summary_path),
         )
