@@ -86,3 +86,28 @@ def test_g8_duplicated_source_line_blocks_provenance():
     assert item["provenance_complete"] is False
     assert item["reference_unique"] is False
     assert item["economic_match"] is False
+
+
+def test_g9_original_wms_depozit_column_is_used():
+    wms = [{"Cod-motiv": "COR STOC", "Detalii": "PV 2277",
+            "Cantitate": -450, "Data": "2/23/2026 5:17:14 PM",
+            "Depozit": "Depozit Principal", "SourceRowNumber": 274964}]
+    wme = [{"OperationType": "PV", "Document": "2277",
+            "SignedQuantity": -450, "Date": "23.02.2026",
+            "Warehouse": "DEPOZIT PRINCIPAL", "SourceRowNumber": 47777}]
+    item = find_cor_stoc_pv_candidates(wms, wme)[0]
+    assert item["warehouses_equal"] is True
+    assert item["dates_equal"] is True
+    assert item["economic_match"] is False
+
+
+def test_g9_different_real_warehouses_remain_review():
+    wms = [{"Cod-motiv": "COR STOC", "Detalii": "PV 2265",
+            "Cantitate": -450, "Data": "2/13/2026 1:08:23 PM",
+            "Depozit": "Depozit Principal", "SourceRowNumber": 274963}]
+    wme = [{"OperationType": "PV", "Document": "2265",
+            "SignedQuantity": -450, "Date": "13.02.2026",
+            "Warehouse": "SECTIE PRODUCTIE", "SourceRowNumber": 48478}]
+    item = find_cor_stoc_pv_candidates(wms, wme)[0]
+    assert item["warehouses_equal"] is False
+    assert item["economic_match"] is False
