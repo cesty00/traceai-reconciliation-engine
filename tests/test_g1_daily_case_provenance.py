@@ -211,3 +211,26 @@ def test_interrupted_publication_blocks_next_run_and_preserves_backups(tmp_path,
     with pytest.raises(RuntimeError, match="manual artifact recovery"):
         enrich_daily_case_reports(summary=summary, cases_root=tmp_path)
     assert (case_dir / "case.json").read_bytes() == original_json
+
+
+def test_analyzed_case_missing_artifact_fails_closed(tmp_path):
+    window = DeltaMovementWindowResult(
+        product_code="10002", product_name="CUTIE",
+        start_exclusive="2026-10-11", end_inclusive="2026-10-12",
+        wms_count=0, wme_count=0, production_count=0,
+        wms_rows=(), wme_rows=(), production_rows=(),
+        source_manifest={
+            key: {"file_name": key + ".source", "sha256": c * 64}
+            for key, c in (("wms", "a"), ("wme", "b"), ("production", "c"))
+        },
+    )
+    summary = DailyDeltaRootCauseSummary(
+        previous_snapshot_at="2026-10-11", current_snapshot_at="2026-10-12",
+        analyzed=1, skipped=0, exact_event=0, multi_event=0,
+        unexplained=1, items=(DailyDeltaRootCauseItem(
+            case_id="CASE-G1", product_code="10002", status="UNEXPLAINED",
+            reason="ANALYZED", analysis={"movement_window": asdict(window)},
+        ),),
+    )
+    with pytest.raises(ValueError, match="missing JSON or DOCX"):
+        enrich_daily_case_reports(summary=summary, cases_root=tmp_path)
