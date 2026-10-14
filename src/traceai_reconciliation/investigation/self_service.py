@@ -347,6 +347,20 @@ def run_self_service_case(
         rules_version=rules_version,
         execution_id=execution_id,
     )
+    # Historical BC evidence uses the full indexed investigation sources,
+    # never the narrow Daily delta window. Fail closed on documentary ambiguity.
+    if effective_sources.use_source_index and any(
+        row.get("step") == "PRODUCTION_INPUT_BC"
+        for row in case_report.conclusion_traceability
+    ):
+        from .bc_index_bridge import attach_bc_from_index
+        from .source_index import SQLiteSourceIndex
+        mapping_ids = investigation.details.get("wme_mapping_ids", [])
+        if len(mapping_ids) != 1:
+            raise ValueError("BC evidence requires unique WME product mapping")
+        index = SQLiteSourceIndex(effective_sources.cache_dir)
+        attach_bc_from_index(case_report, index, str(mapping_ids[0]))
+
     explanation = auto_explanation_from_investigation(investigation)
     assessment = assess_auto_explain_promotion(
         investigation,
