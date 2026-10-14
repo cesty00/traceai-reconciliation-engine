@@ -1390,7 +1390,21 @@ def investigate_product(
         result.cause_status = "PROBABILA"
         result.evidence_level = "C"
     elif abs(result.initial_difference) <= 10 ** (-decimals):
-        if offsetting_zone_differences:
+        # Equal stock balances do not prove that WMS and WME movements match.
+        # Preserve independently observed BC document discrepancies for review.
+        if abs(production_input_match.residual_total) > 10 ** (-decimals):
+            result.verdict = "REVIEW"
+            result.evidence_level = "B"
+            result.cause_code = "CAUSE-BC-QUANTITY-MISMATCH"
+            result.cause_description = (
+                "Soldurile raportate sunt egale, dar consumurile BC WMS/WME "
+                "difera cantitativ. Egalitatea soldurilor nu neutralizeaza "
+                "neconcordantele documentare; verificare umana necesara."
+            )
+            result.cause_status = "NEDETERMINATA"
+            result.explained_difference = 0.0
+            result.unexplained_difference = 0.0
+        elif offsetting_zone_differences:
             result.verdict = "REVIEW"
             result.evidence_level = "A"
             result.cause_code = "CAUSE-OFFSETTING-ZONE-DIFFERENCES"
