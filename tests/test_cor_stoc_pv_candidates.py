@@ -139,3 +139,18 @@ def test_g11_normalized_timestamp_values_from_real_index_are_same_day():
     item = find_cor_stoc_pv_candidates(wms, wme)[0]
     assert item["dates_equal"] is True
     assert item["economic_match"] is False
+
+
+def test_g12_documentary_difference_is_not_stock_effect():
+    wms = [{"Cod-motiv": "COR STOC", "Detalii": "PV 2676",
+            "Cantitate": -595, "SourceRowNumber": 274987,
+            "Data": "2026-10-07", "Depozit": "Depozit Principal"}]
+    wme = [{"OperationType": "PV", "Document": "PV 2676",
+            "SignedQuantity": -1045, "SourceRowNumber": 48064,
+            "Date": "2026-10-07", "Warehouse": "Depozit Principal"}]
+    item = find_cor_stoc_pv_candidates(wms, wme)[0]
+    assert item["explicit_wms_quantity"] - item["pv_quantity"] == 450
+    assert item["economic_match"] is False
+    assert item["stock_effect_verified"] is False
+    assert item["wms_source_rows"] == [274987]
+    assert item["wme_source_rows"] == [48064]
