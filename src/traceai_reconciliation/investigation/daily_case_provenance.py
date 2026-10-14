@@ -28,8 +28,9 @@ def enrich_daily_case_reports(
         case_path = case_dir / "case.json"
         docx_path = case_dir / "case.docx"
         if not case_path.is_file() or not docx_path.is_file():
-            # Failed/skipped self-service cases are handled by the batch gate.
-            continue
+            raise ValueError(
+                f"{item.case_id}: analyzed Daily case missing JSON or DOCX artifact"
+            )
         payload = json.loads(case_path.read_text(encoding="utf-8"))
         if not isinstance(payload, dict) or not isinstance(payload.get("case_report"), dict):
             raise ValueError(f"{item.case_id}: invalid case.json")
