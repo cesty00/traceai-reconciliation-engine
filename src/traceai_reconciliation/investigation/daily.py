@@ -303,10 +303,17 @@ def _load_reusable_summary(
     if batch is None or not output_dir:
         return None
     cases_root = Path(output_dir) / "cases"
+    # Reuse must validate manifests that exist without assuming new-run locals.
+    # Legacy runs without a publication marker remain under the artifact gate.
+    published_case_ids = frozenset(
+        item.case_id
+        for item in batch.cases
+        if (cases_root / item.case_id.replace("/", "_") / "case_publication.json").is_file()
+    )
     try:
         require_complete_batch_artifacts(
             batch, cases_root,
-            published_case_ids=frozenset(published_case_ids),
+            published_case_ids=published_case_ids,
         )
     except RuntimeError:
         return None
