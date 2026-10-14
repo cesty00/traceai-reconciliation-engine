@@ -333,3 +333,74 @@ def test_missing_opening_remains_unknown_by_default(tmp_path: Path) -> None:
         "product_absent": True,
         "applied_value": None,
     }
+
+
+def test_four_real_bc_rows_reach_full_product_investigation(tmp_path: Path) -> None:
+    """Source-format fixture from operator-verified 10002 BC documents.
+
+    This validates the investigation pipeline, not current-stock reconciliation.
+    """
+    sources = _write_fixture_sources(tmp_path)
+    records = [
+        ("0023448_DC", -720, "23448", 90, -630),
+        ("0023454_DC", -400, "23454", 50, -350),
+        ("0023462_DC", -880, "23462", 110, -770),
+        ("0023467_DC", -400, "23467", 50, -350),
+    ]
+    pd.DataFrame([{
+        "CodArticol": "10002", "DenumireArticol": "CUTIE FRESH",
+        "QuantityERP": 0, "QuantityWMS": 0, "QuantityDifference": 0,
+        "Gestiune": "SECTIE PRODUCTIE",
+    }]).to_excel(sources.stock_report, index=False)
+    pd.DataFrame([{"CodArticol": "10002", "Cantitate": 0}]).to_excel(
+        sources.opening_stock_wms, index=False
+    )
+    pd.DataFrame([{
+        "Data": "02.01.2026", "Cod articol": "10002",
+        "Tip operatiune": "Ajustare negativa", "Cod-motiv": "PRODUCTION-IN",
+        "Numar comanda": order, "Cantitate": qty,
+        "Detalii": "Order production number: DECONGELARE " + order,
+    } for order, qty, _, _, _ in records]).to_csv(
+        sources.wms_movements, index=False, sep=";"
+    )
+    # Report-style WME ledger, preserving the 17-column positional contract.
+    ledger = [
+        ["Oceanis Seafood Europa"] + [None] * 16,
+        ["Fisa de magazie"] + [None] * 16,
+    ]
+    for i, (_, _, doc, consumed, _) in enumerate(records, start=1):
+        ledger.append([
+            i, "BC", doc, "02.01.2026", 0, consumed, 0, 0,
+            "", "", "CUTIE FRESH", "", 1494,
+            "SECTIE PRODUCTIE", "BUC", "", 0,
+        ])
+    pd.DataFrame(ledger).to_excel(
+        sources.wme_ledger, index=False, header=False
+    )
+    pd.DataFrame([{
+        "Cod articol": "10002", "Denumire": "CUTIE FRESH",
+        "Greutate:": 1, "U.M.": "BUCATA", "Bucati in Bax": 0,
+    }]).to_excel(sources.nomenclature, index=False)
+    pd.DataFrame([{
+        "TipLinie": "CONSUM", "Numar Comanda": "0023448_DC",
+        "Data Start": "02/01/2026 08:00:00",
+        "PRE_Cod Articol": None, "PRE_Cantitate Predare": None,
+        "PRE_U.M.": None, "CON_Cod Articol": "10002",
+        "CON_Cantitate Consumata": 90, "CON_U.M.": "BUCATA",
+        "Utilaj Productie": "ULMA",
+    }]).to_csv(sources.production, index=False)
+
+    result = investigate_product(
+        product_code="10002", case_id="REAL-10002-BC-FOUR",
+        sources=sources, period="01.01.2026-04.10.2026",
+        report_date="14.10.2026",
+    )
+    matching = result.details["production_input_matching"]
+    assert matching["residual_total"] == pytest.approx(-2100)
+    assert matching["persistent_residual_total"] == pytest.approx(-2100)
+    assert len(matching["persistent_residual_documents"]) == 4
+    assert matching["neutralized_residual_documents"] == []
+    by_doc = {item["document"]: item for item in matching["persistent_residual_documents"]}
+    for _, _, doc, _, expected in records:
+        assert by_doc[doc]["difference"] == pytest.approx(expected)
+    assert result.verdict == "REVIEW"
