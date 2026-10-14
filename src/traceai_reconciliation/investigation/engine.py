@@ -35,6 +35,7 @@ from .transfer_mose_matching import (
 )
 from .wme_residual_matching import match_wme_residual_movements
 from .inventory_adjustment_matching import match_inventory_adjustments
+from .cor_stoc_pv_candidates import find_cor_stoc_pv_candidates
 from .source_readers import (
     filter_by_period,
     first_non_empty,
@@ -987,6 +988,49 @@ def investigate_product(
                 )
             result.cause_status = "PROBABILA"
             result.evidence_level = "B"
+
+    # Documentary discovery only. Do NOT feed these candidates into balance,
+    # residual neutralization, or any MATCH/promotion calculation.
+    cor_stoc_pv_candidates = find_cor_stoc_pv_candidates(
+        wms_rows.to_dict("records"),
+        wme_rows.to_dict("records"),
+    )
+    result.details["cor_stoc_pv_review"] = {
+        "candidates": cor_stoc_pv_candidates,
+        "candidate_count": len(cor_stoc_pv_candidates),
+        "applied_to_explanation": False,
+        "residuals_neutralized": False,
+    }
+    if cor_stoc_pv_candidates:
+        result.findings.append({
+            "type": "COR_STOC_PV_DOCUMENTARY_REVIEW",
+            "description": (
+                f"{len(cor_stoc_pv_candidates)} document(e) PV au referințe "
+                "explicite în corecții WMS COR STOC. Asocierile sunt indicii "
+                "documentare REVIEW, nu MATCH și nu reduc reziduurile."
+            ),
+            "evidence": "SRC-WMS(COR STOC) + SRC-WME(PV); document/date/gestiune/proveniență",
+        })
+        for candidate in cor_stoc_pv_candidates:
+            checks = (
+                f"cantitate={candidate['quantity_equal_explicit_rows']}; "
+                f"dată={candidate['dates_equal']}; "
+                f"gestiune={candidate['warehouses_equal']}; "
+                f"rânduri_sursă={candidate['provenance_complete']}; "
+                f"unicitate={candidate['reference_unique']}"
+            )
+            result.unmatched_operations.append({
+                "date": "-",
+                "system": "WMS↔WME",
+                "document": "PV " + candidate["pv_document"],
+                "operation_type": "COR_STOC_PV_DOCUMENTARY_CANDIDATE",
+                "quantity": round(
+                    candidate["explicit_wms_quantity"] - candidate["pv_quantity"],
+                    decimals,
+                ),
+                "reason": checks + "; doar candidat, fără neutralizare",
+                "status": "COR_STOC_PV_SOURCE_REVIEW",
+            })
 
     inventory_adjustment_match = match_inventory_adjustments(
         wms_rows,
