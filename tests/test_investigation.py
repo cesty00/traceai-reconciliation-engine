@@ -359,6 +359,7 @@ def test_four_real_bc_rows_reach_full_product_investigation(tmp_path: Path) -> N
         "Data": "02.01.2026", "Cod articol": "10002",
         "Tip operatiune": "Ajustare negativa", "Cod-motiv": "PRODUCTION-IN",
         "Numar comanda": order, "Cantitate": qty,
+        "Locatie sursa": "SECTIE PRODUCTIE", "Lot": "LOT-TEST-BC",
         "Detalii": "Order production number: DECONGELARE " + order,
     } for order, qty, _, _, _ in records]).to_csv(
         sources.wms_movements, index=False, sep=";"
