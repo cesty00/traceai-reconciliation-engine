@@ -20,7 +20,7 @@ REQUIRED_INPUTS = {
     "production": "Rapoarte producție",
     "nomenclature": "Nomenclator mapare WMS/WME",
 }
-from traceai_reconciliation.operator_stock_view import build_product_list, split_unidentified_articles
+from traceai_reconciliation.operator_stock_view import build_product_list, split_unidentified_articles, build_warehouse_stock_view
 from traceai_reconciliation.operator_pilot_matrix import build_pilot_sample
 
 
@@ -87,6 +87,7 @@ def main() -> None:
         if identified.empty:
             raise ValueError("Nu există articole cu cod identificabil în raport.")
         table = build_product_list(identified)
+        warehouse_table = build_warehouse_stock_view(identified)
     except (ValueError, OSError, KeyError) as exc:
         st.error(f"Raport de stoc invalid: {exc}")
         return
@@ -124,6 +125,20 @@ def main() -> None:
         )
         selected = selected[mask]
     st.dataframe(selected, use_container_width=True, hide_index=True)
+    st.subheader("Stocuri pe gestiuni — conform raportului original")
+    st.caption("Toate gestiunile raportate sunt vizibile. Filtrul cu/fără diferență se aplică fiecărei gestiuni, nu numai totalului produsului. Aceasta NU certifică maparea fizică WMS/WME a gestiunilor.")
+    warehouse_selected = warehouse_table
+    if search.strip():
+        warehouse_selected = warehouse_selected[
+            warehouse_selected["CodArticol"].str.contains(search.strip(), case=False, regex=False, na=False)
+            | warehouse_selected["DenumireArticol"].astype("string").str.contains(search.strip(), case=False, regex=False, na=False)
+            | warehouse_selected["Gestiune"].str.contains(search.strip(), case=False, regex=False, na=False)
+        ]
+    if show == "Cu diferență":
+        warehouse_selected = warehouse_selected[warehouse_selected["Diferenta_WMS_minus_WME"].abs() > 0.001]
+    elif show == "Fără diferență":
+        warehouse_selected = warehouse_selected[warehouse_selected["Diferenta_WMS_minus_WME"].abs() <= 0.001]
+    st.dataframe(warehouse_selected, use_container_width=True, hide_index=True)
     codes = selected["CodArticol"].tolist()
     if not codes:
         st.info("Niciun articol în filtrul selectat.")
