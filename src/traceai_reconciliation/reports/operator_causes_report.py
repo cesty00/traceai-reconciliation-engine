@@ -191,6 +191,37 @@ def generate_operator_causes_docx(
 
     pv = unique_documents(pv)
     mose = unique_documents(mose)
+    # Candidate comparison only: the same quantity and a nearby calendar date
+    # never constitute a verified inventory reconciliation.
+    from datetime import datetime
+    pv_candidates = []
+    for pv_item in pv:
+        if str(pv_item.get("system") or "").upper() != "WME":
+            continue
+        matching_events = [
+            e for e in events
+            if str(e.get("system") or "").upper() == "WME"
+            and str(e.get("operation_type") or "").upper() == "PV"
+            and str(e.get("document") or "").strip() == str(pv_item.get("document") or "").strip()
+        ]
+        if len(matching_events) != 1:
+            continue
+        pv_event = matching_events[0]
+        try:
+            pv_date = datetime.fromisoformat(str(pv_event["date"])[:10])
+            pv_quantity = float(pv_event["quantity"])
+        except (ValueError, TypeError, KeyError):
+            continue
+        for e in wms_corrections:
+            try:
+                correction_date = datetime.fromisoformat(str(e["date"])[:10])
+                quantity = float(e["quantity"])
+            except (ValueError, TypeError, KeyError):
+                continue
+            offset_days = (correction_date - pv_date).days
+            if abs(offset_days) <= 3 and abs(quantity - pv_quantity) <= 0.001:
+                pv_candidates.append((pv_event, e, offset_days))
+
     timeline_by_document = {}
     for entry in events:
         key = (str(entry.get("system") or "").upper(),
@@ -305,6 +336,18 @@ def generate_operator_causes_docx(
             "Verifică lotul, data, semnul și eventualele perechi plus/minus.",
             "Compară PV WME și ajustările WMS fără a presupune corespondentul."
         ])
+    if pv_candidates:
+        doc.add_paragraph("CORESPONDENȚE PV CANDIDATE — NU SUNT MATCH CONFIRMATE")
+        _table(doc, ["PV WME", "Rând WME", "Ajustare WMS", "Rând WMS", "Decalaj zile", "Cantitate"], [
+            (pv_event.get("document"), _source_reference(pv_event),
+             _date_for_operator(wms_event.get("date")), _source_reference(wms_event),
+             str(offset_days), f'{float(wms_event.get("quantity") or 0):+,.3f}')
+            for pv_event, wms_event, offset_days in pv_candidates[:12]
+        ])
+        doc.add_paragraph(
+            "Aceeași cantitate și o dată apropiată nu demonstrează legătura dintre documente. "
+            "Operatorul verifică PV-ul, lotul, gestiunea, identificatorul operațiunii și aprobarea."
+        )
     for title, items, checks in [
         ("Inventare și corecții",pv,["Găsește PV-ul și ajustarea WMS.", "Verifică data, cantitatea, semnul, lotul și gestiunea."]),
         ("Documente F în MOSE",mose,["Verifică factura F și clientul înscris pe factură.", "Caută NT WME de intrare în gestiunea MOSE și livrarea WMS TRANSFER_MOSE corespunzătoare.", "Nu confunda gestiunea MOSE cu clientul MOSE Business Distribution."]),
