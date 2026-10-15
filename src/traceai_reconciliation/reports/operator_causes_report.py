@@ -201,6 +201,13 @@ def generate_operator_causes_docx(
         registru.append(("01", "Verificare documentară", "REVIEW"))
     _table(doc, ["ID", "Obiect verificare", "Stadiu"], registru)
     doc.add_paragraph("Fiecare decizie se validează separat. Raportul tehnic și cronologia completă sunt păstrate în JSON.")
+    doc.add_paragraph(
+        "LEGENDĂ: EXPLICAT = mecanism operațional confirmat, fără a închide articolul; "
+        "REVIEW = dovadă sau corespondent încă de verificat; "
+        "CORECȚIE PROPUSĂ = numai după confirmarea documentară și aprobarea operatorului. "
+        "Niciun status nu autorizează modificări automate WMS/WME."
+    )
+
     counter = 0
     def page(title):
         nonlocal counter
