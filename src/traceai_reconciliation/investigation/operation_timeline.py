@@ -44,6 +44,24 @@ def _explicit_wms_metadata(row: pd.Series) -> dict[str, Any]:
         value = row.get(keys[0])
         if value is not None and not pd.isna(value) and str(value).strip() not in ("", "-"):
             metadata[name] = str(value).strip()
+    # The physical WMS trace export uses separate source/destination fields.
+    # Only on actual receipts is the destination pallet/location the received stock.
+    operation = str(_row_value(row, row.index, "operation_type", "")).strip().casefold()
+    if operation in ("receptie", "recepție"):
+        for field, source_column in (
+            ("nir", "Document comanda"),
+            ("pallet", "Palet destinatie"),
+            ("location", "Locatie destinatie"),
+        ):
+            matching = [c for c in row.index
+                        if normalize_header(c) == normalize_header(source_column)]
+            if len(matching) == 1:
+                value = row.get(matching[0])
+                if value is not None and not pd.isna(value) and str(value).strip() not in ("", "-"):
+                    if field not in metadata:
+                        metadata[field] = str(value).strip()
+                    elif metadata[field] != str(value).strip():
+                        metadata.pop(field, None)
     return metadata
 
 
