@@ -396,19 +396,20 @@ def generate_operator_causes_docx(
                     f"Transferuri interne WMS ↔ NT WME identificate de motor: {matched}. "
                     "Această asociere nu validează automat facturile F."
                 )
-        actor_entries = []
+        # Source-user attribution is already recorded in JSON; avoid
+        # duplicating PV/F economic documents in a second DOCX table.
+        # Only emit a short attribution note when a source actor exists.
+        actor_labels = []
         for item in items[:15]:
-            sys = str(item.get("system") or "").upper()
-            name = str(item.get("document") or "").strip().upper()
-            op = str(item.get("operation_type") or "").upper()
-            matches = timeline_by_document.get((sys, name, op), [])
-            if len(matches) == 1 and name not in ("", "-"):
-                actor_entries.append((name, _source_reference(matches[0]), _actor_label(matches[0])))
-            else:
-                actor_entries.append((name, _source_reference(item), "Nedisponibil în sursă"))
-        if actor_entries:
-            doc.add_paragraph("Persoană / utilizator asociat operațiunilor din sursa originală:")
-            _table(doc, ["Document", "Rând sursă", "Persoană / user"], actor_entries)
+            key = (str(item.get("system") or "").upper(),
+                   str(item.get("document") or "").strip().upper(),
+                   str(item.get("operation_type") or "").upper())
+            matches = timeline_by_document.get(key, [])
+            if len(matches) == 1 and key[1] not in ("", "-"):
+                if matches[0].get("actor"):
+                    actor_labels.append(f"{key[1]}: {_actor_label(matches[0])}")
+        if actor_labels:
+            doc.add_paragraph("Persoană / user (sursă): " + "; ".join(actor_labels))
         doc.add_paragraph("REVIEW: documentele nu sunt considerate cauze confirmate.")
         _decision(doc, checks)
     doc.add_paragraph("NOTĂ: raportul nu autorizează ajustări WMS/WME. Ora 00:00 din WME poate însemna doar dată calendaristică.")
