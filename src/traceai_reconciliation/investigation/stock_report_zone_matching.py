@@ -166,3 +166,28 @@ def has_offsetting_zone_differences(
         abs(float(row.get("report_difference") or 0.0)) > tolerance
         for row in result.rows
     )
+
+
+def is_confirmed_reception_staging_offset(
+    result: StockReportZoneMatchResult,
+    *,
+    tolerance: float = 0.001,
+) -> bool:
+    """Recognize only the operator-confirmed Depozitare/Recepție offset.
+
+    A valid staging offset does not prove document equivalence or authorize
+    matching unrelated warehouses. Both zone differences must cancel exactly.
+    """
+    material = [
+        row for row in result.rows
+        if abs(float(row.get("report_difference") or 0.0)) > tolerance
+    ]
+    if len(material) != 2:
+        return False
+    names = {
+        str(row.get("report_warehouse") or "").strip().upper()
+        for row in material
+    }
+    if names not in ({"DEPOZITARE", "RECEPTIE"}, {"DEPOZITARE", "RECEPȚIE"}):
+        return False
+    return abs(sum(float(row["report_difference"]) for row in material)) <= tolerance
