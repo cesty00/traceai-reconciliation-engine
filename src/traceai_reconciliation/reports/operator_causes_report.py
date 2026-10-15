@@ -108,7 +108,21 @@ def generate_operator_causes_docx(
             if abs(net-erp) <= .001:
                 flows.append((no, x, net))
     pv = [x for x in report.unmatched_operations if str(x.get("operation_type") or "").upper() in ("PV", "INV-MIN", "INV-PLS")]
-    mose = [x for x in report.unmatched_operations if "MOSE" in str(x.get("reason") or "").upper()]
+    # Warehouse classification comes from an exact WME F source entry,
+    # never from the customer's name or a free-text reason.
+    wme_f_mose_docs = {
+        str(e.get("document") or "").strip().upper()
+        for e in events
+        if str(e.get("system") or "").upper() == "WME"
+        and str(e.get("operation_type") or "").upper() == "F"
+        and str(e.get("warehouse") or "").strip().upper() == "MOSE"
+    }
+    mose = [
+        x for x in report.unmatched_operations
+        if str(x.get("system") or "").upper() == "WME"
+        and str(x.get("operation_type") or "").upper() == "F"
+        and str(x.get("document") or "").strip().upper() in wme_f_mose_docs
+    ]
     # Multiple investigative views can surface the same economic document.
     # Keep one operator row per exact system, type and document; prefer a dated row.
     def unique_documents(items):
