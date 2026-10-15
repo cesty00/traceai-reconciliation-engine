@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+from contextlib import closing
 import os
 import re
 import sqlite3
@@ -149,7 +150,7 @@ class SQLiteSourceIndex:
             production_path,
         )
         try:
-            with sqlite3.connect(self.db_path) as connection:
+            with closing(sqlite3.connect(self.db_path)) as connection, connection:
                 # Old indexes have no per-row provenance and must be rebuilt.
                 for table in ("wms", "wme"):
                     cols = {row[1] for row in connection.execute(
@@ -214,7 +215,7 @@ class SQLiteSourceIndex:
         wme_path: Path,
         production_path: Path,
     ) -> None:
-        with sqlite3.connect(target) as connection:
+        with closing(sqlite3.connect(target)) as connection, connection:
             connection.execute("PRAGMA journal_mode=OFF")
             connection.execute("PRAGMA synchronous=OFF")
             connection.execute("PRAGMA temp_store=MEMORY")
@@ -526,7 +527,7 @@ class SQLiteSourceIndex:
 
         A source filename alone is not evidence: require SHA-256 metadata.
         """
-        with sqlite3.connect(self.db_path) as connection:
+        with closing(sqlite3.connect(self.db_path)) as connection, connection:
             rows = connection.execute(
                 "SELECT source_key, file_name, sha256 FROM _source_meta"
             ).fetchall()
@@ -546,7 +547,7 @@ class SQLiteSourceIndex:
         product_code: str,
         period: str | None = None,
     ) -> pd.DataFrame:
-        with sqlite3.connect(self.db_path) as connection:
+        with closing(sqlite3.connect(self.db_path)) as connection, connection:
             frame = pd.read_sql_query(
                 """
                 SELECT *
@@ -565,7 +566,7 @@ class SQLiteSourceIndex:
         product_name: str,
         period: str | None = None,
     ) -> tuple[pd.DataFrame, set[str]]:
-        with sqlite3.connect(self.db_path) as connection:
+        with closing(sqlite3.connect(self.db_path)) as connection, connection:
             frame = pd.read_sql_query(
                 """
                 SELECT *
@@ -599,7 +600,7 @@ class SQLiteSourceIndex:
         This is used as evidence only. A document number may be reused by
         other WME operation families, so the operation type is mandatory.
         """
-        with sqlite3.connect(self.db_path) as connection:
+        with closing(sqlite3.connect(self.db_path)) as connection, connection:
             row = connection.execute(
                 """
                 SELECT COUNT(*)
@@ -619,7 +620,7 @@ class SQLiteSourceIndex:
         period: str | None = None,
     ) -> pd.DataFrame:
         """Read all WMS TRANSFER_MOSE rows for basket-level matching."""
-        with sqlite3.connect(self.db_path) as connection:
+        with closing(sqlite3.connect(self.db_path)) as connection, connection:
             frame = pd.read_sql_query(
                 """
                 SELECT *
@@ -638,7 +639,7 @@ class SQLiteSourceIndex:
         period: str | None = None,
     ) -> pd.DataFrame:
         """Read WME NT rows that explicitly connect DP and MOSE."""
-        with sqlite3.connect(self.db_path) as connection:
+        with closing(sqlite3.connect(self.db_path)) as connection, connection:
             frame = pd.read_sql_query(
                 """
                 SELECT *
@@ -668,7 +669,7 @@ class SQLiteSourceIndex:
         period: str | None = None,
     ) -> pd.DataFrame:
         code = str(product_code).strip()
-        with sqlite3.connect(self.db_path) as connection:
+        with closing(sqlite3.connect(self.db_path)) as connection, connection:
             frame = pd.read_sql_query(
                 """
                 SELECT *
