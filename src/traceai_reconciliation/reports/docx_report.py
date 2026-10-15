@@ -288,7 +288,7 @@ def _add_operator_causes(doc: DocumentObject, report: CaseReport) -> None:
         operation = str(entry.get("operation_type") or "").strip().upper()
         if system == "WMS" and operation in {"LIVRARE", "RECEPTIE"}:
             import re
-            matched = re.fullmatch(r"SFA(\\d+)(?:-1)?", doc_id)
+            matched = re.fullmatch(r"SFA(\d+)(?:-1)?", doc_id)
             if matched:
                 groups[matched.group(1)].append(entry)
         elif system == "WME" and operation == "AE" and doc_id.isdigit():
@@ -345,7 +345,7 @@ def _add_operator_causes(doc: DocumentObject, report: CaseReport) -> None:
             findings,
             key=lambda f: f.get("type") != "RECEPTION_STAGING_INCLUDED_IN_STORAGE",
         )
-    if not findings and not report.unmatched_operations:
+    if not findings and not report.unmatched_operations and not report.operation_timeline:
         doc.add_paragraph("Nu au fost identificate verificari operationale punctuale.")
         return
 
