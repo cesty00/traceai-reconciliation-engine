@@ -221,6 +221,17 @@ def generate_operator_causes_docx(
              e.get("document"), e.get("operation_type"),
              e.get("quantity"), e.get("warehouse"), _source_reference(e)) for e in entries
         ])
+        metadata_entries = [e for e in match["ret"] if e.get("source_metadata")]
+        if metadata_entries:
+            doc.add_paragraph("Identificatori expliciți din exportul WMS (retur):")
+            _table(doc, ["Document", "Rând sursă", "NIR", "Palet", "Lot", "Locație"], [
+                (e.get("document"), _source_reference(e),
+                 e["source_metadata"].get("nir", "Nedisponibil"),
+                 e["source_metadata"].get("pallet", "Nedisponibil"),
+                 e["source_metadata"].get("lot", "Nedisponibil"),
+                 e["source_metadata"].get("location", "Nedisponibil"))
+                for e in metadata_entries
+            ])
         erp = sum(float(e.get("quantity") or 0) for e in match["ae"])
         doc.add_paragraph(f"Calcul: WMS net {net:,.3f} / WME AE {erp:,.3f} / Rezidual {net-erp:+,.3f} {report.unit}.")
         doc.add_paragraph("Egalitatea documentară cantitativă nu confirmă singură că recepția este un retur real.")
