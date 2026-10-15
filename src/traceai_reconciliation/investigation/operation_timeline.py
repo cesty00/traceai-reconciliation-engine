@@ -22,6 +22,31 @@ def _row_value(
     return value
 
 
+
+def _explicit_wms_metadata(row: pd.Series) -> dict[str, Any]:
+    """Copy only explicitly named source fields; never derive logistics IDs."""
+    from .source_readers import normalize_header
+
+    accepted = {
+        "nir": ("NIR", "Nr NIR", "Numar NIR", "NIR Number"),
+        "pallet": ("Palet", "Cod palet", "ID palet", "Pallet", "Pallet ID"),
+        "lot": ("Lot", "Lot produs", "LotArticol"),
+        "location": ("Locatie", "Locatie WMS", "Cod locatie", "Location"),
+    }
+    available = {normalize_header(column): column for column in row.index}
+    metadata = {}
+    for name, aliases in accepted.items():
+        keys = [available[normalize_header(a)] for a in aliases
+                if normalize_header(a) in available]
+        keys = list(dict.fromkeys(keys))
+        if len(keys) != 1:
+            continue
+        value = row.get(keys[0])
+        if value is not None and not pd.isna(value) and str(value).strip() not in ("", "-"):
+            metadata[name] = str(value).strip()
+    return metadata
+
+
 def timeline_from_wms(df: pd.DataFrame) -> list[dict[str, Any]]:
     if df.empty:
         return []
@@ -32,6 +57,7 @@ def timeline_from_wms(df: pd.DataFrame) -> list[dict[str, Any]]:
             {
                 "date": _row_value(row, df.columns, "date"),
                 "system": "WMS",
+                **({"source_metadata": _explicit_wms_metadata(row)} if _explicit_wms_metadata(row) else {}),
                 "source_row": row.get("SourceRowNumber") if pd.notna(row.get("SourceRowNumber")) else None,
                 "document": _row_value(row, df.columns, "document"),
                 "operation_type": _row_value(row, df.columns, "operation_type"),
