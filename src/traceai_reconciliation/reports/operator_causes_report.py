@@ -122,7 +122,13 @@ def generate_operator_causes_docx(
     staging = any(f.get("type") == "RECEPTION_STAGING_INCLUDED_IN_STORAGE" for f in report.findings)
     if staging:
         doc.add_paragraph("Regulă confirmată: Recepție nerelocată este zonă operațională a Depozitării; rândurile originale rămân vizibile.")
-    doc.add_paragraph("Un sold egal nu dovedește reconcilierea tuturor documentelor.")
+    if zone_rows and abs(wms-wme) > 0.001:
+        doc.add_paragraph(
+            "Diferență de stoc REALĂ: verificați operațiunile care produc abaterea. "
+            "Nu efectuați ajustări înainte de validarea documentară."
+        )
+    else:
+        doc.add_paragraph("Un sold egal nu dovedește reconcilierea tuturor documentelor.")
     doc.add_heading("Registru CAUSES", 1)
     events = report.operation_timeline
     deliveries = defaultdict(lambda: {"out": [], "ret": [], "ae": []})
