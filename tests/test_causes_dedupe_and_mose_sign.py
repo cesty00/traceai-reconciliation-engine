@@ -23,6 +23,6 @@ def test_duplicate_pv_and_signed_mose_source_rows(tmp_path: Path):
     doc=Document(output)
     text=" ".join(c.text for t in doc.tables for row in t.rows for c in row.cells)
     assert text.count("2613")==1
-    assert "2026-05-06 00:00:00" in text
+    assert "06.05.2026" in text
     assert "MOSE" in text
     assert "-20" in text
