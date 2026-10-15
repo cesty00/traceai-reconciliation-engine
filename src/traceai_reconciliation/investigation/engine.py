@@ -27,6 +27,7 @@ from .production_input_matching import match_production_inputs
 from .stock_correction_matching import match_generic_wms_stock_corrections
 from .stock_report_zone_matching import (
     has_offsetting_zone_differences,
+    is_confirmed_reception_staging_offset,
     reconcile_stock_report_zones,
 )
 from .transfer_mose_matching import (
@@ -351,6 +352,15 @@ def investigate_product(
         total_difference=result.initial_difference,
         tolerance=10 ** (-decimals),
     )
+    reception_staging_offset = offsetting_zone_differences and is_confirmed_reception_staging_offset(
+        stock_zone_match, tolerance=10 ** (-decimals)
+    )
+    if reception_staging_offset:
+        result.findings.append({
+            "type": "RECEPTION_STAGING_INCLUDED_IN_STORAGE",
+            "description": "Depozitare și Recepție nerelocată sunt zone ale aceluiași perimetru logistic; diferențele lor se compensează. Validarea documentelor rămâne separată.",
+            "evidence": "SRC-STOCK-REPORT + VALIDARE_OPERATOR",
+        })
     if offsetting_zone_differences:
         material_rows = [
             row
@@ -1457,7 +1467,7 @@ def investigate_product(
             result.cause_status = "NEDETERMINATA"
             result.explained_difference = 0.0
             result.unexplained_difference = 0.0
-        elif offsetting_zone_differences:
+        elif offsetting_zone_differences and not reception_staging_offset:
             result.verdict = "REVIEW"
             result.evidence_level = "A"
             result.cause_code = "CAUSE-OFFSETTING-ZONE-DIFFERENCES"
@@ -1471,13 +1481,14 @@ def investigate_product(
             result.explained_difference = 0.0
             result.unexplained_difference = 0.0
         else:
-            result.verdict = "MATCH_DIRECT"
-            result.evidence_level = "A"
-            result.cause_code = "CAUSE-NONE"
+            result.verdict = "REVIEW" if reception_staging_offset or delivery_match.residual_documents or delivery_match.wme_only_documents or stock_zone_match.unresolved_rows else "MATCH_DIRECT"
+            result.evidence_level = "B" if result.verdict == "REVIEW" else "A"
+            result.cause_code = "CAUSE-RECEPTION-STAGING-DOCUMENT-REVIEW" if reception_staging_offset else "CAUSE-NONE"
             result.cause_description = (
-                "Raportul de stoc nu indică diferență materială pentru produs."
+                "Recepția nerelocată aparține Depozitării; diferența consolidată este zero, dar documentele necesită validare."
+                if reception_staging_offset else "Raportul de stoc nu indică diferență materială pentru produs."
             )
-            result.cause_status = "CONFIRMATA"
+            result.cause_status = "NEDETERMINATA" if result.verdict == "REVIEW" else "CONFIRMATA"
             result.explained_difference = 0.0
             result.unexplained_difference = 0.0
     elif result.explained_difference == 0:
