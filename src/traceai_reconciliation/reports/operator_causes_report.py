@@ -185,6 +185,7 @@ def generate_operator_causes_docx(
         quantity = (match.get("quantity") if match else item.get("quantity"))
         warehouse = match.get("warehouse") if match else "Neidentificată"
         return (_date_for_operator(date), system, document, operation, quantity, warehouse,
+                _source_reference(match) if match else _source_reference(item),
                 str(item.get("reason") or "-"))
 
     registru = []
@@ -231,7 +232,7 @@ def generate_operator_causes_docx(
         if not items:
             continue
         page(title)
-        _table(doc, ["Data/ora sursă", "Sistem", "Document", "Operațiune", "Cantitate mișcare", "Gestiune", "Motiv / efect tehnic"], [
+        _table(doc, ["Data/ora sursă", "Sistem", "Document", "Operațiune", "Cantitate mișcare", "Gestiune", "Rând sursă", "Motiv / efect tehnic"], [
             sourced_row(x) for x in items[:15]
         ])
         doc.add_paragraph(
