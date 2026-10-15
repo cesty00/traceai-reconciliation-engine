@@ -279,6 +279,56 @@ def _add_operator_causes(doc: DocumentObject, report: CaseReport) -> None:
         "fara probe raman REVIEW. Ora 00:00 din WME poate fi doar data documentului."
     )
 
+    # Document-level evidence, never a full-case MATCH declaration.
+    from collections import defaultdict
+    groups = defaultdict(list)
+    for entry in report.operation_timeline:
+        system = str(entry.get("system") or "").upper()
+        doc_id = str(entry.get("document") or "").strip().upper()
+        operation = str(entry.get("operation_type") or "").strip().upper()
+        if system == "WMS" and operation in {"LIVRARE", "RECEPTIE"}:
+            import re
+            matched = re.fullmatch(r"SFA(\\d+)(?:-1)?", doc_id)
+            if matched:
+                groups[matched.group(1)].append(entry)
+        elif system == "WME" and operation == "AE" and doc_id.isdigit():
+            groups[doc_id].append(entry)
+    shown = 0
+    for doc_id, entries in sorted(groups.items()):
+        outgoing = [e for e in entries if str(e.get("system")).upper() == "WMS"
+                    and str(e.get("operation_type")).upper() == "LIVRARE"
+                    and str(e.get("document")).upper() == "SFA" + doc_id]
+        returns = [e for e in entries if str(e.get("system")).upper() == "WMS"
+                   and str(e.get("operation_type")).upper() == "RECEPTIE"
+                   and str(e.get("document")).upper() == "SFA" + doc_id + "-1"]
+        ae = [e for e in entries if str(e.get("system")).upper() == "WME"
+              and str(e.get("operation_type")).upper() == "AE"]
+        if not (outgoing and returns and ae):
+            continue
+        wms_net = sum(float(e.get("quantity") or 0) for e in outgoing + returns)
+        wme_net = sum(float(e.get("quantity") or 0) for e in ae)
+        if abs(wms_net-wme_net) > .001:
+            continue
+        if shown == 0:
+            _add_heading(doc, "FLUXURI LIVRARE / RETUR - DOVEZI DOCUMENTARE")
+        shown += 1
+        _add_heading(doc, "Document " + doc_id + " - concordanta cantitativa")
+        doc.add_paragraph(
+            f"WMS net {wms_net:.3f} vs AE WME {wme_net:.3f}; "
+            "verificarea semnificatiei returului ramane necesara. "
+            "Nu se certifica automat cazul integral."
+        )
+        _add_table(
+            doc, ["Data/ora sursa", "Sistem", "Document", "Operatiune", "Cantitate", "Gestiune"],
+            [(str(e.get("date") or "-"),str(e.get("system") or "-"),
+              str(e.get("document") or "-"),str(e.get("operation_type") or "-"),
+              str(e.get("quantity") if e.get("quantity") is not None else "-"),
+              str(e.get("warehouse") or "-")) for e in outgoing+returns+ae],
+            7.1,
+        )
+        if shown >= 10:
+            break
+
     # Informational diagnostics should not become standalone operator CAUSES.
     informational = {"SOURCE_COUNTS", "WME_FINAL_BY_WAREHOUSE", "WME_BALANCE_CHECK"}
     staging = any(
