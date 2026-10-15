@@ -109,6 +109,45 @@ def generate_operator_causes_docx(
                 flows.append((no, x, net))
     pv = [x for x in report.unmatched_operations if str(x.get("operation_type") or "").upper() in ("PV", "INV-MIN", "INV-PLS")]
     mose = [x for x in report.unmatched_operations if "MOSE" in str(x.get("reason") or "").upper()]
+    # Multiple investigative views can surface the same economic document.
+    # Keep one operator row per exact system, type and document; prefer a dated row.
+    def unique_documents(items):
+        chosen = {}
+        for item in items:
+            key = (str(item.get("system") or "").upper(),
+                   str(item.get("operation_type") or "").upper(),
+                   str(item.get("document") or "").strip().upper())
+            current = chosen.get(key)
+            if current is None or (str(current.get("date") or "-") == "-"
+                                   and str(item.get("date") or "-") != "-"):
+                chosen[key] = item
+        return list(chosen.values())
+
+    pv = unique_documents(pv)
+    mose = unique_documents(mose)
+    timeline_by_document = {}
+    for entry in events:
+        key = (str(entry.get("system") or "").upper(),
+               str(entry.get("document") or "").strip().upper(),
+               str(entry.get("operation_type") or "").upper())
+        timeline_by_document.setdefault(key, []).append(entry)
+
+    def sourced_row(item):
+        system = str(item.get("system") or "").upper()
+        document = str(item.get("document") or "").strip().upper()
+        operation = str(item.get("operation_type") or "").upper()
+        matches = timeline_by_document.get((system, document, operation), [])
+        # An inventory without document number cannot be attributed to a
+        # timeline row solely on the basis of equal quantities.
+        match = matches[0] if len(matches) == 1 and document not in ("", "-") else None
+        date = (match.get("date") if match else item.get("date")) or "Neidentificată"
+        if date == "-":
+            date = "Neidentificată"
+        quantity = (match.get("quantity") if match else item.get("quantity"))
+        warehouse = match.get("warehouse") if match else "Neidentificată"
+        return (date, system, document, operation, quantity, warehouse,
+                str(item.get("reason") or "-"))
+
     registru = []
     if staging:
         registru.append(("01", "Recepție nerelocată în Depozitare", "Clarificare operațională confirmată"))
@@ -153,11 +192,14 @@ def generate_operator_causes_docx(
         if not items:
             continue
         page(title)
-        _table(doc, ["Data", "Sistem", "Document", "Operațiune", "Cantitate", "Motiv"], [
-            (x.get("date") or "Neidentificată", x.get("system"), x.get("document"),
-             x.get("operation_type"), x.get("quantity"), x.get("reason"))
-            for x in items[:15]
+        _table(doc, ["Data/ora sursă", "Sistem", "Document", "Operațiune", "Cantitate mișcare", "Gestiune", "Motiv / efect tehnic"], [
+            sourced_row(x) for x in items[:15]
         ])
+        doc.add_paragraph(
+            "Cantitate mișcare = semnul din cronologia sursă când există corespondență exactă. "
+            "Efectul tehnic asupra diferenței, dacă apare în motiv, este alt indicator și "
+            "nu trebuie confundat cu semnul mișcării."
+        )
         doc.add_paragraph("REVIEW: documentele nu sunt considerate cauze confirmate.")
         _decision(doc, checks)
     doc.add_paragraph("NOTĂ: raportul nu autorizează ajustări WMS/WME. Ora 00:00 din WME poate însemna doar dată calendaristică.")
