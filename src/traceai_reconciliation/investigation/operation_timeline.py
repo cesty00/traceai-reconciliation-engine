@@ -79,6 +79,33 @@ def _explicit_wms_metadata(row: pd.Series) -> dict[str, Any]:
     return metadata
 
 
+
+def _source_actor(row: pd.Series) -> dict[str, str]:
+    """Read explicit user/person columns only; never infer an actor from a partner."""
+    from .source_readers import normalize_header
+    accepted = {
+        "user": ("Utilizator", "User", "Username", "User Name", "User operare",
+                 "Utilizator operare", "Operat de", "Creat de"),
+        "person": ("Operator", "Nume operator", "Nume persoana", "Persoana",
+                   "Responsabil operatiune", "Participant"),
+    }
+    normalized = {normalize_header(col): col for col in row.index}
+    out = {}
+    for field, aliases in accepted.items():
+        columns = list(dict.fromkeys(
+            normalized[normalize_header(alias)]
+            for alias in aliases if normalize_header(alias) in normalized
+        ))
+        if len(columns) != 1:
+            continue
+        value = row.get(columns[0])
+        if value is not None and not pd.isna(value):
+            clean = str(value).strip()
+            if clean and clean.casefold() not in ("-", "nan", "none"):
+                out[field] = clean
+    return out
+
+
 def timeline_from_wms(df: pd.DataFrame) -> list[dict[str, Any]]:
     if df.empty:
         return []
@@ -89,6 +116,7 @@ def timeline_from_wms(df: pd.DataFrame) -> list[dict[str, Any]]:
             {
                 "date": _row_value(row, df.columns, "date"),
                 "system": "WMS",
+                "actor": _source_actor(row),
                 **({"source_metadata": _explicit_wms_metadata(row)} if _explicit_wms_metadata(row) else {}),
                 "source_row": row.get("SourceRowNumber") if pd.notna(row.get("SourceRowNumber")) else None,
                 "document": _row_value(row, df.columns, "document"),
@@ -113,6 +141,7 @@ def timeline_from_wme(df: pd.DataFrame) -> list[dict[str, Any]]:
             {
                 "date": row.get("Date", "-"),
                 "system": "WME",
+                "actor": _source_actor(row),
                 "source_row": row.get("SourceRowNumber") if pd.notna(row.get("SourceRowNumber")) else None,
                 "source_line_no": row.get("LineNo") if pd.notna(row.get("LineNo")) else None,
                 "document": row.get("Document", "-"),
@@ -156,6 +185,7 @@ def timeline_from_production(
             {
                 "date": row.get("Data Start", "-"),
                 "system": "PRODUCTIE",
+                "actor": _source_actor(row),
                 "document": row.get("Numar Comanda", "-"),
                 "operation_type": kind,
                 "quantity": qty,
