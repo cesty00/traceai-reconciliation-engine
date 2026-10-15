@@ -46,7 +46,7 @@ def _date_for_operator(value):
 
 def _source_reference(entry):
     """Only expose source identifiers explicitly carried by case evidence."""
-    for key in ("source_row", "source_row_number", "row_number", "source_line"):
+    for key in ("source_row", "SourceRowNumber", "source_row_number", "row_number", "source_line"):
         value = entry.get(key)
         if value is not None and str(value).strip() not in ("", "-"):
             return str(value)
