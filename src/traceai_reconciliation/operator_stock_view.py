@@ -46,3 +46,17 @@ def build_product_list(report: pd.DataFrame) -> pd.DataFrame:
     return grouped
 
 
+
+
+def split_unidentified_articles(report: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Separate missing-code source rows for explicit operator review.
+
+    Never invent a mapping, erase original quantities, or silently remove
+    unidentifiable records. The caller must display the quarantined rows.
+    """
+    missing = REQUIRED_COLUMNS.difference(report.columns)
+    if missing:
+        raise ValueError("Raportul de stoc nu conține coloanele: " + ", ".join(sorted(missing)))
+    codes = report["CodArticol"].astype("string").str.strip()
+    unidentified = codes.isna() | codes.eq("")
+    return report.loc[~unidentified].copy(), report.loc[unidentified].copy()
