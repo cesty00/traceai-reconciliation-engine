@@ -28,6 +28,31 @@ def _table(doc, headers, rows):
     return table
 
 
+
+def _date_for_operator(value):
+    """Display source dates consistently; midnight is not evidence of a time."""
+    from datetime import datetime
+    raw = str(value or "").strip()
+    if not raw or raw == "-":
+        return "Neidentificată"
+    try:
+        parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except ValueError:
+        return raw
+    return (parsed.strftime("%d.%m.%Y %H:%M:%S")
+            if parsed.time().isoformat() != "00:00:00"
+            else parsed.strftime("%d.%m.%Y"))
+
+
+def _source_reference(entry):
+    """Only expose source identifiers explicitly carried by case evidence."""
+    for key in ("source_row", "source_row_number", "row_number", "source_line"):
+        value = entry.get(key)
+        if value is not None and str(value).strip() not in ("", "-"):
+            return str(value)
+    return "Nedisponibil în cronologia cazului"
+
+
 def _decision(doc, checks):
     doc.add_heading("Ce verifică operatorul", level=2)
     for check in checks:
@@ -159,7 +184,7 @@ def generate_operator_causes_docx(
             date = "Neidentificată"
         quantity = (match.get("quantity") if match else item.get("quantity"))
         warehouse = match.get("warehouse") if match else "Neidentificată"
-        return (date, system, document, operation, quantity, warehouse,
+        return (_date_for_operator(date), system, document, operation, quantity, warehouse,
                 str(item.get("reason") or "-"))
 
     registru = []
@@ -190,10 +215,10 @@ def generate_operator_causes_docx(
     for no, match, net in flows[:8]:
         page(f"Livrare {no} și retur parțial")
         entries = match["out"]+match["ret"]+match["ae"]
-        _table(doc, ["Sistem", "Data / ora", "Document", "Operațiune", "Cantitate", "Gestiune"], [
-            (e.get("system"), e.get("date") or "Neidentificată",
+        _table(doc, ["Sistem", "Data / ora", "Document", "Operațiune", "Cantitate", "Gestiune", "Rând sursă"], [
+            (e.get("system"), _date_for_operator(e.get("date")),
              e.get("document"), e.get("operation_type"),
-             e.get("quantity"), e.get("warehouse")) for e in entries
+             e.get("quantity"), e.get("warehouse"), _source_reference(e)) for e in entries
         ])
         erp = sum(float(e.get("quantity") or 0) for e in match["ae"])
         doc.add_paragraph(f"Calcul: WMS net {net:,.3f} / WME AE {erp:,.3f} / Rezidual {net-erp:+,.3f} {report.unit}.")
