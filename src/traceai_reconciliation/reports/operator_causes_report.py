@@ -187,7 +187,7 @@ def generate_operator_causes_docx(
         _decision(doc, ["Confirmă returul în documentul de recepție/NIR.", "Verifică produsul, gestiunea, lotul și referințele sursă."])
     for title, items, checks in [
         ("Inventare și corecții",pv,["Găsește PV-ul și ajustarea WMS.", "Verifică data, cantitatea, semnul, lotul și gestiunea."]),
-        ("Documente F în MOSE",mose,["Identifică documentele F în MOSE.", "Verifică transferurile și evită dublarea efectului."]),
+        ("Documente F în MOSE",mose,["Verifică factura F și clientul înscris pe factură.", "Caută NT WME de intrare în gestiunea MOSE și livrarea WMS TRANSFER_MOSE corespunzătoare.", "Nu confunda gestiunea MOSE cu clientul MOSE Business Distribution."]),
     ]:
         if not items:
             continue
@@ -200,6 +200,22 @@ def generate_operator_causes_docx(
             "Efectul tehnic asupra diferenței, dacă apare în motiv, este alt indicator și "
             "nu trebuie confundat cu semnul mișcării."
         )
+        if title == "Documente F în MOSE":
+            doc.add_paragraph(
+                "REGULĂ MOSE CONFIRMATĂ: gestiunea MOSE este internă. "
+                "Marfa iese din Depozit Principal prin Livrare WMS TRANSFER_MOSE "
+                "și intră în MOSE prin NT WME. Factura F este o ieșire ulterioară "
+                "din gestiunea MOSE către clientul înscris pe document; "
+                "nu reprezintă transferul în sine. "
+                "MOSE Business Distribution este un client separat, nu gestiunea MOSE."
+            )
+            transfer_info = details.get("transfer_mose_matching") or {}
+            matched = transfer_info.get("matches")
+            if matched is not None:
+                doc.add_paragraph(
+                    f"Transferuri interne WMS ↔ NT WME identificate de motor: {matched}. "
+                    "Această asociere nu validează automat facturile F."
+                )
         doc.add_paragraph("REVIEW: documentele nu sunt considerate cauze confirmate.")
         _decision(doc, checks)
     doc.add_paragraph("NOTĂ: raportul nu autorizează ajustări WMS/WME. Ora 00:00 din WME poate însemna doar dată calendaristică.")
