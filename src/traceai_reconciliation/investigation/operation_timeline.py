@@ -32,7 +32,7 @@ def _identifier_text(value: Any, field: str) -> str:
             return str(int(value))
     if field == "pallet" and isinstance(value, str):
         import re
-        if re.fullmatch(r"[0-9]+\\.0+", value.strip()):
+        if re.fullmatch(r"[0-9]+\.0+", value.strip()):
             return value.strip().split(".")[0]
     return str(value).strip()
 
