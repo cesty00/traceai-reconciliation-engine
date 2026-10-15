@@ -21,6 +21,7 @@ REQUIRED_INPUTS = {
     "nomenclature": "Nomenclator mapare WMS/WME",
 }
 from traceai_reconciliation.operator_stock_view import build_product_list, split_unidentified_articles
+from traceai_reconciliation.operator_pilot_matrix import build_pilot_sample
 
 
 def _write_uploaded_file(uploaded, destination: Path) -> Path:
@@ -94,6 +95,19 @@ def main() -> None:
         st.warning(f"{len(unidentified)} rânduri fără cod articol au fost izolate pentru verificarea mapării WMS/WME. Nu pot fi reconciliate automat.")
         with st.expander("Articole neidentificate — necesită mapare"):
             st.dataframe(unidentified, use_container_width=True, hide_index=True)
+    with st.expander("Pilot QA — eșantion de testare (cu și fără diferență)"):
+        st.caption(
+            "Eșantion determinist: câte 3 produse WMS > WME, WMS < WME și fără diferență. "
+            "Nu este un verdict al motorului; nu presupune că articolele cu sold zero sunt reconciliate."
+        )
+        matrix = build_pilot_sample(table, per_category=3)
+        st.dataframe(matrix, use_container_width=True, hide_index=True)
+        st.download_button(
+            "Descarcă planul de testare CSV",
+            data=matrix.to_csv(index=False).encode("utf-8-sig"),
+            file_name="traceai_plan_testare_articole.csv",
+            mime="text/csv",
+        )
     st.subheader("2. Articole și diferențe")
     st.caption("Diferenta = WMS − WME. Articolele cu diferență zero pot fi investigate.")
     show = st.radio("Afișare", ["Toate", "Cu diferență", "Fără diferență"], horizontal=True)
