@@ -37,3 +37,19 @@ def test_operator_report_follows_demo_structure(tmp_path: Path):
     for term in ["SFA24774-1", "2613", "23,380.000", "900.000"]:
         assert term in tables
     assert "Anexa A - Jurnal cronologic" not in prose
+
+def test_unequal_stock_has_correct_warning(tmp_path: Path):
+    report = CaseReport(
+        case_id="CASE-40024", product_code="40024", product_name="Etichete",
+        period="2026", report_date="2026-10-15", initial_difference=-8620.2,
+        explained_difference=0, unexplained_difference=-8620.2,
+        unit="BUCATA", verdict="REVIEW", evidence_level="B",
+        cause_code="REVIEW", cause_description="Pending",
+        cause_status="NEDETERMINATA", executive_summary="Review"
+    )
+    target = generate_operator_causes_docx(report,tmp_path/"case.docx",details={
+        "stock_report_zone_matching":{"rows":[dict(report_warehouse="SECTIE PRODUCTIE",
+            quantity_wms=18044.3,quantity_erp=26664.5,report_difference=-8620.2)]}})
+    prose=" ".join(p.text for p in Document(target).paragraphs)
+    assert "Diferență de stoc REALĂ" in prose
+    assert "Un sold egal" not in prose
