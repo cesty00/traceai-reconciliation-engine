@@ -20,7 +20,7 @@ REQUIRED_INPUTS = {
     "production": "Rapoarte producție",
     "nomenclature": "Nomenclator mapare WMS/WME",
 }
-from traceai_reconciliation.operator_stock_view import build_product_list, split_unidentified_articles, build_warehouse_stock_view
+from traceai_reconciliation.operator_stock_view import build_product_list, split_unidentified_articles, build_warehouse_stock_view, build_depozitare_consolidated_view
 from traceai_reconciliation.operator_pilot_matrix import build_pilot_sample
 
 
@@ -139,6 +139,16 @@ def main() -> None:
     elif show == "Fără diferență":
         warehouse_selected = warehouse_selected[warehouse_selected["Diferenta_WMS_minus_WME"].abs() <= 0.001]
     st.dataframe(warehouse_selected, use_container_width=True, hide_index=True)
+    st.subheader("Depozitare consolidată — include Recepție nerelocată")
+    st.caption("Regulă operațională confirmată: Recepție este zona de așteptare a relocării din Depozitare. Tabel informativ: nu declară MATCH documentar și nu închide alte diferențe.")
+    consolidated = build_depozitare_consolidated_view(warehouse_table)
+    if search.strip():
+        consolidated = consolidated[consolidated["CodArticol"].str.contains(search.strip(), case=False, regex=False, na=False)]
+    if show == "Cu diferență":
+        consolidated = consolidated[consolidated["Diferenta_WMS_minus_WME"].abs() > 0.001]
+    elif show == "Fără diferență":
+        consolidated = consolidated[consolidated["Diferenta_WMS_minus_WME"].abs() <= 0.001]
+    st.dataframe(consolidated, use_container_width=True, hide_index=True)
     codes = selected["CodArticol"].tolist()
     if not codes:
         st.info("Niciun articol în filtrul selectat.")
