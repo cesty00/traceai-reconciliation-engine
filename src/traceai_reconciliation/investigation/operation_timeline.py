@@ -32,6 +32,7 @@ def timeline_from_wms(df: pd.DataFrame) -> list[dict[str, Any]]:
             {
                 "date": _row_value(row, df.columns, "date"),
                 "system": "WMS",
+                "source_row": row.get("SourceRowNumber") if pd.notna(row.get("SourceRowNumber")) else None,
                 "document": _row_value(row, df.columns, "document"),
                 "operation_type": _row_value(row, df.columns, "operation_type"),
                 "quantity": _row_value(row, df.columns, "quantity"),
@@ -54,6 +55,8 @@ def timeline_from_wme(df: pd.DataFrame) -> list[dict[str, Any]]:
             {
                 "date": row.get("Date", "-"),
                 "system": "WME",
+                "source_row": row.get("SourceRowNumber") if pd.notna(row.get("SourceRowNumber")) else None,
+                "source_line_no": row.get("LineNo") if pd.notna(row.get("LineNo")) else None,
                 "document": row.get("Document", "-"),
                 "operation_type": row.get("OperationType", "-"),
                 "quantity": row.get("SignedQuantity", "-"),
