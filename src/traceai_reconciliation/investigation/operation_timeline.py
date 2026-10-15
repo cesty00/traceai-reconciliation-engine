@@ -116,7 +116,7 @@ def timeline_from_wms(df: pd.DataFrame) -> list[dict[str, Any]]:
             {
                 "date": _row_value(row, df.columns, "date"),
                 "system": "WMS",
-                "actor": _source_actor(row),
+                **({"actor": _source_actor(row)} if _source_actor(row) else {}),
                 **({"source_metadata": _explicit_wms_metadata(row)} if _explicit_wms_metadata(row) else {}),
                 "source_row": row.get("SourceRowNumber") if pd.notna(row.get("SourceRowNumber")) else None,
                 "document": _row_value(row, df.columns, "document"),
@@ -141,7 +141,7 @@ def timeline_from_wme(df: pd.DataFrame) -> list[dict[str, Any]]:
             {
                 "date": row.get("Date", "-"),
                 "system": "WME",
-                "actor": _source_actor(row),
+                **({"actor": _source_actor(row)} if _source_actor(row) else {}),
                 "source_row": row.get("SourceRowNumber") if pd.notna(row.get("SourceRowNumber")) else None,
                 "source_line_no": row.get("LineNo") if pd.notna(row.get("LineNo")) else None,
                 "document": row.get("Document", "-"),
@@ -185,7 +185,7 @@ def timeline_from_production(
             {
                 "date": row.get("Data Start", "-"),
                 "system": "PRODUCTIE",
-                "actor": _source_actor(row),
+                **({"actor": _source_actor(row)} if _source_actor(row) else {}),
                 "document": row.get("Numar Comanda", "-"),
                 "operation_type": kind,
                 "quantity": qty,
