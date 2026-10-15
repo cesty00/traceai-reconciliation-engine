@@ -147,7 +147,7 @@ def match_deliveries_and_returns(
     return_like_receipt = (
         raw_document.str.startswith("RET_WME")
         | raw_document.str.startswith("RET_SFA")
-        | raw_document.str.match(r"^(?:WME|WMS|AV_WMS)\d+-(?:1|2)(?:-|$)")
+        | raw_document.str.match(r"^(?:SFA|WME|WMS|AV_WMS)\d+-(?:1|2)(?:-|$)")
     )
     receipt = work[
         work["_op"].eq("Receptie")
@@ -157,7 +157,7 @@ def match_deliveries_and_returns(
 
     derived_receipt_mask = (
         raw_document.str.match(
-            r"^(?:WME|WMS|AV_WMS)\d+-(?:1|2)(?:-\d+)*$"
+            r"^(?:SFA|WME|WMS|AV_WMS)\d+-(?:1|2)(?:-\d+)*$"
         )
     )
     derived_receipt = work[
