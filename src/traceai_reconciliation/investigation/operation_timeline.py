@@ -23,6 +23,20 @@ def _row_value(
 
 
 
+
+def _identifier_text(value: Any, field: str) -> str:
+    """Don't show spreadsheet float suffixes for integral pallet identifiers."""
+    from numbers import Integral, Real
+    if field == "pallet" and isinstance(value, Real) and not isinstance(value, bool):
+        if float(value).is_integer():
+            return str(int(value))
+    if field == "pallet" and isinstance(value, str):
+        import re
+        if re.fullmatch(r"[0-9]+\\.0+", value.strip()):
+            return value.strip().split(".")[0]
+    return str(value).strip()
+
+
 def _explicit_wms_metadata(row: pd.Series) -> dict[str, Any]:
     """Copy only explicitly named source fields; never derive logistics IDs."""
     from .source_readers import normalize_header
@@ -43,7 +57,7 @@ def _explicit_wms_metadata(row: pd.Series) -> dict[str, Any]:
             continue
         value = row.get(keys[0])
         if value is not None and not pd.isna(value) and str(value).strip() not in ("", "-"):
-            metadata[name] = str(value).strip()
+            metadata[name] = _identifier_text(value, name)
     # The physical WMS trace export uses separate source/destination fields.
     # Only on actual receipts is the destination pallet/location the received stock.
     operation = str(_row_value(row, row.index, "operation_type", "")).strip().casefold()
@@ -59,8 +73,8 @@ def _explicit_wms_metadata(row: pd.Series) -> dict[str, Any]:
                 value = row.get(matching[0])
                 if value is not None and not pd.isna(value) and str(value).strip() not in ("", "-"):
                     if field not in metadata:
-                        metadata[field] = str(value).strip()
-                    elif metadata[field] != str(value).strip():
+                        metadata[field] = _identifier_text(value, field)
+                    elif metadata[field] != _identifier_text(value, field):
                         metadata.pop(field, None)
     return metadata
 
