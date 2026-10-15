@@ -91,3 +91,33 @@ def build_warehouse_stock_view(report: pd.DataFrame) -> pd.DataFrame:
     )
     grouped["Diferenta_WMS_minus_WME"] = grouped["WMS"] - grouped["WME"]
     return grouped
+
+
+def build_depozitare_consolidated_view(warehouse_view: pd.DataFrame) -> pd.DataFrame:
+    """Operator-approved physical scope: Receptie is staging within Depozitare.
+
+    Preserve original gestiune rows in warehouse_view. This is a read-only
+    consolidation, not a documentary MATCH or authorization for adjustment.
+    """
+    required = {"CodArticol", "Gestiune", "WMS", "WME"}
+    missing = required.difference(warehouse_view.columns)
+    if missing:
+        raise ValueError("Coloane lipsă pentru consolidare: " + ", ".join(sorted(missing)))
+    frame = warehouse_view.copy()
+    names = frame["Gestiune"].astype("string").str.strip().str.upper()
+    eligible = names.isin(["DEPOZITARE", "RECEPTIE", "RECEPȚIE"])
+    scoped = frame.loc[eligible].copy()
+    if scoped.empty:
+        return pd.DataFrame(columns=["CodArticol", "Perimetru", "WMS", "WME", "Diferenta_WMS_minus_WME", "Zone_incluse"])
+    for field in ("WMS", "WME"):
+        scoped[field] = pd.to_numeric(scoped[field], errors="coerce")
+        if scoped[field].isna().any():
+            raise ValueError(f"Cantitate invalidă la consolidare: {field}")
+    grouped = scoped.groupby("CodArticol", as_index=False).agg(
+        WMS=("WMS", "sum"),
+        WME=("WME", "sum"),
+        Zone_incluse=("Gestiune", lambda s: ", ".join(sorted(set(s)))),
+    )
+    grouped.insert(1, "Perimetru", "Depozitare (include Recepție nerelocată)")
+    grouped["Diferenta_WMS_minus_WME"] = grouped["WMS"] - grouped["WME"]
+    return grouped
