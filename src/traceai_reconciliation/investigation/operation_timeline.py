@@ -141,7 +141,7 @@ def timeline_from_wme(df: pd.DataFrame) -> list[dict[str, Any]]:
             {
                 "date": row.get("Date", "-"),
                 "system": "WME",
-                **({"actor": _source_actor(row)} if _source_actor(row) else {}),
+                **({"actor": {"user": str(row.get("Note")).strip()}} if pd.notna(row.get("Note")) and str(row.get("Note")).strip() not in ("", "-", "nan", "None") else {}),
                 "source_row": row.get("SourceRowNumber") if pd.notna(row.get("SourceRowNumber")) else None,
                 "source_line_no": row.get("LineNo") if pd.notna(row.get("LineNo")) else None,
                 "document": row.get("Document", "-"),
