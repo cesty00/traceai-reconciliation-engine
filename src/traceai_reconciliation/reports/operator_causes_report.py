@@ -54,6 +54,16 @@ def _source_reference(entry):
 
 
 
+
+def _actor_label(entry):
+    actor = entry.get("actor") or {}
+    user = str(actor.get("user") or "").strip()
+    person = str(actor.get("person") or "").strip()
+    if user and person:
+        return f"{person} / {user}" if user != person else user
+    return person or user or "Nedisponibil în sursă"
+
+
 def _operational_status(*, confirmed_cause: bool = False,
                         operator_approved: bool = False,
                         proposed_correction: dict | None = None) -> str:
@@ -291,10 +301,10 @@ def generate_operator_causes_docx(
         page(f"Livrare {no} și retur parțial")
         doc.add_paragraph("Stadiu operațional: " + _operational_status() + " — retur de validat documentar.")
         entries = match["out"]+match["ret"]+match["ae"]
-        _table(doc, ["Sistem", "Data / ora", "Document", "Operațiune", "Cantitate", "Gestiune", "Rând sursă"], [
+        _table(doc, ["Sistem", "Data / ora", "Document", "Operațiune", "Cantitate", "Gestiune", "Rând sursă", "Persoană / user"], [
             (e.get("system"), _date_for_operator(e.get("date")),
              e.get("document"), e.get("operation_type"),
-             e.get("quantity"), e.get("warehouse"), _source_reference(e)) for e in entries
+             e.get("quantity"), e.get("warehouse"), _source_reference(e), _actor_label(e)) for e in entries
         ])
         metadata_entries = [e for e in match["ret"] if e.get("source_metadata")]
         if metadata_entries:
@@ -314,11 +324,11 @@ def generate_operator_causes_docx(
     if wms_corrections:
         page("Ajustări WMS fără document")
         doc.add_paragraph("Stadiu operațional: REVIEW — corecțiile nu au cauză confirmată.")
-        _table(doc, ["Data / ora", "Operațiune", "Cantitate", "Lot", "Rând WMS"], [
+        _table(doc, ["Data / ora", "Operațiune", "Cantitate", "Lot", "Rând WMS", "Persoană / user"], [
             (_date_for_operator(e.get("date")), e.get("operation_type"),
              f'{float(e.get("quantity") or 0):+,.3f}',
              (e.get("source_metadata") or {}).get("lot", "Nedisponibil"),
-             _source_reference(e))
+             _source_reference(e), _actor_label(e))
             for e in wms_corrections[:12]
         ])
         for (day, lot), items in sorted(correction_groups.items()):
@@ -386,6 +396,19 @@ def generate_operator_causes_docx(
                     f"Transferuri interne WMS ↔ NT WME identificate de motor: {matched}. "
                     "Această asociere nu validează automat facturile F."
                 )
+        actor_entries = []
+        for item in items[:15]:
+            sys = str(item.get("system") or "").upper()
+            name = str(item.get("document") or "").strip().upper()
+            op = str(item.get("operation_type") or "").upper()
+            matches = timeline_by_document.get((sys, name, op), [])
+            if len(matches) == 1 and name not in ("", "-"):
+                actor_entries.append((name, _source_reference(matches[0]), _actor_label(matches[0])))
+            else:
+                actor_entries.append((name, _source_reference(item), "Nedisponibil în sursă"))
+        if actor_entries:
+            doc.add_paragraph("Persoană / utilizator asociat operațiunilor din sursa originală:")
+            _table(doc, ["Document", "Rând sursă", "Persoană / user"], actor_entries)
         doc.add_paragraph("REVIEW: documentele nu sunt considerate cauze confirmate.")
         _decision(doc, checks)
     doc.add_paragraph("NOTĂ: raportul nu autorizează ajustări WMS/WME. Ora 00:00 din WME poate însemna doar dată calendaristică.")
