@@ -1,0 +1,165 @@
+"""Concise operator-first CAUSES report; full forensic report remains separate.
+
+No hardcoded product IDs or assumed evidence. Original source rows are kept in JSON.
+"""
+from __future__ import annotations
+
+from collections import defaultdict
+from pathlib import Path
+from docx import Document
+from docx.shared import Cm, Pt, RGBColor
+from traceai_reconciliation.reports.report_model import CaseReport
+
+
+def _table(doc, headers, rows):
+    table = doc.add_table(rows=1, cols=len(headers))
+    table.style = "Light Shading Accent 1"
+    for cell, label in zip(table.rows[0].cells, headers):
+        cell.text = str(label)
+    for values in rows:
+        cells = table.add_row().cells
+        for cell, value in zip(cells, values):
+            cell.text = str(value if value is not None else "Neidentificat")
+    for row in table.rows:
+        for cell in row.cells:
+            for para in cell.paragraphs:
+                for run in para.runs:
+                    run.font.size = Pt(8)
+    return table
+
+
+def _decision(doc, checks):
+    doc.add_heading("Ce verifică operatorul", level=2)
+    for check in checks:
+        doc.add_paragraph("☐ " + check)
+    doc.add_heading("Decizia operatorului", level=2)
+    _table(doc, ["Decizie", "Observații / dovezi suplimentare"], [
+        ("☐ Confirmat   ☐ Respins   ☐ Verificare suplimentară", "......................................."),
+        ("Verificator / dată", "......................................."),
+    ])
+
+
+def generate_operator_causes_docx(
+    report: CaseReport, output_path: str | Path, *,
+    details: dict | None = None,
+) -> Path:
+    """Demo v0.2-like read-only report, with bounded, evidence-grounded pages."""
+    details = details or {}
+    target = Path(output_path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    doc = Document()
+    section = doc.sections[0]
+    section.top_margin = Cm(1.7)
+    section.bottom_margin = Cm(1.6)
+    section.left_margin = Cm(1.8)
+    section.right_margin = Cm(1.8)
+    normal = doc.styles["Normal"]
+    normal.font.name = "Calibri"
+    normal.font.size = Pt(9)
+    for name in ("Heading 1", "Heading 2"):
+        doc.styles[name].font.color.rgb = RGBColor(28, 72, 106)
+    doc.add_heading("RAPORT OPERATOR — CAUSES", 0)
+    doc.add_paragraph(f"{report.case_id}  |  {report.report_date}  |  TraceAI Control")
+    doc.add_paragraph(f"{report.product_code} — {report.product_name}")
+    doc.add_paragraph(f"Perioada: {report.period}   •   Verdict: {report.verdict}   •   Status: {report.case_status}")
+    doc.add_heading("Rezumat stoc — toate gestiunile", level=1)
+    zone_rows = details.get("stock_report_zone_matching", {}).get("rows", [])
+    rows = [
+        (
+            row.get("report_warehouse", "Neidentificat"),
+            f'{float(row.get("quantity_wms") or 0):,.3f}',
+            f'{float(row.get("quantity_erp") or 0):,.3f}',
+            f'{float(row.get("report_difference") or 0):+,.3f}',
+        )
+        for row in zone_rows
+    ]
+    if not rows:
+        rows = [("Gestiuni indisponibile în datele investigației", "—", "—", "—")]
+    _table(doc, ["Zonă / gestiune", "WMS", "WME", "WMS − WME"], rows)
+    if zone_rows:
+        wms = sum(float(x.get("quantity_wms") or 0) for x in zone_rows)
+        wme = sum(float(x.get("quantity_erp") or 0) for x in zone_rows)
+        doc.add_paragraph(f"TOTAL ARTICOL: WMS {wms:,.3f} | WME {wme:,.3f} | Diferență {wms-wme:+,.3f} {report.unit}")
+    staging = any(f.get("type") == "RECEPTION_STAGING_INCLUDED_IN_STORAGE" for f in report.findings)
+    if staging:
+        doc.add_paragraph("Regulă confirmată: Recepție nerelocată este zonă operațională a Depozitării; rândurile originale rămân vizibile.")
+    doc.add_paragraph("Un sold egal nu dovedește reconcilierea tuturor documentelor.")
+    doc.add_heading("Registru CAUSES", 1)
+    events = report.operation_timeline
+    deliveries = defaultdict(lambda: {"out": [], "ret": [], "ae": []})
+    import re
+    for entry in events:
+        system = str(entry.get("system") or "").upper()
+        name = str(entry.get("document") or "").upper().strip()
+        operation = str(entry.get("operation_type") or "").upper()
+        if system == "WMS":
+            m = re.fullmatch(r"SFA(\d+)(-1)?", name)
+            if m and operation in ("LIVRARE", "RECEPTIE"):
+                key = "ret" if m.group(2) and operation == "RECEPTIE" else "out" if not m.group(2) and operation == "LIVRARE" else None
+                if key:
+                    deliveries[m.group(1)][key].append(entry)
+        elif system == "WME" and operation == "AE" and name.isdigit():
+            deliveries[name]["ae"].append(entry)
+    flows = []
+    for no, x in sorted(deliveries.items()):
+        if x["out"] and x["ret"] and x["ae"]:
+            net = sum(float(e.get("quantity") or 0) for e in x["out"]+x["ret"])
+            erp = sum(float(e.get("quantity") or 0) for e in x["ae"])
+            if abs(net-erp) <= .001:
+                flows.append((no, x, net))
+    pv = [x for x in report.unmatched_operations if str(x.get("operation_type") or "").upper() in ("PV", "INV-MIN", "INV-PLS")]
+    mose = [x for x in report.unmatched_operations if "MOSE" in str(x.get("reason") or "").upper()]
+    registru = []
+    if staging:
+        registru.append(("01", "Recepție nerelocată în Depozitare", "Clarificare operațională confirmată"))
+    for no, _, _ in flows[:8]:
+        registru.append((f"{len(registru)+1:02}", f"Livrare / retur {no}", "Cantități concordante; verificare documentară"))
+    if pv:
+        registru.append((f"{len(registru)+1:02}", "Inventare și corecții", "REVIEW"))
+    if mose:
+        registru.append((f"{len(registru)+1:02}", "Documente MOSE", "REVIEW"))
+    if not registru:
+        registru.append(("01", "Verificare documentară", "REVIEW"))
+    _table(doc, ["ID", "Obiect verificare", "Stadiu"], registru)
+    doc.add_paragraph("Fiecare decizie se validează separat. Raportul tehnic și cronologia completă sunt păstrate în JSON.")
+    counter = 0
+    def page(title):
+        nonlocal counter
+        counter += 1
+        doc.add_page_break()
+        doc.add_heading(f"CAUSE {counter:02} — {title}", 1)
+        doc.add_heading("LOCALIZARE RAPIDĂ ÎN SISTEMELE REALE", 2)
+    if staging:
+        page("Recepție nerelocată în Depozitare")
+        _table(doc, ["Gestiune", "WMS", "WME", "Diferență"], rows)
+        doc.add_paragraph("Perimetru operațional comun confirmat. Nu înseamnă că toate documentele sunt validate.")
+        _decision(doc, ["Confirmă cantitatea rămasă în Recepție.", "Verifică relocarea fără dublare de stoc."])
+    for no, match, net in flows[:8]:
+        page(f"Livrare {no} și retur parțial")
+        entries = match["out"]+match["ret"]+match["ae"]
+        _table(doc, ["Sistem", "Data / ora", "Document", "Operațiune", "Cantitate", "Gestiune"], [
+            (e.get("system"), e.get("date") or "Neidentificată",
+             e.get("document"), e.get("operation_type"),
+             e.get("quantity"), e.get("warehouse")) for e in entries
+        ])
+        erp = sum(float(e.get("quantity") or 0) for e in match["ae"])
+        doc.add_paragraph(f"Calcul: WMS net {net:,.3f} / WME AE {erp:,.3f} / Rezidual {net-erp:+,.3f} {report.unit}.")
+        doc.add_paragraph("Egalitatea documentară cantitativă nu confirmă singură că recepția este un retur real.")
+        _decision(doc, ["Confirmă returul în documentul de recepție/NIR.", "Verifică produsul, gestiunea, lotul și referințele sursă."])
+    for title, items, checks in [
+        ("Inventare și corecții",pv,["Găsește PV-ul și ajustarea WMS.", "Verifică data, cantitatea, semnul, lotul și gestiunea."]),
+        ("Documente F în MOSE",mose,["Identifică documentele F în MOSE.", "Verifică transferurile și evită dublarea efectului."]),
+    ]:
+        if not items:
+            continue
+        page(title)
+        _table(doc, ["Data", "Sistem", "Document", "Operațiune", "Cantitate", "Motiv"], [
+            (x.get("date") or "Neidentificată", x.get("system"), x.get("document"),
+             x.get("operation_type"), x.get("quantity"), x.get("reason"))
+            for x in items[:15]
+        ])
+        doc.add_paragraph("REVIEW: documentele nu sunt considerate cauze confirmate.")
+        _decision(doc, checks)
+    doc.add_paragraph("NOTĂ: raportul nu autorizează ajustări WMS/WME. Ora 00:00 din WME poate însemna doar dată calendaristică.")
+    doc.save(target)
+    return target
