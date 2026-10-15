@@ -146,6 +146,19 @@ def generate_operator_causes_docx(
             erp = sum(float(e.get("quantity") or 0) for e in x["ae"])
             if abs(net-erp) <= .001:
                 flows.append((no, x, net))
+    # Only document-less stock adjustments, not production consumption postings.
+    # Keep opposite-sign entries together: a negative line alone is not a loss.
+    wms_corrections = [
+        e for e in events
+        if str(e.get("system") or "").upper() == "WMS"
+        and str(e.get("document") or "").strip() in ("", "-")
+        and str(e.get("operation_type") or "").casefold().startswith("ajustare")
+    ]
+    wms_corrections.sort(key=lambda e: (str(e.get("date") or ""), str(e.get("source_row") or "")))
+    correction_groups = defaultdict(list)
+    for e in wms_corrections:
+        correction_groups[(str(e.get("date") or "")[:10],
+                           str((e.get("source_metadata") or {}).get("lot") or "Lot nedisponibil"))].append(e)
     pv = [x for x in report.unmatched_operations if str(x.get("operation_type") or "").upper() in ("PV", "INV-MIN", "INV-PLS")]
     # Warehouse classification comes from an exact WME F source entry,
     # never from the customer's name or a free-text reason.
@@ -207,6 +220,8 @@ def generate_operator_causes_docx(
         registru.append(("01", "Recepție nerelocată în Depozitare", "Clarificare operațională confirmată"))
     for no, _, _ in flows[:8]:
         registru.append((f"{len(registru)+1:02}", f"Livrare / retur {no}", "Cantități concordante; verificare documentară"))
+    if wms_corrections:
+        registru.append((f"{len(registru)+1:02}", "Ajustări WMS fără document — verificare lot și sold net", "REVIEW"))
     if pv:
         registru.append((f"{len(registru)+1:02}", "Inventare și corecții", "REVIEW"))
     if mose:
@@ -259,6 +274,37 @@ def generate_operator_causes_docx(
         doc.add_paragraph(f"Calcul: WMS net {net:,.3f} / WME AE {erp:,.3f} / Rezidual {net-erp:+,.3f} {report.unit}.")
         doc.add_paragraph("Egalitatea documentară cantitativă nu confirmă singură că recepția este un retur real.")
         _decision(doc, ["Confirmă returul în documentul de recepție/NIR.", "Verifică produsul, gestiunea, lotul și referințele sursă."])
+    if wms_corrections:
+        page("Ajustări WMS fără document")
+        doc.add_paragraph("Stadiu operațional: REVIEW — corecțiile nu au cauză confirmată.")
+        _table(doc, ["Data / ora", "Operațiune", "Cantitate", "Lot", "Rând WMS"], [
+            (_date_for_operator(e.get("date")), e.get("operation_type"),
+             f'{float(e.get("quantity") or 0):+,.3f}',
+             (e.get("source_metadata") or {}).get("lot", "Nedisponibil"),
+             _source_reference(e))
+            for e in wms_corrections[:12]
+        ])
+        for (day, lot), items in sorted(correction_groups.items()):
+            total = sum(float(e.get("quantity") or 0) for e in items)
+            doc.add_paragraph(
+                f"Grup {day} / lot {lot}: {len(items)} mișcări, "
+                f"net {total:+,.3f} {report.unit}. "
+                "Efect net calculat, nu cauză confirmată."
+            )
+        if len(wms_corrections) > 12:
+            doc.add_paragraph(
+                f"Alte {len(wms_corrections)-12} ajustări sunt păstrate în JSON; "
+                "lista din DOCX este limitată pentru lizibilitate."
+            )
+        doc.add_paragraph(
+            "O coincidență între netul unei zile și diferența finală este doar "
+            "un candidat documentar. Perechile plus/minus se evaluează împreună."
+        )
+        _decision(doc, [
+            "Identifică documentul justificativ pentru fiecare ajustare fără număr.",
+            "Verifică lotul, data, semnul și eventualele perechi plus/minus.",
+            "Compară PV WME și ajustările WMS fără a presupune corespondentul."
+        ])
     for title, items, checks in [
         ("Inventare și corecții",pv,["Găsește PV-ul și ajustarea WMS.", "Verifică data, cantitatea, semnul, lotul și gestiunea."]),
         ("Documente F în MOSE",mose,["Verifică factura F și clientul înscris pe factură.", "Caută NT WME de intrare în gestiunea MOSE și livrarea WMS TRANSFER_MOSE corespunzătoare.", "Nu confunda gestiunea MOSE cu clientul MOSE Business Distribution."]),
