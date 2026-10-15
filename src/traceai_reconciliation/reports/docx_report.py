@@ -269,6 +269,62 @@ def _add_bullets(doc: DocumentObject, items: Iterable[str]) -> None:
         doc.add_paragraph("Nu au fost înregistrate elemente pentru această secțiune.")
 
 
+
+def _add_operator_causes(doc: DocumentObject, report: CaseReport) -> None:
+    """Operator evidence index. Never infer missing timestamps or document links."""
+    _add_heading(doc, "CAUSES - Localizare rapida WMS / WME")
+    doc.add_paragraph(
+        "Informatiile provin din investigatia curenta. Lipsa unei date sau a "
+        "unui document inseamna NECUNOSCUT, nu o presupunere. "
+        "Validarea operatiunilor ramane distincta de egalitatea stocurilor."
+    )
+    findings = list(report.findings)
+    if not findings:
+        doc.add_paragraph("Nu exista constatari individuale atasate.")
+        return
+    for index, finding in enumerate(findings[:12], start=1):
+        if index > 1:
+            doc.add_page_break()
+        kind = str(finding.get("type") or "REVIEW")
+        _add_heading(doc, f"CAUSES {index:02d} - {kind}")
+        doc.add_paragraph(str(finding.get("description") or "Descriere indisponibila"))
+        doc.add_paragraph("Dovada declarata: " + str(finding.get("evidence") or "Neidentificata"))
+        marker = kind.upper().split("_")[0]
+        relevant = [
+            item for item in report.unmatched_operations
+            if marker in str(item.get("operation_type") or "").upper()
+        ][:8]
+        if relevant:
+            _add_table(
+                doc,
+                ["Data / ora", "Sistem", "Document", "Operatiune", "Cantitate", "Status"],
+                [(
+                    item.get("date") or "Neidentificata",
+                    item.get("system") or "-",
+                    item.get("document") or "-",
+                    item.get("operation_type") or "-",
+                    item.get("quantity") if item.get("quantity") is not None else "-",
+                    item.get("status") or "REVIEW",
+                ) for item in relevant],
+                7.1,
+            )
+        else:
+            doc.add_paragraph(
+                "Nu exista operatiuni punctuale legate automat de aceasta "
+                "constatare. Consultati anexele si JSON-ul pentru verificari."
+            )
+        _add_table(
+            doc,
+            ["Decizie operator", "Verificator", "Data", "Observatii"],
+            [("Confirmat / Respins / Verificare suplimentara", "", "", "")],
+            7.3,
+        )
+    if len(findings) > 12:
+        doc.add_paragraph(
+            f"Inca {len(findings)-12} constatari se pastreaza in JSON-ul tehnic."
+        )
+
+
 def generate_docx_report(report: CaseReport, output_path: str | Path) -> Path:
     errors = validate_case_report(report)
     if errors:
@@ -322,6 +378,8 @@ def generate_docx_report(report: CaseReport, output_path: str | Path) -> Path:
             ("Necesită intervenție umană", "DA" if report.human_intervention_required else "NU"),
         ],
     )
+
+    _add_operator_causes(doc, report)
 
     _add_heading(doc, "2. Obiectul și limitele verificării")
     doc.add_paragraph(
