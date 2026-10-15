@@ -8,6 +8,7 @@ from typing import Any
 
 from traceai_reconciliation import __version__
 from traceai_reconciliation.reports import generate_docx_report
+from traceai_reconciliation.reports.operator_causes_report import generate_operator_causes_docx
 from traceai_reconciliation.version import (
     SELF_SERVICE_BATCH_SCHEMA_VERSION,
     SELF_SERVICE_SUMMARY_SCHEMA_VERSION,
@@ -378,7 +379,8 @@ def run_self_service_case(
     operator_json = case_dir / "daily_operator_result.json"
     summary_json = case_dir / "self_service_summary.json"
 
-    generate_docx_report(case_report, docx)
+    generate_docx_report(case_report, case_dir / "case_technical.docx")
+    generate_operator_causes_docx(case_report, docx, details=investigation.details)
 
     queue_item = build_human_review_queue_item(
         investigation,
