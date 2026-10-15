@@ -60,3 +60,34 @@ def split_unidentified_articles(report: pd.DataFrame) -> tuple[pd.DataFrame, pd.
     codes = report["CodArticol"].astype("string").str.strip()
     unidentified = codes.isna() | codes.eq("")
     return report.loc[~unidentified].copy(), report.loc[unidentified].copy()
+
+
+def build_warehouse_stock_view(report: pd.DataFrame) -> pd.DataFrame:
+    """Preserve WMS/WME stock totals separately for each *reported* gestiune.
+
+    This view does not assert that WMS locations are proven mapped to
+    WME gestiuni. It reproduces the scope labels in the original stock
+    report for operator review. Never merge different gestiuni.
+    """
+    required = REQUIRED_COLUMNS | {"Gestiune"}
+    missing = required.difference(report.columns)
+    if missing:
+        raise ValueError("Raportul nu conține coloanele necesare afișării gestiunilor: " + ", ".join(sorted(missing)))
+    frame = report.copy()
+    frame["CodArticol"] = frame["CodArticol"].astype("string").str.strip()
+    frame["Gestiune"] = frame["Gestiune"].astype("string").str.strip()
+    if (frame["CodArticol"].isna() | frame["CodArticol"].eq("")).any():
+        raise ValueError("CodArticol lipsă: separă articolele neidentificate înainte de afișare.")
+    if (frame["Gestiune"].isna() | frame["Gestiune"].eq("")).any():
+        raise ValueError("Gestiune lipsă: nu se atribuie automat o gestiune.")
+    for field in ("QuantityWMS", "QuantityERP"):
+        frame[field] = pd.to_numeric(frame[field], errors="coerce")
+        if frame[field].isna().any():
+            raise ValueError(f"Valori invalide în {field}.")
+    grouped = frame.groupby(["CodArticol", "Gestiune"], as_index=False, sort=True).agg(
+        DenumireArticol=("DenumireArticol", "first"),
+        WMS=("QuantityWMS", "sum"),
+        WME=("QuantityERP", "sum"),
+    )
+    grouped["Diferenta_WMS_minus_WME"] = grouped["WMS"] - grouped["WME"]
+    return grouped
