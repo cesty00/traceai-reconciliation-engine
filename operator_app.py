@@ -20,7 +20,7 @@ REQUIRED_INPUTS = {
     "production": "Rapoarte producție",
     "nomenclature": "Nomenclator mapare WMS/WME",
 }
-from traceai_reconciliation.operator_stock_view import build_product_list
+from traceai_reconciliation.operator_stock_view import build_product_list, split_unidentified_articles
 
 
 def _write_uploaded_file(uploaded, destination: Path) -> Path:
@@ -81,11 +81,19 @@ def main() -> None:
             st.info("Asociază raportul de stoc pentru a vedea lista articolelor.")
             return
     try:
-        table = build_product_list(read_table(paths["stock_report"]))
+        report = read_table(paths["stock_report"])
+        identified, unidentified = split_unidentified_articles(report)
+        if identified.empty:
+            raise ValueError("Nu există articole cu cod identificabil în raport.")
+        table = build_product_list(identified)
     except (ValueError, OSError, KeyError) as exc:
         st.error(f"Raport de stoc invalid: {exc}")
         return
 
+    if not unidentified.empty:
+        st.warning(f"{len(unidentified)} rânduri fără cod articol au fost izolate pentru verificarea mapării WMS/WME. Nu pot fi reconciliate automat.")
+        with st.expander("Articole neidentificate — necesită mapare"):
+            st.dataframe(unidentified, use_container_width=True, hide_index=True)
     st.subheader("2. Articole și diferențe")
     st.caption("Diferenta = WMS − WME. Articolele cu diferență zero pot fi investigate.")
     show = st.radio("Afișare", ["Toate", "Cu diferență", "Fără diferență"], horizontal=True)
