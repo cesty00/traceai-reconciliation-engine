@@ -53,6 +53,20 @@ def _source_reference(entry):
     return "Nedisponibil în cronologia cazului"
 
 
+
+def _operational_status(*, confirmed_cause: bool = False,
+                        operator_approved: bool = False,
+                        proposed_correction: dict | None = None) -> str:
+    """Fail closed: a computed quantity residual never authorizes a correction."""
+    if (operator_approved and proposed_correction
+            and all(proposed_correction.get(key) for key in
+                    ("system", "document", "operation", "evidence"))):
+        return "CORECȚIE PROPUSĂ"
+    if confirmed_cause:
+        return "EXPLICAT"
+    return "REVIEW"
+
+
 def _decision(doc, checks):
     doc.add_heading("Ce verifică operatorul", level=2)
     for check in checks:
@@ -217,11 +231,13 @@ def generate_operator_causes_docx(
         doc.add_heading("LOCALIZARE RAPIDĂ ÎN SISTEMELE REALE", 2)
     if staging:
         page("Recepție nerelocată în Depozitare")
+        doc.add_paragraph("Stadiu operațional: " + _operational_status(confirmed_cause=True))
         _table(doc, ["Gestiune", "WMS", "WME", "Diferență"], rows)
         doc.add_paragraph("Perimetru operațional comun confirmat. Nu înseamnă că toate documentele sunt validate.")
         _decision(doc, ["Confirmă cantitatea rămasă în Recepție.", "Verifică relocarea fără dublare de stoc."])
     for no, match, net in flows[:8]:
         page(f"Livrare {no} și retur parțial")
+        doc.add_paragraph("Stadiu operațional: " + _operational_status() + " — retur de validat documentar.")
         entries = match["out"]+match["ret"]+match["ae"]
         _table(doc, ["Sistem", "Data / ora", "Document", "Operațiune", "Cantitate", "Gestiune", "Rând sursă"], [
             (e.get("system"), _date_for_operator(e.get("date")),
@@ -250,6 +266,7 @@ def generate_operator_causes_docx(
         if not items:
             continue
         page(title)
+        doc.add_paragraph("Stadiu operațional: " + _operational_status())
         _table(doc, ["Data/ora sursă", "Sistem", "Document", "Operațiune", "Cantitate mișcare", "Gestiune", "Rând sursă", "Motiv / efect tehnic"], [
             sourced_row(x) for x in items[:15]
         ])
