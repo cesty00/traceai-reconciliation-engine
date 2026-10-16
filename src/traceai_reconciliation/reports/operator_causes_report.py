@@ -331,6 +331,12 @@ def generate_operator_causes_docx(
              _source_reference(e), _actor_label(e))
             for e in wms_corrections[:12]
         ])
+        detail_rows = [
+            (_source_reference(e), e.get("wms_details", "Nedisponibil în sursă"))
+            for e in wms_corrections[:12]
+        ]
+        doc.add_paragraph("Detalii WMS — text original din export, asociat rândului sursă:")
+        _table(doc, ["Rând WMS", "Detalii"], detail_rows)
         for (day, lot), items in sorted(correction_groups.items()):
             total = sum(float(e.get("quantity") or 0) for e in items)
             doc.add_paragraph(
