@@ -30,3 +30,19 @@ def test_incomplete_report_not_registered(tmp_path: Path):
     with pytest.raises(FileNotFoundError):
         record_generated_report(summary,root=tmp_path/"registry")
     assert list_generated_reports(root=tmp_path/"registry")==[]
+
+
+def test_archived_filenames_include_product_and_verification_id(tmp_path):
+    from traceai_reconciliation.investigation.operator_report_registry import report_filename
+    out=tmp_path/"source"
+    out.mkdir()
+    (out/"case.docx").write_bytes(b"document")
+    (out/"case.json").write_text(json.dumps({"investigation":{"initial_difference":0}}))
+    summary=out/"summary.json"
+    summary.write_text(json.dumps({"case_id":"CASE-SELF-40024","product_code":"40024","period":"2026","verdict":"REVIEW","outputs":{"case_docx":str(out/"case.docx"),"case_json":str(out/"case.json")}}))
+    run_id=record_generated_report(summary,root=tmp_path/"registry")
+    row=list_generated_reports(root=tmp_path/"registry")[0]
+    assert Path(row["docx_path"]).name==report_filename("40024",run_id,"docx")
+    assert Path(row["json_path"]).name==report_filename("40024",run_id,"json")
+    assert Path(row["docx_path"]).read_bytes()==b"document"
+    assert Path(row["json_path"]).exists()
