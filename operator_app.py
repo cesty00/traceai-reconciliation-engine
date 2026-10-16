@@ -11,6 +11,7 @@ from traceai_reconciliation.investigation import InvestigationSources, run_self_
 from traceai_reconciliation.loaders import read_table
 from traceai_reconciliation.local_source_detection import discover_source_files
 from traceai_reconciliation.investigation.operator_report_registry import record_generated_report, list_generated_reports
+from traceai_reconciliation.investigation.operator_status import STATUSES, latest_operator_statuses, set_operator_status
 
 
 REQUIRED_INPUTS = {
@@ -206,7 +207,11 @@ def main() -> None:
         st.warning("Registrul verificărilor este temporar indisponibil.")
     selected = selected.copy()
     selected["Rapoarte generate"] = selected["CodArticol"].map(run_counts).fillna(0).astype(int)
-    selected["Status operator"] = "Nesetat — urmează implementarea deciziilor"
+    latest_statuses = latest_operator_statuses()
+    selected["Status operator"] = [
+        latest_statuses.get((str(row.CodArticol), str(row.Gestiune)), {}).get("status", "NEVERIFICAT")
+        for row in selected.itertuples(index=False)
+    ]
     st.dataframe(selected, use_container_width=True, hide_index=True, height=420)
 
     if selected.empty:
@@ -230,16 +235,32 @@ def main() -> None:
         f"diferență {total['Diferenta_WMS_minus_WME']:+,.3f}. "
         "Reconcilierea acoperă toate gestiunile articolului."
     )
+    with st.expander("Status operator — decizie umană", expanded=True):
+        current = latest_statuses.get((str(code), str(chosen_warehouse)), {})
+        st.caption(f"Status actual: {current.get('status', 'NEVERIFICAT')}. Această decizie nu schimbă verdictul motorului.")
+        with st.form(key=f"decision_{code}_{chosen_warehouse}"):
+            operator_user = st.text_input("Utilizator operator", value="", key=f"user_{code}_{chosen_warehouse}")
+            status_choice = st.selectbox("Status nou", [value for value in STATUSES if value != "NEVERIFICAT"])
+            observation = st.text_area("Observație / justificare")
+            save_decision = st.form_submit_button("Salvează statusul")
+        if save_decision:
+            try:
+                event_id = set_operator_status(
+                    product_code=str(code), warehouse=str(chosen_warehouse),
+                    status=status_choice, operator_user=operator_user,
+                    observation=observation,
+                )
+                st.success(f"Decizie salvată în registru: {event_id[:12]}")
+                st.rerun()
+            except (ValueError, OSError) as exc:
+                st.error(f"Statusul nu a fost salvat: {exc}")
     with st.expander("Perimetru informativ — Depozitare și Recepție nerelocată"):
         consolidated = build_depozitare_consolidated_view(warehouse_table)
         st.dataframe(
             consolidated[consolidated["CodArticol"] == code],
             use_container_width=True, hide_index=True,
         )
-    st.caption(
-        "Statusul operatorului nu se deduce din verdictul motorului sau din "
-        "numărul de rapoarte. Salvarea deciziilor va fi implementată separat."
-    )
+    st.caption("Statusul operatorului este decizie explicită, înregistrată separat de verdictul motorului.")
     if not st.button("4. Reconciliază articolul", type="primary"):
         return
     missing = [REQUIRED_INPUTS[key] for key in REQUIRED_INPUTS if key not in paths]
