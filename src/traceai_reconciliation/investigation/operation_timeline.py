@@ -116,6 +116,7 @@ def timeline_from_wms(df: pd.DataFrame) -> list[dict[str, Any]]:
             {
                 "date": _row_value(row, df.columns, "date"),
                 "system": "WMS",
+                **({"wms_details": str(row[detail_col])} if (detail_col := next((c for c in row.index if str(c).strip().casefold() == "detalii"), None)) is not None and pd.notna(row[detail_col]) and str(row[detail_col]).strip() else {}),
                 **({"actor": _source_actor(row)} if _source_actor(row) else {}),
                 **({"source_metadata": _explicit_wms_metadata(row)} if _explicit_wms_metadata(row) else {}),
                 "source_row": row.get("SourceRowNumber") if pd.notna(row.get("SourceRowNumber")) else None,
