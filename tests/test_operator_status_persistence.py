@@ -15,3 +15,10 @@ def test_operator_identity_and_closure_evidence_required(tmp_path):
     with pytest.raises(ValueError):
         set_operator_status(product_code="40024",warehouse="SP",status="REVERIFICAT_INCHIS",operator_user="tester",root=tmp_path)
     assert list_operator_statuses(root=tmp_path)==[]
+
+def test_closure_requires_archived_report_even_with_observation(tmp_path):
+    with pytest.raises(ValueError, match="raport TraceAI arhivat"):
+        set_operator_status(product_code="40024",warehouse="SP",
+            status="REVERIFICAT_INCHIS",operator_user="tester",
+            observation="Reverificare documentată",root=tmp_path)
+    assert list_operator_statuses(root=tmp_path)==[]
