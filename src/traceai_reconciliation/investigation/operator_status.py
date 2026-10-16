@@ -34,8 +34,11 @@ def set_operator_status(*, product_code: str, warehouse: str, status: str,
         raise ValueError("Status invalid sau implicit; schimbarea trebuie explicită.")
     if not all(str(value).strip() for value in (product_code, warehouse, operator_user)):
         raise ValueError("Articolul, gestiunea și utilizatorul sunt obligatorii.")
-    if status == "REVERIFICAT_INCHIS" and not str(observation).strip():
-        raise ValueError("Închiderea necesită observație și verificare documentată.")
+    if status == "REVERIFICAT_INCHIS":
+        if not str(observation).strip():
+            raise ValueError("Închiderea necesită observație și verificare documentată.")
+        if not str(report_run_id or "").strip():
+            raise ValueError("Închiderea necesită un raport TraceAI arhivat.")
     event_id = uuid4().hex
     with _db(root) as conn:
         if report_run_id:
