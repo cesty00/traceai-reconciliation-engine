@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 import json
 import shutil
+import re
 import sqlite3
 from uuid import uuid4
 
@@ -45,6 +46,16 @@ def _connect(root: Path) -> sqlite3.Connection:
     return connection
 
 
+def report_filename(product_code: str, run_id: str, extension: str) -> str:
+    """Windows-safe filename for archive and download."""
+    code = re.sub(r"[^A-Za-z0-9_-]", "_", str(product_code).strip())
+    if not code or not re.fullmatch(r"[A-Za-z0-9_-]+", str(run_id)):
+        raise ValueError("Cod articol / ID verificare invalid.")
+    if extension not in ("docx", "json"):
+        raise ValueError("Extensie neacceptată.")
+    return f"TraceAI_{code}_{run_id}.{extension}"
+
+
 def record_generated_report(summary_path: str | Path, *, root: str | Path | None = None) -> str:
     """Archive outputs and append a run only after all three output files exist.
 
@@ -69,8 +80,13 @@ def record_generated_report(summary_path: str | Path, *, root: str | Path | None
     run_id = f"{datetime.now(timezone.utc):%Y%m%dT%H%M%S}-{uuid4().hex[:12]}"
     archive = root_path / "reports" / run_id
     archive.mkdir(parents=True, exist_ok=False)
+    report_base = {
+        "case.docx": report_filename(summary["product_code"], run_id, "docx"),
+        "case.json": report_filename(summary["product_code"], run_id, "json"),
+        "self_service_summary.json": "self_service_summary.json",
+    }
     for filename, original in files.items():
-        shutil.copy2(original, archive / filename)
+        shutil.copy2(original, archive / report_base[filename])
     row = (
         run_id, datetime.now(timezone.utc).isoformat(timespec="seconds"),
         str(summary["case_id"]), str(summary["product_code"]),
@@ -81,7 +97,7 @@ def record_generated_report(summary_path: str | Path, *, root: str | Path | None
         str(summary.get("engine_version") or ""), str(summary.get("rules_version") or ""),
         str(summary.get("engine_commit_sha") or ""),
         json.dumps(readiness.get("source_hashes") or {}, sort_keys=True),
-        str(archive), str(archive / "case.docx"), str(archive / "case.json"),
+        str(archive), str(archive / report_base["case.docx"]), str(archive / report_base["case.json"]),
         str(archive / "self_service_summary.json"),
     )
     with _connect(root_path) as db:
