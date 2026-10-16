@@ -10,4 +10,6 @@ def test_unified_operator_screen_contract():
     assert 'code, chosen_warehouse = positions[chosen_position]' in source
     assert 'total = table.loc[table["CodArticol"] == code].iloc[0]' in source
     assert 'product_code=code' in source
-    assert 'Status operator"] = "Nesetat — urmează implementarea deciziilor"' in source
+    assert 'latest_operator_statuses()' in source
+    assert 'selected["Status operator"]' in source
+    assert 'set_operator_status(' in source
