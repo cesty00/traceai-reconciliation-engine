@@ -34,7 +34,7 @@ from .transfer_mose_matching import (
     match_transfer_mose,
     match_transfer_mose_baskets,
 )
-from .wme_residual_matching import match_wme_residual_movements
+from .wme_residual_matching import match_wme_residual_movements, confirmed_inbound_wme_indexes
 from .inventory_adjustment_matching import match_inventory_adjustments
 from .cor_stoc_pv_candidates import find_cor_stoc_pv_candidates
 from .source_readers import (
@@ -1170,8 +1170,9 @@ def investigate_product(
     wme_residual_match = match_wme_residual_movements(
         wme_rows,
         excluded_warehouses={"DETERIORATE", "PROTAN", "MOSTRE"},
-        excluded_indexes=set(
-            inventory_adjustment_match.matched_wme_indexes
+        excluded_indexes=(
+            set(inventory_adjustment_match.matched_wme_indexes)
+            | confirmed_inbound_wme_indexes(wme_rows, receipt_match.documents)
         ),
     )
     result.details["wme_residual_movements"] = {
