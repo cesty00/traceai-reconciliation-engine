@@ -332,7 +332,7 @@ def generate_operator_causes_docx(
             for e in wms_corrections[:12]
         ])
         detail_rows = [
-            (_source_reference(e), e.get("wms_details", "Nedisponibil în sursă"))
+            (_source_reference(e), (e.get("wms_details") if str(e.get("wms_details") or "").strip() else "motiv necompletat"))
             for e in wms_corrections[:12]
         ]
         doc.add_paragraph("Detalii WMS — text original din export, asociat rândului sursă:")
