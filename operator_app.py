@@ -242,6 +242,8 @@ def main() -> None:
             operator_user = st.text_input("Utilizator operator", value="", key=f"user_{code}_{chosen_warehouse}")
             status_choice = st.selectbox("Status nou", [value for value in STATUSES if value != "NEVERIFICAT"])
             observation = st.text_area("Observație / justificare")
+            report_options = [h["run_id"] for h in history_rows if h["product_code"] == str(code)]
+            report_run_id = st.selectbox("Raport TraceAI asociat", ["Fără raport", *report_options])
             save_decision = st.form_submit_button("Salvează statusul")
         if save_decision:
             try:
@@ -249,6 +251,7 @@ def main() -> None:
                     product_code=str(code), warehouse=str(chosen_warehouse),
                     status=status_choice, operator_user=operator_user,
                     observation=observation,
+                    report_run_id=report_run_id if report_run_id != "Fără raport" else None,
                 )
                 st.success(f"Decizie salvată în registru: {event_id[:12]}")
                 st.rerun()
