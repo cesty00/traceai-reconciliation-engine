@@ -48,7 +48,7 @@ def main() -> None:
         try:
             history = list_generated_reports()
             if history:
-                st.dataframe(pd.DataFrame([{
+                registry_table = pd.DataFrame([{
                     "Data": item["recorded_at"],
                     "Articol": item["product_code"],
                     "Denumire": item["product_name"],
@@ -57,22 +57,41 @@ def main() -> None:
                     "UM": item["unit"],
                     "Verdict motor": item["engine_verdict"],
                     "ID rulare": item["run_id"],
-                } for item in history]), use_container_width=True, hide_index=True)
-                selected_run = st.selectbox(
-                    "Selectează verificarea arhivată",
-                    [item["run_id"] for item in history],
+                } for item in history])
+                registry_search = st.text_input("Caută în registru după cod sau denumire", key="registry_search")
+                if registry_search.strip():
+                    mask = registry_table["Articol"].astype(str).str.contains(registry_search.strip(), case=False, regex=False)
+                    mask |= registry_table["Denumire"].astype(str).str.contains(registry_search.strip(), case=False, regex=False)
+                    filtered = registry_table[mask]
+                else:
+                    filtered = registry_table
+                st.dataframe(filtered, use_container_width=True, hide_index=True)
+                st.download_button(
+                    "Exportă registrul CSV",
+                    data=registry_table.to_csv(index=False).encode("utf-8-sig"),
+                    file_name="traceai_registru_verificari.csv",
+                    mime="text/csv",
                 )
-                chosen = next(item for item in history if item["run_id"] == selected_run)
+                selectable_runs = filtered["ID rulare"].tolist()
+                if not selectable_runs:
+                    st.info("Nu există verificări pentru filtrul selectat.")
+                    selected_run = None
+                else:
+                    selected_run = st.selectbox(
+                    "Selectează verificarea arhivată",
+                    selectable_runs,
+                )
+                chosen = next((item for item in history if item["run_id"] == selected_run), None)
                 for filename, label, mime in [
                     ("docx_path", "Descarcă DOCX arhivat", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"),
                     ("json_path", "Descarcă JSON arhivat", "application/json"),
                 ]:
-                    archived = Path(chosen[filename])
-                    if archived.is_file():
+                    archived = Path(chosen[filename]) if chosen is not None else None
+                    if archived is not None and archived.is_file():
                         st.download_button(label, data=archived.read_bytes(),
                                            file_name=f"{chosen['run_id']}_{archived.name}",
                                            mime=mime, key=f"archive_{selected_run}_{filename}")
-                    else:
+                    elif archived is not None:
                         st.error(f"Fișier arhivat lipsă: {archived.name}")
             else:
                 st.info("Nu există verificări arhivate încă.")
