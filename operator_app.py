@@ -10,7 +10,7 @@ import streamlit as st
 from traceai_reconciliation.investigation import InvestigationSources, run_self_service_case
 from traceai_reconciliation.loaders import read_table
 from traceai_reconciliation.local_source_detection import discover_source_files
-from traceai_reconciliation.investigation.operator_report_registry import record_generated_report, list_generated_reports
+from traceai_reconciliation.investigation.operator_report_registry import record_generated_report, list_generated_reports, report_filename
 from traceai_reconciliation.investigation.operator_status import STATUSES, latest_operator_statuses, set_operator_status
 
 
@@ -90,7 +90,7 @@ def main() -> None:
                     archived = Path(chosen[filename]) if chosen is not None else None
                     if archived is not None and archived.is_file():
                         st.download_button(label, data=archived.read_bytes(),
-                                           file_name=f"{chosen['run_id']}_{archived.name}",
+                                           file_name=report_filename(chosen["product_code"], chosen["run_id"], archived.suffix.lstrip(".")),
                                            mime=mime, key=f"archive_{selected_run}_{filename}")
                     elif archived is not None:
                         st.error(f"Fișier arhivat lipsă: {archived.name}")
@@ -272,7 +272,7 @@ def main() -> None:
                 st.download_button(
                     "Descarcă raportul selectat",
                     data=report_document.read_bytes(),
-                    file_name=f"{report_run_id}_case.docx",
+                    file_name=report_filename(code, report_run_id, "docx"),
                     mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                     key=f"selected_doc_{code}_{chosen_warehouse}_{report_run_id}",
                 )
@@ -348,7 +348,7 @@ def main() -> None:
         (json_file, "Descarcă dovezi JSON", "application/json"),
     ]:
         if file.is_file():
-            st.download_button(label, data=file.read_bytes(), file_name=file.name, mime=mime)
+            st.download_button(label, data=file.read_bytes(), file_name=report_filename(code, saved_run_id, file.suffix.lstrip(".")), mime=mime)
     st.info("Documentele pot conține REVIEW. Corecțiile de stoc sunt decise și efectuate exclusiv de operator.")
 
 
