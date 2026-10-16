@@ -163,51 +163,83 @@ def main() -> None:
             file_name="traceai_plan_testare_articole.csv",
             mime="text/csv",
         )
-    st.subheader("2. Articole și diferențe")
-    st.caption("Diferenta = WMS − WME. Articolele cu diferență zero pot fi investigate.")
+    st.subheader("2. Raport unic de stoc — produs + gestiune")
+    st.caption(
+        "Un rând = un articol într-o gestiune. Diferența = WMS − WME. "
+        "Soldurile egale nu înseamnă operațiuni reconciliate. "
+        "Selectarea unei gestiuni NU limitează investigația motorului la acea gestiune."
+    )
+    product_count = len(table)
+    difference_count = int((warehouse_table["Diferenta_WMS_minus_WME"].abs() > 0.001).sum())
+    m1, m2, m3 = st.columns(3)
+    m1.metric("Articole", product_count)
+    m2.metric("Poziții produs–gestiune", len(warehouse_table))
+    m3.metric("Poziții cu diferență", difference_count)
+
     show = st.radio("Afișare", ["Toate", "Cu diferență", "Fără diferență"], horizontal=True)
-    search = st.text_input("Caută după cod sau denumire", value="")
-    selected = table
+    search = st.text_input("Caută după cod, denumire sau gestiune", value="")
+    gestiuni = sorted(warehouse_table["Gestiune"].dropna().astype(str).unique().tolist())
+    warehouse_filter = st.selectbox("Filtru gestiune", ["Toate gestiunile", *gestiuni])
+
+    selected = warehouse_table.copy()
     if show == "Cu diferență":
         selected = selected[selected["Diferenta_WMS_minus_WME"].abs() > 0.001]
     elif show == "Fără diferență":
         selected = selected[selected["Diferenta_WMS_minus_WME"].abs() <= 0.001]
+    if warehouse_filter != "Toate gestiunile":
+        selected = selected[selected["Gestiune"] == warehouse_filter]
     if search.strip():
-        mask = selected["CodArticol"].str.contains(search.strip(), case=False, regex=False, na=False)
+        query = search.strip()
+        mask = selected["CodArticol"].str.contains(query, case=False, regex=False, na=False)
         mask |= selected["DenumireArticol"].astype("string").str.contains(
-            search.strip(), case=False, regex=False, na=False
+            query, case=False, regex=False, na=False
         )
+        mask |= selected["Gestiune"].str.contains(query, case=False, regex=False, na=False)
         selected = selected[mask]
-    st.dataframe(selected, use_container_width=True, hide_index=True)
-    st.subheader("Stocuri pe gestiuni — conform raportului original")
-    st.caption("Toate gestiunile raportate sunt vizibile. Filtrul cu/fără diferență se aplică fiecărei gestiuni, nu numai totalului produsului. Aceasta NU certifică maparea fizică WMS/WME a gestiunilor.")
-    warehouse_selected = warehouse_table
-    if search.strip():
-        warehouse_selected = warehouse_selected[
-            warehouse_selected["CodArticol"].str.contains(search.strip(), case=False, regex=False, na=False)
-            | warehouse_selected["DenumireArticol"].astype("string").str.contains(search.strip(), case=False, regex=False, na=False)
-            | warehouse_selected["Gestiune"].str.contains(search.strip(), case=False, regex=False, na=False)
-        ]
-    if show == "Cu diferență":
-        warehouse_selected = warehouse_selected[warehouse_selected["Diferenta_WMS_minus_WME"].abs() > 0.001]
-    elif show == "Fără diferență":
-        warehouse_selected = warehouse_selected[warehouse_selected["Diferenta_WMS_minus_WME"].abs() <= 0.001]
-    st.dataframe(warehouse_selected, use_container_width=True, hide_index=True)
-    st.subheader("Depozitare consolidată — include Recepție nerelocată")
-    st.caption("Regulă operațională confirmată: Recepție este zona de așteptare a relocării din Depozitare. Tabel informativ: nu declară MATCH documentar și nu închide alte diferențe.")
-    consolidated = build_depozitare_consolidated_view(warehouse_table)
-    if search.strip():
-        consolidated = consolidated[consolidated["CodArticol"].str.contains(search.strip(), case=False, regex=False, na=False)]
-    if show == "Cu diferență":
-        consolidated = consolidated[consolidated["Diferenta_WMS_minus_WME"].abs() > 0.001]
-    elif show == "Fără diferență":
-        consolidated = consolidated[consolidated["Diferenta_WMS_minus_WME"].abs() <= 0.001]
-    st.dataframe(consolidated, use_container_width=True, hide_index=True)
-    codes = selected["CodArticol"].tolist()
-    if not codes:
-        st.info("Niciun articol în filtrul selectat.")
+
+    # Registry evidence is shown as a run count, not as human approval.
+    try:
+        history_rows = list_generated_reports()
+        run_counts = pd.Series([h["product_code"] for h in history_rows]).value_counts().to_dict()
+    except (OSError, ValueError):
+        run_counts = {}
+        st.warning("Registrul verificărilor este temporar indisponibil.")
+    selected = selected.copy()
+    selected["Rapoarte generate"] = selected["CodArticol"].map(run_counts).fillna(0).astype(int)
+    selected["Status operator"] = "Nesetat — urmează implementarea deciziilor"
+    st.dataframe(selected, use_container_width=True, hide_index=True, height=420)
+
+    if selected.empty:
+        st.info("Nicio poziție produs–gestiune pentru filtrele selectate.")
         return
-    code = st.selectbox("3. Alege articolul pentru investigație", codes)
+
+    # Select the exact product+warehouse row. The existing reconciliation
+    # engine still investigates the entire product, never only this warehouse.
+    positions = list(selected[["CodArticol", "Gestiune"]].itertuples(index=False, name=None))
+    chosen_position = st.selectbox(
+        "3. Selectează produsul și gestiunea",
+        options=range(len(positions)),
+        format_func=lambda i: f"{positions[i][0]} — {positions[i][1]}",
+    )
+    code, chosen_warehouse = positions[chosen_position]
+    total = table.loc[table["CodArticol"] == code].iloc[0]
+    st.info(
+        f"Poziție selectată: {code} / {chosen_warehouse}. "
+        f"TOTAL ARTICOL: WMS {total['WMS']:,.3f}; "
+        f"WME {total['WME']:,.3f}; "
+        f"diferență {total['Diferenta_WMS_minus_WME']:+,.3f}. "
+        "Reconcilierea acoperă toate gestiunile articolului."
+    )
+    with st.expander("Perimetru informativ — Depozitare și Recepție nerelocată"):
+        consolidated = build_depozitare_consolidated_view(warehouse_table)
+        st.dataframe(
+            consolidated[consolidated["CodArticol"] == code],
+            use_container_width=True, hide_index=True,
+        )
+    st.caption(
+        "Statusul operatorului nu se deduce din verdictul motorului sau din "
+        "numărul de rapoarte. Salvarea deciziilor va fi implementată separat."
+    )
     if not st.button("4. Reconciliază articolul", type="primary"):
         return
     missing = [REQUIRED_INPUTS[key] for key in REQUIRED_INPUTS if key not in paths]
