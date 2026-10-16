@@ -219,81 +219,97 @@ def main() -> None:
         st.info("Nicio poziție produs–gestiune pentru filtrele selectate.")
         return
 
-    # Select the exact product+warehouse row. The existing reconciliation
-    # engine still investigates the entire product, never only this warehouse.
-    positions = list(selected[["CodArticol", "Gestiune"]].itertuples(index=False, name=None))
-    chosen_position = st.selectbox(
-        "3. Selectează produsul și gestiunea",
-        options=range(len(positions)),
-        format_func=lambda i: f"{positions[i][0]} — {positions[i][1]}",
+    # Article selection and warehouse scope are independent.
+    codes = sorted(selected["CodArticol"].dropna().astype(str).unique().tolist())
+    code = st.selectbox("3. Selectează articolul", codes)
+    article_positions = warehouse_table[warehouse_table["CodArticol"].astype(str) == code]
+    warehouse_options = sorted(article_positions["Gestiune"].dropna().astype(str).unique().tolist())
+    chosen_warehouse = st.selectbox(
+        "4. Selectează gestiunea / perimetrul",
+        ["Toate gestiunile", *warehouse_options],
     )
-    code, chosen_warehouse = positions[chosen_position]
-    total = table.loc[table["CodArticol"] == code].iloc[0]
-    st.info(
-        f"Poziție selectată: {code} / {chosen_warehouse}. "
-        f"TOTAL ARTICOL: WMS {total['WMS']:,.3f}; "
-        f"WME {total['WME']:,.3f}; "
-        f"diferență {total['Diferenta_WMS_minus_WME']:+,.3f}. "
-        "Reconcilierea acoperă toate gestiunile articolului."
+    total = table.loc[table["CodArticol"].astype(str) == code].iloc[0]
+    if chosen_warehouse == "Toate gestiunile":
+        st.dataframe(article_positions, use_container_width=True, hide_index=True)
+        st.info(
+            f"TOTAL ARTICOL {code}: WMS {total['WMS']:,.3f}; "
+            f"WME {total['WME']:,.3f}; "
+            f"diferență {total['Diferenta_WMS_minus_WME']:+,.3f}. "
+            "Analiza motorului acoperă întreg articolul."
+        )
+    else:
+        position = article_positions.loc[article_positions["Gestiune"].astype(str) == chosen_warehouse].iloc[0]
+        st.info(
+            f"GESTIUNE {chosen_warehouse} / articol {code}: "
+            f"WMS {position['WMS']:,.3f}; WME {position['WME']:,.3f}; "
+            f"diferență {position['Diferenta_WMS_minus_WME']:+,.3f}. "
+            f"TOTAL ARTICOL: diferență {total['Diferenta_WMS_minus_WME']:+,.3f}. "
+            "Motorul investighează în continuare toate gestiunile; "
+            "selecția individuală este pentru vizualizare și status."
+        )
+    st.caption(
+        "Statusurile pe gestiuni sunt independente. 'Toate gestiunile' "
+        "nu este o gestiune fizică și nu primește un status comun automat."
     )
-    with st.expander("Status operator — decizie umană", expanded=True):
-        current = latest_statuses.get((str(code), str(chosen_warehouse)), {})
-        st.caption(f"Status actual: {current.get('status', 'NEVERIFICAT')}. Această decizie nu schimbă verdictul motorului.")
-        with st.form(key=f"decision_{code}_{chosen_warehouse}"):
-            operator_user = st.text_input("Utilizator operator", value="", key=f"user_{code}_{chosen_warehouse}")
-            status_choice = st.selectbox("Status nou", [value for value in STATUSES if value != "NEVERIFICAT"])
-            observation = st.text_area("Observație / justificare")
-            relevant_reports = [h for h in history_rows if h["product_code"] == str(code)]
-            report_lookup = {h["run_id"]: h for h in relevant_reports}
-            report_choices = ["Fără raport", *[h["run_id"] for h in relevant_reports]]
-            report_run_id = st.selectbox(
-                "Raport TraceAI asociat — cel mai recent este propus automat",
-                report_choices,
-                format_func=lambda rid: (
-                    "Fără raport" if rid == "Fără raport" else
-                    f"{report_lookup[rid]['recorded_at']} | {report_lookup[rid]['period']} | "
-                    f"dif. {report_lookup[rid]['difference']} {report_lookup[rid]['unit']} | "
-                    f"{report_lookup[rid]['engine_verdict']} | ID {rid}"
-                ),
-                index=1 if len(report_choices) > 1 else 0,
-            )
-            confirm_report = st.checkbox("Confirm că am identificat și verificat raportul selectat")
-            save_decision = st.form_submit_button("Salvează statusul")
-        if report_run_id != "Fără raport":
-            report_selected = report_lookup[report_run_id]
-            st.caption(
-                f"Raportul investighează întreg articolul {code}, nu exclusiv "
-                f"gestiunea {chosen_warehouse}. Perioadă: {report_selected['period']}; "
-                f"verdict motor: {report_selected['engine_verdict']}; "
-                f"diferență total articol: {report_selected['difference']} {report_selected['unit']}."
-            )
-            report_document = Path(report_selected["docx_path"])
-            if report_document.is_file():
-                st.download_button(
-                    "Descarcă raportul selectat",
-                    data=report_document.read_bytes(),
-                    file_name=report_filename(code, report_run_id, "docx"),
-                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                    key=f"selected_doc_{code}_{chosen_warehouse}_{report_run_id}",
+    if chosen_warehouse != "Toate gestiunile":
+        with st.expander("Status operator — decizie umană", expanded=True):
+            current = latest_statuses.get((str(code), str(chosen_warehouse)), {})
+            st.caption(f"Status actual: {current.get('status', 'NEVERIFICAT')}. Această decizie nu schimbă verdictul motorului.")
+            with st.form(key=f"decision_{code}_{chosen_warehouse}"):
+                operator_user = st.text_input("Utilizator operator", value="", key=f"user_{code}_{chosen_warehouse}")
+                status_choice = st.selectbox("Status nou", [value for value in STATUSES if value != "NEVERIFICAT"])
+                observation = st.text_area("Observație / justificare")
+                relevant_reports = [h for h in history_rows if h["product_code"] == str(code)]
+                report_lookup = {h["run_id"]: h for h in relevant_reports}
+                report_choices = ["Fără raport", *[h["run_id"] for h in relevant_reports]]
+                report_run_id = st.selectbox(
+                    "Raport TraceAI asociat — cel mai recent este propus automat",
+                    report_choices,
+                    format_func=lambda rid: (
+                        "Fără raport" if rid == "Fără raport" else
+                        f"{report_lookup[rid]['recorded_at']} | {report_lookup[rid]['period']} | "
+                        f"dif. {report_lookup[rid]['difference']} {report_lookup[rid]['unit']} | "
+                        f"{report_lookup[rid]['engine_verdict']} | ID {rid}"
+                    ),
+                    index=1 if len(report_choices) > 1 else 0,
                 )
-            else:
-                st.error("Raportul selectat nu mai există în arhivă.")
-        if save_decision:
-            try:
-                if report_run_id != "Fără raport" and not confirm_report:
-                    raise ValueError("Confirmă explicit raportul asociat înainte de salvare.")
-                if report_run_id != "Fără raport" and not Path(report_lookup[report_run_id]["docx_path"]).is_file():
-                    raise ValueError("Raportul arhivat nu mai există.")
-                event_id = set_operator_status(
-                    product_code=str(code), warehouse=str(chosen_warehouse),
-                    status=status_choice, operator_user=operator_user,
-                    observation=observation,
-                    report_run_id=report_run_id if report_run_id != "Fără raport" else None,
+                confirm_report = st.checkbox("Confirm că am identificat și verificat raportul selectat")
+                save_decision = st.form_submit_button("Salvează statusul")
+            if report_run_id != "Fără raport":
+                report_selected = report_lookup[report_run_id]
+                st.caption(
+                    f"Raportul investighează întreg articolul {code}, nu exclusiv "
+                    f"gestiunea {chosen_warehouse}. Perioadă: {report_selected['period']}; "
+                    f"verdict motor: {report_selected['engine_verdict']}; "
+                    f"diferență total articol: {report_selected['difference']} {report_selected['unit']}."
                 )
-                st.success(f"Decizie salvată în registru: {event_id[:12]}")
-                st.rerun()
-            except (ValueError, OSError) as exc:
-                st.error(f"Statusul nu a fost salvat: {exc}")
+                report_document = Path(report_selected["docx_path"])
+                if report_document.is_file():
+                    st.download_button(
+                        "Descarcă raportul selectat",
+                        data=report_document.read_bytes(),
+                        file_name=report_filename(code, report_run_id, "docx"),
+                        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                        key=f"selected_doc_{code}_{chosen_warehouse}_{report_run_id}",
+                    )
+                else:
+                    st.error("Raportul selectat nu mai există în arhivă.")
+            if save_decision:
+                try:
+                    if report_run_id != "Fără raport" and not confirm_report:
+                        raise ValueError("Confirmă explicit raportul asociat înainte de salvare.")
+                    if report_run_id != "Fără raport" and not Path(report_lookup[report_run_id]["docx_path"]).is_file():
+                        raise ValueError("Raportul arhivat nu mai există.")
+                    event_id = set_operator_status(
+                        product_code=str(code), warehouse=str(chosen_warehouse),
+                        status=status_choice, operator_user=operator_user,
+                        observation=observation,
+                        report_run_id=report_run_id if report_run_id != "Fără raport" else None,
+                    )
+                    st.success(f"Decizie salvată în registru: {event_id[:12]}")
+                    st.rerun()
+                except (ValueError, OSError) as exc:
+                    st.error(f"Statusul nu a fost salvat: {exc}")
     with st.expander("Perimetru informativ — Depozitare și Recepție nerelocată"):
         consolidated = build_depozitare_consolidated_view(warehouse_table)
         st.dataframe(
