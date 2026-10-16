@@ -10,6 +10,7 @@ import streamlit as st
 from traceai_reconciliation.investigation import InvestigationSources, run_self_service_case
 from traceai_reconciliation.loaders import read_table
 from traceai_reconciliation.local_source_detection import discover_source_files
+from traceai_reconciliation.investigation.operator_report_registry import record_generated_report, list_generated_reports
 
 
 REQUIRED_INPUTS = {
@@ -43,6 +44,40 @@ def main() -> None:
     if "pilot_workspace" not in st.session_state:
         st.session_state.pilot_workspace = tempfile.mkdtemp(prefix="traceai-operator-")
     workspace = Path(st.session_state.pilot_workspace)
+    with st.expander("Registrul verificărilor — rapoarte arhivate", expanded=False):
+        try:
+            history = list_generated_reports()
+            if history:
+                st.dataframe(pd.DataFrame([{
+                    "Data": item["recorded_at"],
+                    "Articol": item["product_code"],
+                    "Denumire": item["product_name"],
+                    "Perioada": item["period"],
+                    "Diferența": item["difference"],
+                    "UM": item["unit"],
+                    "Verdict motor": item["engine_verdict"],
+                    "ID rulare": item["run_id"],
+                } for item in history]), use_container_width=True, hide_index=True)
+                selected_run = st.selectbox(
+                    "Selectează verificarea arhivată",
+                    [item["run_id"] for item in history],
+                )
+                chosen = next(item for item in history if item["run_id"] == selected_run)
+                for filename, label, mime in [
+                    ("docx_path", "Descarcă DOCX arhivat", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"),
+                    ("json_path", "Descarcă JSON arhivat", "application/json"),
+                ]:
+                    archived = Path(chosen[filename])
+                    if archived.is_file():
+                        st.download_button(label, data=archived.read_bytes(),
+                                           file_name=f"{chosen['run_id']}_{archived.name}",
+                                           mime=mime, key=f"archive_{selected_run}_{filename}")
+                    else:
+                        st.error(f"Fișier arhivat lipsă: {archived.name}")
+            else:
+                st.info("Nu există verificări arhivate încă.")
+        except (OSError, ValueError) as exc:
+            st.error(f"Registrul verificărilor nu poate fi citit: {exc}")
     with st.expander("1. Selectează folderul local cu exporturi", expanded=True):
         folder_text = st.text_input(
             "Calea folderului de pe calculatorul pe care rulează Streamlit",
@@ -186,7 +221,13 @@ def main() -> None:
         except Exception as exc:
             st.error(f"Analiza este blocată și nu se declară MATCH: {type(exc).__name__}: {exc}")
             return
-    st.success("Investigația a fost executată. Verifică verdictul și dovezile înainte de corecții.")
+    try:
+        saved_run_id = record_generated_report(result.summary_json)
+    except (OSError, ValueError, KeyError) as exc:
+        st.error(f"Raportul a fost generat, dar NU a fost arhivat în registru: {exc}")
+        return
+    st.success(f"Investigația a fost arhivată în registru: {saved_run_id}. Verdictul nu reprezintă aprobare.")
+
     case_dir = workspace / "cases" / f"CASE-SELF-{code}"
     docx = case_dir / "case.docx"
     json_file = case_dir / "case.json"
