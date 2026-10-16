@@ -273,6 +273,9 @@ def generate_operator_causes_docx(
         registru.append((f"{len(registru)+1:02}", "Inventare și corecții", "REVIEW"))
     if mose:
         registru.append((f"{len(registru)+1:02}", "Documente MOSE", "REVIEW"))
+    mapping = details.get("stock_report_zone_matching") or {}
+    if mapping.get("confirmed_report_mapping_rows"):
+        registru.append((f"{len(registru)+1:02}", "Diferență în raportul de stoc vs. soldul WME pe gestiuni", "Explicație tehnică; REVIEW documentar"))
     if not registru:
         registru.append(("01", "Verificare documentară", "REVIEW"))
     _table(doc, ["ID", "Obiect verificare", "Stadiu"], registru)
@@ -291,6 +294,79 @@ def generate_operator_causes_docx(
         doc.add_page_break()
         doc.add_heading(f"CAUSE {counter:02} — {title}", 1)
         doc.add_heading("LOCALIZARE RAPIDĂ ÎN SISTEMELE REALE", 2)
+    if mapping.get("confirmed_report_mapping_rows"):
+        page("Maparea diferenței raportate pe gestiuni")
+        doc.add_paragraph(
+            "Stadiu: explicație de mapare identificată de motor; "
+            "validarea operațională rămâne REVIEW. Această diferență "
+            "poate proveni din raportare, nu reprezintă automat minus fizic."
+        )
+        _table(doc, ["Gestiune", "WMS raport", "WME raport", "WME fișă magazie",
+                     "Diferență raport", "Diferență sisteme"], [
+            (
+                x.get("report_warehouse", "-"),
+                f'{float(x.get("quantity_wms") or 0):,.3f}',
+                f'{float(x.get("quantity_erp") or 0):,.3f}',
+                f'{float(x.get("wme_balance") or 0):,.3f}',
+                f'{float(x.get("report_difference") or 0):+,.3f}',
+                f'{float(x.get("actual_system_difference") or 0):+,.3f}',
+            )
+            for x in mapping.get("rows", [])
+        ])
+        doc.add_paragraph(
+            f"Efect diferență raportată atribuit mapării: "
+            f"{float(mapping.get('mapping_effect_total') or 0):+,.3f} {report.unit}. "
+            "Aceasta este o explicație pentru discrepanța dintre raport și "
+            "fișa de magazie, nu dovada reconcilierii tuturor operațiunilor."
+        )
+        affected = {
+            str(x.get("mapped_wme_warehouse") or "").strip().upper()
+            for x in mapping.get("rows", [])
+            if str(x.get("status") or "").startswith("REPORT_ERP_ZERO_MAPPING")
+        }
+        relevant = [
+            e for e in events if str(e.get("system") or "").upper() == "WME"
+            and str(e.get("warehouse") or "").strip().upper() in affected
+        ]
+        if relevant:
+            doc.add_heading("Operațiuni WME în gestiunea afectată", level=2)
+            _table(doc, ["Dată", "Document", "Operațiune", "Cantitate",
+                         "Gestiune", "Rând WME", "Utilizator WME"], [
+                (_date_for_operator(e.get("date")), e.get("document"),
+                 e.get("operation_type"), f'{float(e.get("quantity") or 0):+,.3f}',
+                 e.get("warehouse"), _source_reference(e), _actor_label(e))
+                for e in relevant[:12]
+            ])
+        receipt = details.get("receipt_matching") or {}
+        delivery = details.get("delivery_matching") or {}
+        doc.add_paragraph(
+            f"Control documentar agregat: recepții susținute "
+            f"{receipt.get('supported_documents', 'necunoscut')}, "
+            f"rezidual recepții {receipt.get('residual_total', 'necunoscut')}; "
+            f"rezidual livrări {delivery.get('residual_total', 'necunoscut')}. "
+            "Verificările agregate nu reprezintă o listă de MATCH pe fiecare rând."
+        )
+        wme_residual = details.get("wme_residual_movements") or {}
+        if wme_residual.get("residual_movements"):
+            doc.add_paragraph(
+                "ATENȚIE — control de consistență al motorului: "
+                "există mișcări WME afișate ca reziduale și operațiuni "
+                "inbound considerate concordante. Nu atribuiți acestor "
+                "mișcări efectul asupra soldului înainte de eliminarea "
+                "eventualei duble clasificări."
+            )
+            _table(doc, ["Document WME", "Operațiune", "Cantitate WME",
+                         "Gestiune", "Clasificare motor"], [
+                (x.get("document"), x.get("operation_type"),
+                 f'{float(x.get("wme_signed_quantity") or 0):+,.3f}',
+                 x.get("warehouse"), x.get("status"))
+                for x in wme_residual.get("movements", [])[:10]
+            ])
+        _decision(doc, [
+            "Verifică dacă soldul MOSTRE din fișa WME a fost omis din raport.",
+            "Compară NT intern cu mutările WMS, fără a forța MATCH.",
+            "Confirmă separat corespondența documentelor de recepție și livrare.",
+        ])
     if staging:
         page("Recepție nerelocată în Depozitare")
         doc.add_paragraph("Stadiu operațional: " + _operational_status(confirmed_cause=True))
