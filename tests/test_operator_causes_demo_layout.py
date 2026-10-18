@@ -51,5 +51,7 @@ def test_unequal_stock_has_correct_warning(tmp_path: Path):
         "stock_report_zone_matching":{"rows":[dict(report_warehouse="SECTIE PRODUCTIE",
             quantity_wms=18044.3,quantity_erp=26664.5,report_difference=-8620.2)]}})
     prose=" ".join(p.text for p in Document(target).paragraphs)
-    assert "Diferență de stoc REALĂ" in prose
+    assert "Diferență RAPORTATĂ, cu origine încă de verificat" in prose
+    assert "Diferență de stoc REALĂ" not in prose
+    assert "nu se poate confirma o diferență fizică" in prose
     assert "Un sold egal" not in prose
