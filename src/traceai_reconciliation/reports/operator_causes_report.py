@@ -458,7 +458,7 @@ def generate_operator_causes_docx(
             (_source_reference(e), (e.get("wms_details") if str(e.get("wms_details") or "").strip() else "motiv necompletat"))
             for e in wms_corrections[:12]
         ]
-        doc.add_paragraph("Detalii WMS — text original din export, asociat rândului sursă:")
+        doc.add_paragraph("Detalii WMS — observație introdusă manual de o persoană în WMS, păstrată textual din export. Textul indică ce a consemnat operatorul, dar nu confirmă singur executarea ori corespondentul WME:")
         _table(doc, ["Rând WMS", "Detalii"], detail_rows)
         for (day, lot), items in sorted(correction_groups.items()):
             total = sum(float(e.get("quantity") or 0) for e in items)
