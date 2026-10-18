@@ -91,6 +91,7 @@ def _decision(doc, checks):
 def generate_operator_causes_docx(
     report: CaseReport, output_path: str | Path, *,
     details: dict | None = None,
+    human_evidence: list[dict] | None = None,
 ) -> Path:
     """Demo v0.2-like read-only report, with bounded, evidence-grounded pages."""
     details = details or {}
@@ -111,6 +112,23 @@ def generate_operator_causes_docx(
     doc.add_paragraph(f"{report.case_id}  |  {report.report_date}  |  TraceAI Control")
     doc.add_paragraph(f"{report.product_code} — {report.product_name}")
     doc.add_paragraph(f"Perioada: {report.period}   •   Verdict: {report.verdict}   •   Status: {report.case_status}")
+    if human_evidence:
+        doc.add_heading("Confirmări umane — dovezi asociate sursei", level=1)
+        for item in human_evidence:
+            doc.add_paragraph(
+                f"ID {item['evidence_id']} | {item['system']} rând {item['source_row']} | "
+                f"{item['source_date']} | {item['signed_quantity']:+g} {item['unit']}"
+            )
+            doc.add_paragraph(
+                f"Verificare fizică: {'confirmată' if item['physical_count_confirmed'] else 'neconfirmată'}; "
+                f"corespondent WME: "
+                f"{'nu a fost efectuat' if item['counterpart_wme_exists'] is False else 'de verificat'}."
+            )
+            doc.add_paragraph(f"Declarație operator: {item['statement']} (sursă: {item['provenance']}).")
+        doc.add_paragraph(
+            "Confirmarea se aplică doar operațiunii identificate, nu reprezintă MATCH "
+            "WMS-WME, nu schimbă verdictul general REVIEW și nu autorizează ajustări."
+        )
     doc.add_heading("Rezumat stoc — toate gestiunile", level=1)
     zone_rows = details.get("stock_report_zone_matching", {}).get("rows", [])
     rows = [
