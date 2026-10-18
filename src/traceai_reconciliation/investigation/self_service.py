@@ -21,6 +21,7 @@ from .auto_explain import (
 from .case_builder import build_case_report
 from .daily_operator import build_daily_operator_result, daily_operator_result_to_dict
 from .engine import investigate_product
+from .human_evidence import HumanAttestation, applicable_attestations
 from .human_review_queue import (
     build_human_review_queue_item,
     build_review_queue_payload,
@@ -299,6 +300,7 @@ def run_self_service_case(
     execution_id: str | None = None,
     staged_at: str | None = None,
     evidence_url: str | None = None,
+    human_attestations: list[HumanAttestation] | None = None,
 ) -> SelfServiceRunResult:
     """
     Run one product investigation end-to-end and stage a review payload.
@@ -362,6 +364,12 @@ def run_self_service_case(
         index = SQLiteSourceIndex(effective_sources.cache_dir)
         attach_bc_from_index(case_report, index, str(mapping_ids[0]))
 
+    # Human statements only annotate exactly bound source rows. They do not
+    # alter matching, automated explanation, eligibility or the REVIEW verdict.
+    verified_human_evidence = applicable_attestations(
+        product, case_report.operation_timeline, human_attestations or [],
+    )
+
     explanation = auto_explanation_from_investigation(investigation)
     assessment = assess_auto_explain_promotion(
         investigation,
@@ -380,7 +388,7 @@ def run_self_service_case(
     summary_json = case_dir / "self_service_summary.json"
 
     generate_docx_report(case_report, case_dir / "case_technical.docx")
-    generate_operator_causes_docx(case_report, docx, details=investigation.details)
+    generate_operator_causes_docx(case_report, docx, details=investigation.details, human_evidence=verified_human_evidence)
 
     queue_item = build_human_review_queue_item(
         investigation,
@@ -400,6 +408,7 @@ def run_self_service_case(
     technical_payload = {
         "investigation": asdict(investigation),
         "case_report": asdict(case_report),
+        "human_evidence": verified_human_evidence,
         "auto_explain": auto_explanation_to_dict(explanation),
         "promotion_assessment": asdict(assessment),
         "source_readiness": asdict(readiness),
