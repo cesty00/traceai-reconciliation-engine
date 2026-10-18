@@ -38,12 +38,17 @@ def applicable_attestations(
     cannot be promoted as validated evidence.
     """
     accepted: list[dict[str, Any]] = []
+    counts: dict[tuple[str, int], int] = {}
+    for att in attestations:
+        if att.product_code == product_code:
+            key = (att.system.upper(), att.source_row)
+            counts[key] = counts.get(key, 0) + 1
     seen: set[tuple[str, int]] = set()
     for att in attestations:
         if att.product_code != product_code:
             continue
         key = (att.system.upper(), att.source_row)
-        if key in seen:
+        if key in seen or counts[key] != 1:
             continue
         rows = [
             row for row in timeline
