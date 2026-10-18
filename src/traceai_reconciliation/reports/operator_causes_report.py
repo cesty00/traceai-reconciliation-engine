@@ -266,6 +266,31 @@ def generate_operator_causes_docx(
         matches = timeline_by_document.get((system, document, operation), [])
         # An inventory without document number cannot be attributed to a
         # timeline row solely on the basis of equal quantities.
+        # Synthetic inventory findings do not carry the original WMS row ID.
+        # Link for display ONLY when date, signed quantity and direction
+        # identify precisely one WMS correction. This is not a WME MATCH.
+        if system == "WMS" and operation in ("INV-MIN", "INV-PLS"):
+            sign = -1 if operation == "INV-MIN" else 1
+            candidates = []
+            for e in events:
+                if str(e.get("system") or "").upper() != "WMS":
+                    continue
+                op = str(e.get("operation_type") or "").strip().lower()
+                if op != ("ajustare negativa" if sign < 0 else "ajustare pozitiva"):
+                    continue
+                if str(e.get("date") or "")[:10] != str(item.get("date") or "")[:10]:
+                    continue
+                try:
+                    same_qty = abs(float(e.get("quantity")) - float(item.get("quantity"))) <= 0.001
+                except (TypeError, ValueError):
+                    same_qty = False
+                if same_qty:
+                    candidates.append(e)
+            if len(candidates) == 1:
+                e = candidates[0]
+                return (_date_for_operator(e.get("date")), system, document,
+                        operation, e.get("quantity"), e.get("warehouse") or "Neidentificată",
+                        _source_reference(e), str(item.get("reason") or "-"))
         match = matches[0] if len(matches) == 1 and document not in ("", "-") else None
         # WME invoices can contain several product/lot rows for one F document.
         # The unmatched summary stores an unsigned effect on WMS-WME, not the
