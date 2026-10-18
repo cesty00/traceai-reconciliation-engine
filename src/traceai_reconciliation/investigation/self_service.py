@@ -366,8 +366,11 @@ def run_self_service_case(
 
     # Human statements only annotate exactly bound source rows. They do not
     # alter matching, automated explanation, eligibility or the REVIEW verdict.
-    verified_human_evidence = applicable_attestations(
-        product, case_report.operation_timeline, human_attestations or [],
+    verified_human_evidence = (
+        applicable_attestations(
+            product, case_report.operation_timeline, human_attestations,
+        )
+        if human_attestations else []
     )
 
     explanation = auto_explanation_from_investigation(investigation)
