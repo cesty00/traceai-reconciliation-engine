@@ -40,3 +40,9 @@ def test_attestation_does_not_change_matching_or_verdict():
     assert result
     assert entry == initial
     assert "verdict" not in result[0]
+
+
+def test_duplicate_attestations_cannot_be_promoted():
+    row = {"system": "WMS", "source_row": 273779,
+           "date": "2026-09-18 17:12:03", "quantity": -10.0}
+    assert applicable_attestations("DS099902505", [row], [_confirmation(), _confirmation()]) == []
