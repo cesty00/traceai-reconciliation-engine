@@ -267,6 +267,23 @@ def generate_operator_causes_docx(
         # An inventory without document number cannot be attributed to a
         # timeline row solely on the basis of equal quantities.
         match = matches[0] if len(matches) == 1 and document not in ("", "-") else None
+        # WME invoices can contain several product/lot rows for one F document.
+        # The unmatched summary stores an unsigned effect on WMS-WME, not the
+        # signed source movement. Reconstruct source-facing values from ALL F
+        # rows instead of displaying an absent date and a misleading +quantity.
+        if system == "WME" and operation == "F" and document not in ("", "-") and matches:
+            mose_rows = [
+                e for e in matches
+                if str(e.get("warehouse") or "").strip().upper() == "MOSE"
+            ]
+            if len(mose_rows) == len(matches):
+                dates = sorted({_date_for_operator(e.get("date")) for e in matches})
+                dates = [d for d in dates if d != "Neidentificată"]
+                date_label = " / ".join(dates) if dates else "Neidentificată"
+                refs = ", ".join(dict.fromkeys(_source_reference(e) for e in matches))
+                quantity = sum(float(e.get("quantity") or 0) for e in matches)
+                return (date_label, system, document, operation, quantity,
+                        "MOSE", refs, str(item.get("reason") or "-"))
         date = (match.get("date") if match else item.get("date")) or "Neidentificată"
         if date == "-":
             date = "Neidentificată"
@@ -511,7 +528,8 @@ def generate_operator_causes_docx(
         )
         if title == "Documente F în MOSE":
             doc.add_paragraph(
-                "REGULĂ MOSE CONFIRMATĂ: gestiunea MOSE este internă. "
+                "REGULĂ MOSE CONFIRMATĂ: MOSE este gestiune exclusiv WME; "
+                "nu există gestiune MOSE și nici sold MOSE în WMS. "
                 "Marfa iese din Depozit Principal prin Livrare WMS TRANSFER_MOSE "
                 "și intră în MOSE prin NT WME. Factura F este o ieșire ulterioară "
                 "din gestiunea MOSE către clientul înscris pe document; "
