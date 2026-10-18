@@ -132,10 +132,24 @@ def generate_operator_causes_docx(
     staging = any(f.get("type") == "RECEPTION_STAGING_INCLUDED_IN_STORAGE" for f in report.findings)
     if staging:
         doc.add_paragraph("Regulă confirmată: Recepție nerelocată este zonă operațională a Depozitării; rândurile originale rămân vizibile.")
-    if zone_rows and abs(wms-wme) > 0.001:
+    mapping_summary = details.get("stock_report_zone_matching") or {}
+    explained_by_mapping = (
+        bool(zone_rows)
+        and mapping_summary.get("unresolved_rows") == 0
+        and bool(mapping_summary.get("confirmed_report_mapping_rows"))
+        and abs(float(mapping_summary.get("mapping_effect_total") or 0) - (wms - wme)) <= 0.001
+    )
+    if explained_by_mapping:
         doc.add_paragraph(
-            "Diferență de stoc REALĂ: verificați operațiunile care produc abaterea. "
-            "Nu efectuați ajustări înainte de validarea documentară."
+            "Diferență în RAPORTARE, explicată prin maparea WME pe gestiuni; "
+            "nu este demonstrată o lipsă fizică de stoc. "
+            "Validarea tuturor operațiunilor WMS/WME rămâne separată (REVIEW)."
+        )
+    elif zone_rows and abs(wms-wme) > 0.001:
+        doc.add_paragraph(
+            "Diferență RAPORTATĂ, cu origine încă de verificat: nu se poate "
+            "confirma o diferență fizică sau o eroare operațională din simplul sold. "
+            "Nu efectuați ajustări fără validare documentară."
         )
     else:
         doc.add_paragraph("Un sold egal nu dovedește reconcilierea tuturor documentelor.")
@@ -346,6 +360,39 @@ def generate_operator_causes_docx(
             f"rezidual livrări {delivery.get('residual_total', 'necunoscut')}. "
             "Verificările agregate nu reprezintă o listă de MATCH pe fiecare rând."
         )
+        # Read-only document comparison from original timeline. Document identifiers
+        # across WMS and WME may differ; quantity agreement alone is NOT MATCH.
+        receipt_wms = [e for e in events if str(e.get("system") or "").upper() == "WMS"
+                       and str(e.get("operation_type") or "").casefold() == "receptie"]
+        receipt_wme = [e for e in events if str(e.get("system") or "").upper() == "WME"
+                       and str(e.get("operation_type") or "").upper() in ("FE", "F")]
+        delivery_wms = [e for e in events if str(e.get("system") or "").upper() == "WMS"
+                        and str(e.get("operation_type") or "").casefold() == "livrare"]
+        delivery_wme = [e for e in events if str(e.get("system") or "").upper() == "WME"
+                        and str(e.get("operation_type") or "").upper() == "AE"]
+        def grouped_documents(items):
+            groups = defaultdict(list)
+            for e in items:
+                groups[str(e.get("document") or "-")].append(e)
+            return [(key, sum(float(e.get("quantity") or 0) for e in rows),
+                     ", ".join(sorted({_source_reference(e) for e in rows})[:4]))
+                    for key, rows in sorted(groups.items())]
+        if receipt_wms or receipt_wme or delivery_wms or delivery_wme:
+            doc.add_heading("Documente WMS și WME — control vizual, fără MATCH automat", level=2)
+            for label, left, right in (
+                ("Recepții", receipt_wms, receipt_wme),
+                ("Livrări", delivery_wms, delivery_wme),
+            ):
+                if not left and not right:
+                    continue
+                doc.add_paragraph(label + ": documentele sunt grupate separat pe sistem. "
+                                  "Un număr sau un total egal nu demonstrează corespondentul.")
+                _table(doc, ["Sistem", "Document", "Cantitate", "Rânduri sursă"], [
+                    (system, number, f"{qty:+,.3f}", refs)
+                    for system, items in (("WMS", left), ("WME", right))
+                    for number, qty, refs in grouped_documents(items)
+                ][:24])
+        
         wme_residual = details.get("wme_residual_movements") or {}
         if wme_residual.get("residual_movements"):
             doc.add_paragraph(
