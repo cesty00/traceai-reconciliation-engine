@@ -330,12 +330,26 @@ def investigate_product(
                 "evidence": "SRC-STOCK-REPORT + SRC-WME + GST-02/GST-03",
             }
         )
-        result.cause_code = "CAUSE-REPORT-MAPPING-PARTIAL"
-        result.cause_description = (
-            "O parte din diferența raportată provine din logica de mapare a "
-            "raportului: QuantityERP=0 pentru o gestiune în care WMS și WME "
-            "au același sold. Restul diferenței se investighează operațional."
+        mapping_explains_full_report_difference = (
+            not stock_zone_match.unresolved_rows
+            and abs(result.unexplained_difference) <= 10 ** (-decimals)
+            and abs(mapping_effect - result.initial_difference) <= 10 ** (-decimals)
         )
+        if mapping_explains_full_report_difference:
+            result.cause_code = "CAUSE-REPORT-MAPPING-FULL"
+            result.cause_description = (
+                "Diferența raportată este explicată integral prin maparea "
+                "gestiunilor: QuantityERP=0 în raport pentru o gestiune cu "
+                "sold WMS egal cu soldul din fișa WME. Nu este demonstrată "
+                "o lipsă fizică; reconcilierea tuturor mișcărilor rămâne REVIEW."
+            )
+        else:
+            result.cause_code = "CAUSE-REPORT-MAPPING-PARTIAL"
+            result.cause_description = (
+                "O parte din diferența raportată provine din maparea gestiunilor "
+                "cu QuantityERP=0. Partea neexplicată și gestiunile neverificate "
+                "rămân în investigație; nu se confirmă o lipsă fizică."
+            )
         result.cause_status = "CONFIRMATA"
         result.evidence_level = "A"
         result.verdict = "REVIEW"
