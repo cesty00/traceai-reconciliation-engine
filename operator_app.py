@@ -327,6 +327,41 @@ def main() -> None:
             use_container_width=True, hide_index=True,
         )
     st.caption("Statusul operatorului este decizie explicită, înregistrată separat de verdictul motorului.")
+    from traceai_reconciliation.investigation.human_evidence import HumanAttestation
+    import json
+    human_attestations = []
+    with st.expander("Confirmare umană ajustare WMS (opțional)"):
+        reports_for_product = [x for x in history_rows if x["product_code"] == str(code)]
+        events = []
+        if reports_for_product:
+            try:
+                payload = json.loads(Path(reports_for_product[0]["json_path"]).read_text(encoding="utf-8"))
+                events = [e for e in payload.get("case_report", {}).get("operation_timeline", [])
+                          if e.get("system") == "WMS"
+                          and e.get("operation_type") in ("Ajustare negativa", "Ajustare pozitiva")
+                          and e.get("source_row") is not None]
+            except (OSError, ValueError, TypeError):
+                st.warning("Raportul arhivat nu poate fi citit.")
+        if events:
+            idx = st.selectbox("Rând WMS", range(len(events)),
+                               format_func=lambda i: f"{events[i]['date']} | {events[i]['source_row']} | {events[i]['quantity']}")
+            e = events[idx]
+            physical = st.checkbox("Verificarea fizică a fost efectuată")
+            wme_absent = st.checkbox("Nu a fost efectuată ajustare WME")
+            note = st.text_input("Declarație / motiv")
+            verifier = st.text_input("Persoana care confirmă")
+            authorize = st.checkbox("Confirm exclusiv acest rând; fără MATCH sau ajustare automată")
+            if physical and wme_absent and note.strip() and verifier.strip() and authorize:
+                human_attestations = [HumanAttestation(
+                    evidence_id=f"HUM-{code}-{e['source_row']}", product_code=str(code),
+                    system="WMS", source_row=int(e["source_row"]),
+                    source_date=str(e["date"])[:10], signed_quantity=float(e["quantity"]),
+                    unit=str(payload.get("investigation", {}).get("unit") or ""),
+                    physical_count_confirmed=True, counterpart_wme_exists=False,
+                    statement=note.strip(), provenance=f"Streamlit: {verifier.strip()}")]
+                st.caption("Validarea va fi recontrolată pe sursa WMS curentă.")
+        else:
+            st.info("Rulează întâi o investigație pentru a identifica ajustările WMS.")
     if not st.button("4. Reconciliază articolul", type="primary"):
         return
     missing = [REQUIRED_INPUTS[key] for key in REQUIRED_INPUTS if key not in paths]
@@ -355,6 +390,7 @@ def main() -> None:
                 sources=sources,
                 output_dir=workspace / "cases",
                 execution_id=f"operator:{code}",
+                human_attestations=human_attestations,
             )
         except Exception as exc:
             st.error(f"Analiza este blocată și nu se declară MATCH: {type(exc).__name__}: {exc}")
