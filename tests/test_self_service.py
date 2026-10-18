@@ -93,6 +93,10 @@ def test_self_service_runner_stages_only_and_never_approves(
         "traceai_reconciliation.investigation.self_service.generate_docx_report",
         fake_docx,
     )
+    monkeypatch.setattr(
+        "traceai_reconciliation.investigation.self_service.generate_operator_causes_docx",
+        lambda _report, path, **kwargs: fake_docx(_report, path),
+    )
 
     run = run_self_service_case(
         product_code="TEST",
@@ -165,6 +169,10 @@ def test_self_service_hold_remains_hold(
     monkeypatch.setattr(
         "traceai_reconciliation.investigation.self_service.generate_docx_report",
         lambda _report, path: Path(path).write_bytes(b"DOCX-STUB") or Path(path),
+    )
+    monkeypatch.setattr(
+        "traceai_reconciliation.investigation.self_service.generate_operator_causes_docx",
+        lambda _report, path, **kwargs: Path(path).write_bytes(b"DOCX-STUB") or Path(path),
     )
 
     run = run_self_service_case(

@@ -269,6 +269,176 @@ def _add_bullets(doc: DocumentObject, items: Iterable[str]) -> None:
         doc.add_paragraph("Nu au fost înregistrate elemente pentru această secțiune.")
 
 
+
+def _add_operator_causes(doc: DocumentObject, report: CaseReport) -> None:
+    """Present real document evidence first, without guessed row associations."""
+    _add_heading(doc, "CAUSES - Verificari operationale si localizare WMS / WME")
+    doc.add_paragraph(
+        "Un sold egal nu certifica egalitatea operatiunilor. Data, documentul si "
+        "cantitatea provin din cronologia sau anomaliile cazului; legaturile "
+        "fara probe raman REVIEW. Ora 00:00 din WME poate fi doar data documentului."
+    )
+
+    # Document-level evidence, never a full-case MATCH declaration.
+    from collections import defaultdict
+    groups = defaultdict(list)
+    for entry in report.operation_timeline:
+        system = str(entry.get("system") or "").upper()
+        doc_id = str(entry.get("document") or "").strip().upper()
+        operation = str(entry.get("operation_type") or "").strip().upper()
+        if system == "WMS" and operation in {"LIVRARE", "RECEPTIE"}:
+            import re
+            matched = re.fullmatch(r"SFA(\d+)(?:-1)?", doc_id)
+            if matched:
+                groups[matched.group(1)].append(entry)
+        elif system == "WME" and operation == "AE" and doc_id.isdigit():
+            groups[doc_id].append(entry)
+    shown = 0
+    for doc_id, entries in sorted(groups.items()):
+        outgoing = [e for e in entries if str(e.get("system")).upper() == "WMS"
+                    and str(e.get("operation_type")).upper() == "LIVRARE"
+                    and str(e.get("document")).upper() == "SFA" + doc_id]
+        returns = [e for e in entries if str(e.get("system")).upper() == "WMS"
+                   and str(e.get("operation_type")).upper() == "RECEPTIE"
+                   and str(e.get("document")).upper() == "SFA" + doc_id + "-1"]
+        ae = [e for e in entries if str(e.get("system")).upper() == "WME"
+              and str(e.get("operation_type")).upper() == "AE"]
+        if not (outgoing and returns and ae):
+            continue
+        wms_net = sum(float(e.get("quantity") or 0) for e in outgoing + returns)
+        wme_net = sum(float(e.get("quantity") or 0) for e in ae)
+        if abs(wms_net-wme_net) > .001:
+            continue
+        if shown == 0:
+            _add_heading(doc, "FLUXURI LIVRARE / RETUR - DOVEZI DOCUMENTARE")
+        shown += 1
+        _add_heading(doc, "Document " + doc_id + " - concordanta cantitativa")
+        doc.add_paragraph(
+            f"WMS net {wms_net:.3f} vs AE WME {wme_net:.3f}; "
+            "verificarea semnificatiei returului ramane necesara. "
+            "Nu se certifica automat cazul integral."
+        )
+        _add_table(
+            doc, ["Data/ora sursa", "Sistem", "Document", "Operatiune", "Cantitate", "Gestiune"],
+            [(str(e.get("date") or "-"),str(e.get("system") or "-"),
+              str(e.get("document") or "-"),str(e.get("operation_type") or "-"),
+              str(e.get("quantity") if e.get("quantity") is not None else "-"),
+              str(e.get("warehouse") or "-")) for e in outgoing+returns+ae],
+            7.1,
+        )
+        if shown >= 10:
+            break
+
+    # Informational diagnostics should not become standalone operator CAUSES.
+    informational = {"SOURCE_COUNTS", "WME_FINAL_BY_WAREHOUSE", "WME_BALANCE_CHECK"}
+    staging = any(
+        f.get("type") == "RECEPTION_STAGING_INCLUDED_IN_STORAGE"
+        for f in report.findings
+    )
+    findings = [
+        f for f in report.findings
+        if f.get("type") not in informational
+        and not (staging and f.get("type") == "STOCK_REPORT_OFFSETTING_ZONE_DIFFERENCES")
+    ]
+    if staging:
+        findings = sorted(
+            findings,
+            key=lambda f: f.get("type") != "RECEPTION_STAGING_INCLUDED_IN_STORAGE",
+        )
+    if not findings and not report.unmatched_operations and not report.operation_timeline:
+        doc.add_paragraph("Nu au fost identificate verificari operationale punctuale.")
+        return
+
+    # Only exact document identifiers may connect an anomaly to a timeline row.
+    # Never connect by matching words in a finding's title.
+    by_doc: dict[tuple[str, str], list[dict]] = {}
+    for entry in report.operation_timeline:
+        system = str(entry.get("system") or "").upper()
+        document = str(entry.get("document") or "").strip().upper()
+        if system and document and document != "-":
+            by_doc.setdefault((system, document), []).append(entry)
+
+    buckets: dict[str, list[dict]] = {
+        "Inventare si ajustari": [],
+        "Miscari MOSE de verificat": [],
+        "Alte anomalii documentare": [],
+    }
+    for anomaly in report.unmatched_operations:
+        operation = str(anomaly.get("operation_type") or "").upper()
+        description = str(anomaly.get("reason") or "").upper()
+        if "PV" in operation or "INV-" in operation or "INVENTORY" in operation:
+            category = "Inventare si ajustari"
+        elif "MOSE" in description or "MOSE" in operation:
+            category = "Miscari MOSE de verificat"
+        else:
+            category = "Alte anomalii documentare"
+        buckets[category].append(anomaly)
+
+    page_no = 0
+    for finding in findings:
+        if page_no:
+            doc.add_page_break()
+        page_no += 1
+        kind = str(finding.get("type") or "REVIEW")
+        _add_heading(doc, f"CAUSES {page_no:02d} - {kind}")
+        doc.add_paragraph(str(finding.get("description") or "Descriere indisponibila"))
+        doc.add_paragraph("Referinta: " + str(finding.get("evidence") or "Neidentificata"))
+        if kind == "RECEPTION_STAGING_INCLUDED_IN_STORAGE":
+            doc.add_paragraph(
+                "Confirmare operator: zona Receptie nerelocata face parte din "
+                "Depozitare; cele doua pozitii trebuie pastrate vizibile separat."
+            )
+        _add_table(
+            doc, ["Decizie operator", "Verificator", "Data", "Observatii"],
+            [("Confirmat / Respins / Verificare suplimentara", "", "", "")], 7.3,
+        )
+
+    for label, anomalies in buckets.items():
+        if not anomalies:
+            continue
+        doc.add_page_break()
+        _add_heading(doc, f"VERIFICARE DOCUMENTARA - {label}")
+        doc.add_paragraph(
+            "Anomaliile sunt candidate, nu cauze confirmate. Data dintr-o "
+            "linie fara cronologie corelata nu este inventata."
+        )
+        for item in anomalies[:30]:
+            system = str(item.get("system") or "-").upper()
+            number = str(item.get("document") or "-").strip().upper()
+            exact = by_doc.get((system, number), [])
+            matches = exact[:4] if exact else [None]
+            rows = []
+            for found in matches:
+                date = (
+                    str(found.get("date") or "Neidentificata")
+                    if found is not None else str(item.get("date") or "Neidentificata")
+                )
+                rows.append((
+                    date, system, number,
+                    str(item.get("operation_type") or "-"),
+                    str(item.get("quantity") if item.get("quantity") is not None else "-"),
+                    str(found.get("warehouse") or "-") if found is not None else "Neidentificata",
+                    "Cronologie: document exact" if found is not None else "Fara legatura cronologica dovedita",
+                ))
+            _add_table(
+                doc,
+                ["Data/ora", "Sistem", "Document", "Tip", "Cantitate", "Gestiune", "Localizare"],
+                rows, 7.0,
+            )
+            doc.add_paragraph(
+                "REVIEW | " + str(item.get("reason") or "Motiv neidentificat")
+            )
+        if len(anomalies) > 30:
+            doc.add_paragraph(
+                f"Alte {len(anomalies)-30} anomalii sunt pastrate in JSON."
+            )
+        _add_table(
+            doc, ["Decizie operator", "Verificator", "Data", "Observatii"],
+            [("Confirmat / Respins / Verificare suplimentara", "", "", "")], 7.3,
+        )
+
+
+
 def generate_docx_report(report: CaseReport, output_path: str | Path) -> Path:
     errors = validate_case_report(report)
     if errors:
@@ -322,6 +492,8 @@ def generate_docx_report(report: CaseReport, output_path: str | Path) -> Path:
             ("Necesită intervenție umană", "DA" if report.human_intervention_required else "NU"),
         ],
     )
+
+    _add_operator_causes(doc, report)
 
     _add_heading(doc, "2. Obiectul și limitele verificării")
     doc.add_paragraph(
@@ -423,6 +595,42 @@ def generate_docx_report(report: CaseReport, output_path: str | Path) -> Path:
             f"Rămâne o diferență neexplicată de {_fmt_qty(report.unexplained_difference)} "
             f"{report.unit}. Cazul necesită continuarea investigației sau validare umană "
             "înaintea oricărei corecții."
+        )
+
+    # G14 operator action overview: presentation-only, no balance effects.
+    pv_actions = [
+        item for item in report.unmatched_operations
+        if item.get("operation_type") == "COR_STOC_PV_DOCUMENTARY_CANDIDATE"
+        and item.get("status") == "COR_STOC_PV_SOURCE_REVIEW"
+    ]
+    if pv_actions:
+        _add_heading(doc, "9A. Acțiuni necesare operatorului — documente PV")
+        doc.add_paragraph(
+            "Candidați documentari pentru verificare umană. Aceleași operațiuni "
+            "pot apărea și în anexele cu reziduuri WMS/WME; rândurile de mai jos "
+            "NU reprezintă diferențe suplimentare de stoc, NU se însumează și "
+            "NU autorizează corecții sau neutralizări automate."
+        )
+        def _pv_action(item):
+            details = str(item.get("reason", ""))
+            if "gestiune DE VERIFICAT" in details:
+                priority, action = "P1", "Verificați gestiunea documentului PV și transferurile dintre gestiuni."
+            elif "cantități WMS=" in details and "diferență documentară=0.0;" not in details:
+                priority, action = "P1", "Verificați rândurile WMS neasociate explicit și documentul PV."
+            else:
+                priority, action = "P2", "Confirmați legătura documentară și validarea operațională."
+            return (priority, str(item.get("document", "-")), action, details)
+        # Sort using the same computed priority shown in the table; otherwise
+        # a P1 quantity discrepancy can appear after P2 documentary checks.
+        pv_actions.sort(key=lambda item: (
+            0 if _pv_action(item)[0] == "P1" else 1,
+            str(item.get("document", ""))
+        ))
+        _add_table(
+            doc,
+            ["Prioritate", "PV", "Verificarea operatorului", "Dovezi / rânduri originale"],
+            [_pv_action(item) for item in pv_actions],
+            7.2,
         )
 
     _add_heading(doc, "10. Recomandări de rezolvare")

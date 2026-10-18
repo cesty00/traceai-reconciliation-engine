@@ -17,6 +17,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8,<9"]
+ui = ["streamlit>=1.39,<2"]
 
 [project.scripts]
 traceai-reconcile = "traceai_reconciliation.cli:main"

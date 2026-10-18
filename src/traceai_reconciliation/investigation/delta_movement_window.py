@@ -42,6 +42,7 @@ class DeltaMovementWindowResult:
     wms_rows: tuple[dict[str, Any], ...]
     wme_rows: tuple[dict[str, Any], ...]
     production_rows: tuple[dict[str, Any], ...]
+    source_manifest: dict[str, dict[str, str]] | None = None
 
 
 def _normalize_timestamp(value: pd.Timestamp) -> pd.Timestamp:
@@ -151,4 +152,5 @@ def build_delta_movement_window(
         wms_rows=_records(wms),
         wme_rows=_records(wme),
         production_rows=_records(production),
+        source_manifest=source_index.source_manifest(),
     )

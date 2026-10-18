@@ -60,6 +60,12 @@ def test_filter_frame_to_window_fails_closed_on_invalid_date() -> None:
 
 
 class FakeIndex:
+    def source_manifest(self):
+        return {
+            key: {"file_name": f"{key}.source", "sha256": key[0] * 64}
+            for key in ("wms", "wme", "production")
+        }
+
     def read_wms_product(self, product_code: str):
         assert product_code == "DS099904475"
         return pd.DataFrame(
@@ -103,6 +109,7 @@ def test_build_delta_movement_window_collects_only_new_movements() -> None:
     assert result.production_count == 1
     assert result.wms_rows[0]["Cantitate"] == -1.44
     assert result.production_rows[0]["Qty"] == 2.0
+    assert result.source_manifest == FakeIndex().source_manifest()
 
 
 def test_movement_window_rejects_reversed_bounds() -> None:

@@ -28,6 +28,7 @@ def test_timeline_from_wms_maps_semantic_columns() -> None:
         {
             "date": "2026-10-13",
             "system": "WMS",
+            "source_row": None,  # Provenance must not be invented when the source lacks it.
             "document": "DOC-1",
             "operation_type": "Ajustare negativa",
             "quantity": -1.44,

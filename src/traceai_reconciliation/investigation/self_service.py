@@ -8,6 +8,7 @@ from typing import Any
 
 from traceai_reconciliation import __version__
 from traceai_reconciliation.reports import generate_docx_report
+from traceai_reconciliation.reports.operator_causes_report import generate_operator_causes_docx
 from traceai_reconciliation.version import (
     SELF_SERVICE_BATCH_SCHEMA_VERSION,
     SELF_SERVICE_SUMMARY_SCHEMA_VERSION,
@@ -20,6 +21,7 @@ from .auto_explain import (
 from .case_builder import build_case_report
 from .daily_operator import build_daily_operator_result, daily_operator_result_to_dict
 from .engine import investigate_product
+from .human_evidence import HumanAttestation, applicable_attestations
 from .human_review_queue import (
     build_human_review_queue_item,
     build_review_queue_payload,
@@ -298,6 +300,7 @@ def run_self_service_case(
     execution_id: str | None = None,
     staged_at: str | None = None,
     evidence_url: str | None = None,
+    human_attestations: list[HumanAttestation] | None = None,
 ) -> SelfServiceRunResult:
     """
     Run one product investigation end-to-end and stage a review payload.
@@ -347,6 +350,29 @@ def run_self_service_case(
         rules_version=rules_version,
         execution_id=execution_id,
     )
+    # Historical BC evidence uses the full indexed investigation sources,
+    # never the narrow Daily delta window. Fail closed on documentary ambiguity.
+    if effective_sources.use_source_index and any(
+        row.get("step") == "PRODUCTION_INPUT_BC"
+        for row in case_report.conclusion_traceability
+    ):
+        from .bc_index_bridge import attach_bc_from_index
+        from .source_index import SQLiteSourceIndex
+        mapping_ids = investigation.details.get("wme_mapping_ids", [])
+        if len(mapping_ids) != 1:
+            raise ValueError("BC evidence requires unique WME product mapping")
+        index = SQLiteSourceIndex(effective_sources.cache_dir)
+        attach_bc_from_index(case_report, index, str(mapping_ids[0]))
+
+    # Human statements only annotate exactly bound source rows. They do not
+    # alter matching, automated explanation, eligibility or the REVIEW verdict.
+    verified_human_evidence = (
+        applicable_attestations(
+            product, case_report.operation_timeline, human_attestations,
+        )
+        if human_attestations else []
+    )
+
     explanation = auto_explanation_from_investigation(investigation)
     assessment = assess_auto_explain_promotion(
         investigation,
@@ -364,7 +390,8 @@ def run_self_service_case(
     operator_json = case_dir / "daily_operator_result.json"
     summary_json = case_dir / "self_service_summary.json"
 
-    generate_docx_report(case_report, docx)
+    generate_docx_report(case_report, case_dir / "case_technical.docx")
+    generate_operator_causes_docx(case_report, docx, details=investigation.details, human_evidence=verified_human_evidence)
 
     queue_item = build_human_review_queue_item(
         investigation,
@@ -384,6 +411,7 @@ def run_self_service_case(
     technical_payload = {
         "investigation": asdict(investigation),
         "case_report": asdict(case_report),
+        "human_evidence": verified_human_evidence,
         "auto_explain": auto_explanation_to_dict(explanation),
         "promotion_assessment": asdict(assessment),
         "source_readiness": asdict(readiness),

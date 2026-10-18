@@ -38,6 +38,28 @@ def build_case_report(
         f"nu sunt suficiente."
     )
 
+    # Surface independently computed BC discrepancies in the operator report.
+    # Original physical source-row coordinates and human approval are NOT
+    # inferred here; those require verified indexed provenance and review.
+    bc_data = result.details.get("production_input_matching", {})
+    bc_trace = []
+    for item in bc_data.get("persistent_residual_documents", []):
+        if item.get("status") != "QTY_DIFF":
+            continue
+        bc_trace.append({
+            "step": "PRODUCTION_INPUT_BC",
+            "source": "WMS PRODUCTION-IN vs WME BC",
+            "key": "BC=" + str(item["document"]),
+            "rule": "QTY_DIFF_NO_AUTO_CONVERSION",
+            "result": (
+                f"WMS={float(item['wms_effective']):.3f}; "
+                f"WME={float(item['wme_bc']):.3f}; "
+                f"DIFF={float(item['difference']):.3f}; "
+                "SOURCE_ROWS_NOT_VERIFIED; HUMAN_VALIDATION_NOT_ATTACHED"
+            ),
+            "evidence_level": "D",
+        })
+
     return CaseReport(
         case_id=result.case_id,
         product_code=result.product_code,
@@ -59,7 +81,7 @@ def build_case_report(
         recommendations=recommendations,
         operation_timeline=result.operation_timeline,
         unmatched_operations=result.unmatched_operations,
-        conclusion_traceability=result.conclusion_traceability,
+        conclusion_traceability=[*result.conclusion_traceability, *bc_trace],
         case_status=(
             "IN_ANALIZA"
             if (

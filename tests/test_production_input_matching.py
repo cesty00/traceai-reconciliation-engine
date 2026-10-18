@@ -210,7 +210,7 @@ def test_cor_stoc_reference_for_other_order_does_not_cancel_production_in() -> N
 
 
 
-def test_prod03_residual_before_inventory_checkpoint_is_not_persistent() -> None:
+def test_prod03_inventory_checkpoint_alone_does_not_neutralize_bc_residual() -> None:
     wms = pd.DataFrame(
         [
             {
@@ -245,13 +245,11 @@ def test_prod03_residual_before_inventory_checkpoint_is_not_persistent() -> None
     result = match_production_inputs(wms, wme, production_rows=production)
 
     assert result.residual_total == -17.0
-    assert result.persistent_residual_total == 0.0
-    assert result.safe_to_auto_explain is False
-    assert len(result.neutralized_residual_documents or []) == 1
-    assert (
-        result.neutralized_residual_documents[0]["persistence_status"]
-        == "PRE_INVENTORY_CHECKPOINT"
-    )
+    assert result.persistent_residual_total == -17.0
+    assert len(result.neutralized_residual_documents or []) == 0
+    assert len(result.persistent_residual_documents or []) == 1
+    assert result.persistent_residual_documents[0]["persistence_status"] == "PERSISTENT"
+    assert result.inventory_checkpoint_date is not None
 
 
 def test_prod03_explicit_later_cor_stoc_neutralizes_residual() -> None:

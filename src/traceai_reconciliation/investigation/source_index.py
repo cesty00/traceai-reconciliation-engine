@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import csv
+from contextlib import closing
 import os
 import re
 import sqlite3
@@ -48,26 +50,64 @@ def _csv_chunks(
     path: Path,
     chunksize: int = 50000,
 ) -> Iterator[pd.DataFrame]:
+    """Stream CSV with verified physical line starts (multiline aware).
+
+    CSV parsing and pandas must agree on the number of fields per record.
+    Ambiguous row alignment aborts indexing instead of fabricating provenance.
+    """
     delimiter = detect_csv_delimiter(path)
     last_error: Exception | None = None
     for encoding in ("utf-8-sig", "cp1250", "latin1"):
         try:
-            iterator = pd.read_csv(
-                path,
-                sep=delimiter,
-                chunksize=chunksize,
-                low_memory=False,
-                encoding=encoding,
-            )
-            for chunk in iterator:
-                yield chunk
+            with path.open("r", encoding=encoding, newline="") as handle:
+                reader = csv.reader(handle, delimiter=delimiter)
+                header = next(reader)
+                expected_fields = len(header)
+                previous_end = reader.line_num
+
+                def data_rows() -> Iterator[int]:
+                    nonlocal previous_end
+                    for record in reader:
+                        start_line = previous_end + 1
+                        previous_end = reader.line_num
+                        if not record:  # pandas skips blank physical lines
+                            continue
+                        if len(record) != expected_fields:
+                            raise ValueError(
+                                f"{path.name}: CSV record at line {start_line} has "
+                                f"{len(record)} fields, expected {expected_fields}"
+                            )
+                        yield start_line
+
+                positions = data_rows()
+                iterator = pd.read_csv(
+                    path,
+                    sep=delimiter,
+                    chunksize=chunksize,
+                    low_memory=False,
+                    encoding=encoding,
+                )
+                for chunk in iterator:
+                    lines = []
+                    for _ in range(len(chunk)):
+                        try:
+                            lines.append(next(positions))
+                        except StopIteration as exc:
+                            raise ValueError(
+                                f"{path.name}: CSV/pandas source rows diverged"
+                            ) from exc
+                    chunk["SourceRowNumber"] = lines
+                    yield chunk
+                if next(positions, None) is not None:
+                    raise ValueError(
+                        f"{path.name}: unindexed CSV records remain"
+                    )
             return
         except UnicodeDecodeError as exc:
             last_error = exc
             continue
     if last_error:
         raise last_error
-
 
 class SQLiteSourceIndex:
     """
@@ -110,7 +150,14 @@ class SQLiteSourceIndex:
             production_path,
         )
         try:
-            with sqlite3.connect(self.db_path) as connection:
+            with closing(sqlite3.connect(self.db_path)) as connection, connection:
+                # Old indexes have no per-row provenance and must be rebuilt.
+                for table in ("wms", "wme"):
+                    cols = {row[1] for row in connection.execute(
+                        f"PRAGMA table_info({table})"
+                    )}
+                    if "SourceRowNumber" not in cols:
+                        return False
                 rows = connection.execute(
                     """
                     SELECT source_key, file_name, size, sha256
@@ -168,7 +215,7 @@ class SQLiteSourceIndex:
         wme_path: Path,
         production_path: Path,
     ) -> None:
-        with sqlite3.connect(target) as connection:
+        with closing(sqlite3.connect(target)) as connection, connection:
             connection.execute("PRAGMA journal_mode=OFF")
             connection.execute("PRAGMA synchronous=OFF")
             connection.execute("PRAGMA temp_store=MEMORY")
@@ -319,15 +366,17 @@ class SQLiteSourceIndex:
                 Unit,
                 Note,
                 InternalRef,
-                SignedQuantity REAL
+                SignedQuantity REAL,
+                SourceRowNumber INTEGER
             )
             """
         )
 
-        placeholders = ",".join("?" for _ in WME_STANDARD_COLUMNS)
+        wme_columns = [*WME_STANDARD_COLUMNS, "SourceRowNumber"]
+        placeholders = ",".join("?" for _ in wme_columns)
         insert_sql = (
             "INSERT INTO wme ("
-            + ",".join(WME_STANDARD_COLUMNS)
+            + ",".join(wme_columns)
             + ") VALUES ("
             + placeholders
             + ")"
@@ -379,6 +428,11 @@ class SQLiteSourceIndex:
                     tag=xml_ns + "row",
                 )
                 for _, row_element in context:
+                    # Row 1 is the export header, not an operational event.
+                    # Preserve original worksheet coordinates for data rows.
+                    if row_element.get("r") == "1":
+                        row_element.clear()
+                        continue
                     values: dict[str, object] = {}
 
                     for cell in row_element.findall(xml_ns + "c"):
@@ -443,6 +497,7 @@ class SQLiteSourceIndex:
                             values.get("P"),
                             values.get("Q"),
                             incoming - outgoing,
+                            int(row_element.get("r")),
                         )
                         batch.append(
                             tuple(
@@ -467,12 +522,32 @@ class SQLiteSourceIndex:
                 if batch:
                     connection.executemany(insert_sql, batch)
 
+    def source_manifest(self) -> dict[str, dict[str, str]]:
+        """Read source identities saved with the indexed rows.
+
+        A source filename alone is not evidence: require SHA-256 metadata.
+        """
+        with closing(sqlite3.connect(self.db_path)) as connection, connection:
+            rows = connection.execute(
+                "SELECT source_key, file_name, sha256 FROM _source_meta"
+            ).fetchall()
+        result = {
+            str(key): {"file_name": str(name), "sha256": str(digest)}
+            for key, name, digest in rows
+        }
+        if any(
+            key not in result or len(result[key]["sha256"]) != 64
+            for key in ("wms", "wme", "production")
+        ):
+            raise ValueError("Source index provenance metadata missing")
+        return result
+
     def read_wms_product(
         self,
         product_code: str,
         period: str | None = None,
     ) -> pd.DataFrame:
-        with sqlite3.connect(self.db_path) as connection:
+        with closing(sqlite3.connect(self.db_path)) as connection, connection:
             frame = pd.read_sql_query(
                 """
                 SELECT *
@@ -491,7 +566,7 @@ class SQLiteSourceIndex:
         product_name: str,
         period: str | None = None,
     ) -> tuple[pd.DataFrame, set[str]]:
-        with sqlite3.connect(self.db_path) as connection:
+        with closing(sqlite3.connect(self.db_path)) as connection, connection:
             frame = pd.read_sql_query(
                 """
                 SELECT *
@@ -525,7 +600,7 @@ class SQLiteSourceIndex:
         This is used as evidence only. A document number may be reused by
         other WME operation families, so the operation type is mandatory.
         """
-        with sqlite3.connect(self.db_path) as connection:
+        with closing(sqlite3.connect(self.db_path)) as connection, connection:
             row = connection.execute(
                 """
                 SELECT COUNT(*)
@@ -545,7 +620,7 @@ class SQLiteSourceIndex:
         period: str | None = None,
     ) -> pd.DataFrame:
         """Read all WMS TRANSFER_MOSE rows for basket-level matching."""
-        with sqlite3.connect(self.db_path) as connection:
+        with closing(sqlite3.connect(self.db_path)) as connection, connection:
             frame = pd.read_sql_query(
                 """
                 SELECT *
@@ -564,7 +639,7 @@ class SQLiteSourceIndex:
         period: str | None = None,
     ) -> pd.DataFrame:
         """Read WME NT rows that explicitly connect DP and MOSE."""
-        with sqlite3.connect(self.db_path) as connection:
+        with closing(sqlite3.connect(self.db_path)) as connection, connection:
             frame = pd.read_sql_query(
                 """
                 SELECT *
@@ -594,7 +669,7 @@ class SQLiteSourceIndex:
         period: str | None = None,
     ) -> pd.DataFrame:
         code = str(product_code).strip()
-        with sqlite3.connect(self.db_path) as connection:
+        with closing(sqlite3.connect(self.db_path)) as connection, connection:
             frame = pd.read_sql_query(
                 """
                 SELECT *

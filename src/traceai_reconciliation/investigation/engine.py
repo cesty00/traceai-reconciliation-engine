@@ -27,14 +27,16 @@ from .production_input_matching import match_production_inputs
 from .stock_correction_matching import match_generic_wms_stock_corrections
 from .stock_report_zone_matching import (
     has_offsetting_zone_differences,
+    is_confirmed_reception_staging_offset,
     reconcile_stock_report_zones,
 )
 from .transfer_mose_matching import (
     match_transfer_mose,
     match_transfer_mose_baskets,
 )
-from .wme_residual_matching import match_wme_residual_movements
+from .wme_residual_matching import match_wme_residual_movements, confirmed_inbound_wme_indexes
 from .inventory_adjustment_matching import match_inventory_adjustments
+from .cor_stoc_pv_candidates import find_cor_stoc_pv_candidates
 from .source_readers import (
     filter_by_period,
     first_non_empty,
@@ -328,12 +330,26 @@ def investigate_product(
                 "evidence": "SRC-STOCK-REPORT + SRC-WME + GST-02/GST-03",
             }
         )
-        result.cause_code = "CAUSE-REPORT-MAPPING-PARTIAL"
-        result.cause_description = (
-            "O parte din diferența raportată provine din logica de mapare a "
-            "raportului: QuantityERP=0 pentru o gestiune în care WMS și WME "
-            "au același sold. Restul diferenței se investighează operațional."
+        mapping_explains_full_report_difference = (
+            not stock_zone_match.unresolved_rows
+            and abs(result.unexplained_difference) <= 10 ** (-decimals)
+            and abs(mapping_effect - result.initial_difference) <= 10 ** (-decimals)
         )
+        if mapping_explains_full_report_difference:
+            result.cause_code = "CAUSE-REPORT-MAPPING-FULL"
+            result.cause_description = (
+                "Diferența raportată este explicată integral prin maparea "
+                "gestiunilor: QuantityERP=0 în raport pentru o gestiune cu "
+                "sold WMS egal cu soldul din fișa WME. Nu este demonstrată "
+                "o lipsă fizică; reconcilierea tuturor mișcărilor rămâne REVIEW."
+            )
+        else:
+            result.cause_code = "CAUSE-REPORT-MAPPING-PARTIAL"
+            result.cause_description = (
+                "O parte din diferența raportată provine din maparea gestiunilor "
+                "cu QuantityERP=0. Partea neexplicată și gestiunile neverificate "
+                "rămân în investigație; nu se confirmă o lipsă fizică."
+            )
         result.cause_status = "CONFIRMATA"
         result.evidence_level = "A"
         result.verdict = "REVIEW"
@@ -350,6 +366,15 @@ def investigate_product(
         total_difference=result.initial_difference,
         tolerance=10 ** (-decimals),
     )
+    reception_staging_offset = offsetting_zone_differences and is_confirmed_reception_staging_offset(
+        stock_zone_match, tolerance=10 ** (-decimals)
+    )
+    if reception_staging_offset:
+        result.findings.append({
+            "type": "RECEPTION_STAGING_INCLUDED_IN_STORAGE",
+            "description": "Depozitare și Recepție nerelocată sunt zone ale aceluiași perimetru logistic; diferențele lor se compensează. Validarea documentelor rămâne separată.",
+            "evidence": "SRC-STOCK-REPORT + VALIDARE_OPERATOR",
+        })
     if offsetting_zone_differences:
         material_rows = [
             row
@@ -988,6 +1013,58 @@ def investigate_product(
             result.cause_status = "PROBABILA"
             result.evidence_level = "B"
 
+    # Documentary discovery only. Do NOT feed these candidates into balance,
+    # residual neutralization, or any MATCH/promotion calculation.
+    cor_stoc_pv_candidates = find_cor_stoc_pv_candidates(
+        wms_rows.to_dict("records"),
+        wme_rows.to_dict("records"),
+    )
+    result.details["cor_stoc_pv_review"] = {
+        "candidates": cor_stoc_pv_candidates,
+        "candidate_count": len(cor_stoc_pv_candidates),
+        "applied_to_explanation": False,
+        "residuals_neutralized": False,
+    }
+    if cor_stoc_pv_candidates:
+        result.findings.append({
+            "type": "COR_STOC_PV_DOCUMENTARY_REVIEW",
+            "description": (
+                f"{len(cor_stoc_pv_candidates)} document(e) PV au referințe "
+                "explicite în corecții WMS COR STOC. Asocierile sunt indicii "
+                "documentare REVIEW, nu MATCH și nu reduc reziduurile."
+            ),
+            "evidence": "SRC-WMS(COR STOC) + SRC-WME(PV); document/date/gestiune/proveniență",
+        })
+        for candidate in cor_stoc_pv_candidates:
+            difference = round(
+                candidate["explicit_wms_quantity"] - candidate["pv_quantity"],
+                decimals,
+            )
+            checks = (
+                f"WMS rânduri {candidate['wms_source_rows']}; "
+                f"WME rânduri {candidate['wme_source_rows']}; "
+                f"cantități WMS={candidate['explicit_wms_quantity']}, "
+                f"WME={candidate['pv_quantity']}, diferență documentară={difference}; "
+                f"dată {'OK' if candidate['dates_equal'] else 'DE VERIFICAT'}; "
+                f"gestiune {'OK' if candidate['warehouses_equal'] else 'DE VERIFICAT'}; "
+                f"proveniență {'OK' if candidate['provenance_complete'] else 'INCOMPLETĂ'}; "
+                f"unicitate {'DA' if candidate['reference_unique'] else 'NU'}"
+            )
+            result.unmatched_operations.append({
+                "date": "-",
+                "system": "WMS↔WME",
+                "document": "PV " + candidate["pv_document"],
+                "operation_type": "COR_STOC_PV_DOCUMENTARY_CANDIDATE",
+                # This is an evidence annotation, not an additional stock residual.
+                "quantity": 0.0,
+                "reason": (
+                    checks + "; ACȚIUNE: verificați documentul PV, rândurile "
+                    "originale și gestiunea înainte de validare. Indicator "
+                    "informativ: NU se adună la reziduuri, NU se neutralizează."
+                ),
+                "status": "COR_STOC_PV_SOURCE_REVIEW",
+            })
+
     inventory_adjustment_match = match_inventory_adjustments(
         wms_rows,
         wme_rows,
@@ -1107,8 +1184,9 @@ def investigate_product(
     wme_residual_match = match_wme_residual_movements(
         wme_rows,
         excluded_warehouses={"DETERIORATE", "PROTAN", "MOSTRE"},
-        excluded_indexes=set(
-            inventory_adjustment_match.matched_wme_indexes
+        excluded_indexes=(
+            set(inventory_adjustment_match.matched_wme_indexes)
+            | confirmed_inbound_wme_indexes(wme_rows, receipt_match.documents)
         ),
     )
     result.details["wme_residual_movements"] = {
@@ -1390,7 +1468,21 @@ def investigate_product(
         result.cause_status = "PROBABILA"
         result.evidence_level = "C"
     elif abs(result.initial_difference) <= 10 ** (-decimals):
-        if offsetting_zone_differences:
+        # Equal stock balances do not prove that WMS and WME movements match.
+        # Preserve independently observed BC document discrepancies for review.
+        if abs(production_input_match.residual_total) > 10 ** (-decimals):
+            result.verdict = "REVIEW"
+            result.evidence_level = "B"
+            result.cause_code = "CAUSE-BC-QUANTITY-MISMATCH"
+            result.cause_description = (
+                "Soldurile raportate sunt egale, dar consumurile BC WMS/WME "
+                "difera cantitativ. Egalitatea soldurilor nu neutralizeaza "
+                "neconcordantele documentare; verificare umana necesara."
+            )
+            result.cause_status = "NEDETERMINATA"
+            result.explained_difference = 0.0
+            result.unexplained_difference = 0.0
+        elif offsetting_zone_differences and not reception_staging_offset:
             result.verdict = "REVIEW"
             result.evidence_level = "A"
             result.cause_code = "CAUSE-OFFSETTING-ZONE-DIFFERENCES"
@@ -1404,13 +1496,14 @@ def investigate_product(
             result.explained_difference = 0.0
             result.unexplained_difference = 0.0
         else:
-            result.verdict = "MATCH_DIRECT"
-            result.evidence_level = "A"
-            result.cause_code = "CAUSE-NONE"
+            result.verdict = "REVIEW" if reception_staging_offset or delivery_match.residual_documents or delivery_match.wme_only_documents or stock_zone_match.unresolved_rows else "MATCH_DIRECT"
+            result.evidence_level = "B" if result.verdict == "REVIEW" else "A"
+            result.cause_code = "CAUSE-RECEPTION-STAGING-DOCUMENT-REVIEW" if reception_staging_offset else "CAUSE-NONE"
             result.cause_description = (
-                "Raportul de stoc nu indică diferență materială pentru produs."
+                "Recepția nerelocată aparține Depozitării; diferența consolidată este zero, dar documentele necesită validare."
+                if reception_staging_offset else "Raportul de stoc nu indică diferență materială pentru produs."
             )
-            result.cause_status = "CONFIRMATA"
+            result.cause_status = "NEDETERMINATA" if result.verdict == "REVIEW" else "CONFIRMATA"
             result.explained_difference = 0.0
             result.unexplained_difference = 0.0
     elif result.explained_difference == 0:
