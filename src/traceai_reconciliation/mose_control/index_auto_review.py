@@ -10,6 +10,7 @@ from typing import Any
 
 from .mose_source_index import MOSESQLiteSourceIndex
 from .cross_warehouse_invoice import cross_warehouse_invoice_exits
+from .invoice_warehouse_policy import multi_warehouse_invoice_exits
 from .review_queue import build_mose_review_queue
 
 
@@ -62,8 +63,13 @@ def create_review_cases_from_existing_index(
     except sqlite3.Error as exc:
         return {"status": "SOURCE_QUERY_BLOCKED", "error_type": type(exc).__name__,
                 "cases": [], "verdict": "REVIEW"}
-    findings = cross_warehouse_invoice_exits(events)
+    # Invoice-level violation has priority. Do not produce duplicate cases for
+    # the same invoice when a same-product subfinding also exists.
+    findings = multi_warehouse_invoice_exits(events)
+    existing = {(str(x['invoice_document']), str(x['date']), str(x['partner']).upper()) for x in findings}
+    findings.extend(x for x in cross_warehouse_invoice_exits(events)
+                    if (str(x['invoice_document']), str(x['date']), str(x['partner']).upper()) not in existing)
     return {"status": "WME_CROSS_WAREHOUSE_SCREEN_REVIEW",
             "scanned_invoice_keys": len(keys), "findings": len(findings),
             "cases": build_mose_review_queue(findings), "verdict": "REVIEW",
-            "limitations": "F multi-warehouse only; no WMS delivery proof, NT linking, stock balance or human acceptance."}
+            "limitations": "Invoice-level multi-warehouse only; single-warehouse MOSE-user invoices require separate WMS review. No delivery proof or human acceptance."}
