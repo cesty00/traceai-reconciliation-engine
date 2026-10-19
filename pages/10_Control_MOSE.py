@@ -9,6 +9,7 @@ import json
 from pathlib import Path
 import streamlit as st
 from traceai_reconciliation.mose_control.index_auto_review import create_review_cases_from_existing_index
+from traceai_reconciliation.mose_control.mose_source_index import MOSESQLiteSourceIndex
 from traceai_reconciliation.mose_control.dossier_from_index import dossier_from_current_index
 from traceai_reconciliation.mose_control.review_import import validate_review_cases
 
@@ -21,17 +22,18 @@ with st.expander("Generare automata din indexul local WMS/WME", expanded=True):
     cache_dir = st.text_input("Folder cache index TraceAI", key="mose_cache")
     wms_path = st.text_input("Cale export WMS CSV", key="mose_wms")
     wme_path = st.text_input("Cale fisa magazie WME XLSX", key="mose_wme")
-    prod_path = st.text_input("Cale raport productie", key="mose_prod")
+    st.caption("Controlul MOSE necesita numai exporturile WMS si WME; raportul de productie nu este necesar.")
     if st.button("Genereaza cazuri MOSE din sursele locale"):
-        if not all((cache_dir.strip(), wms_path.strip(), wme_path.strip(), prod_path.strip())):
-            st.error("Completeaza toate cele patru cai locale.")
+        if not all((cache_dir.strip(), wms_path.strip(), wme_path.strip())):
+            st.error("Completeaza cele trei cai: index, WMS si WME.")
         else:
             try:
+                MOSESQLiteSourceIndex(Path(cache_dir).expanduser()).ensure_mose_index(
+                    Path(wms_path).expanduser(), Path(wme_path).expanduser())
                 result = create_review_cases_from_existing_index(
                     cache_dir=Path(cache_dir).expanduser(),
                     wms_path=Path(wms_path).expanduser(),
                     wme_path=Path(wme_path).expanduser(),
-                    production_path=Path(prod_path).expanduser(),
                 )
                 st.session_state["mose_auto_result"] = result
             except (ValueError, OSError) as exc:
@@ -76,7 +78,6 @@ else:
                 case=case, cache_dir=Path(cache_dir).expanduser(),
                 wms_path=Path(wms_path).expanduser(),
                 wme_path=Path(wme_path).expanduser(),
-                production_path=Path(prod_path).expanduser(),
             )
             st.session_state["mose_dossier_result"] = dossier
             st.session_state["mose_dossier_case"] = selected
