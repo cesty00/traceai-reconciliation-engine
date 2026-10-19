@@ -90,11 +90,21 @@ else:
                     st.subheader("Transferuri WMS candidate — nu MATCH")
                     st.dataframe(dossier["wms_transfer_candidates_unverified"], use_container_width=True)
                     st.subheader("Livrari directe WMS candidate — nu MATCH")
-                    st.dataframe(dossier["wms_delivery_candidates_unverified"], use_container_width=True)
+                    matching_partner = [row for row in dossier["wms_delivery_candidates_unverified"]
+                                        if row.get("partner_screen") == "PARTNER_CANDIDATE"]
+                    other_partner = [row for row in dossier["wms_delivery_candidates_unverified"]
+                                     if row.get("partner_screen") != "PARTNER_CANDIDATE"]
+                    st.dataframe(matching_partner, use_container_width=True)
+                    if other_partner:
+                        st.warning("Exista livrari catre alti parteneri sau cu partener neverificat. Nu sunt corespondente confirmate ale facturii.")
+                        with st.expander("Livrari catre alti parteneri / neverificate"):
+                            st.dataframe(other_partner, use_container_width=True)
                     if dossier.get("wms_candidate_screen_truncated"):
                         st.warning("Lista WMS a fost limitata; absenta unui document nu poate fi concluzionata.")
                     st.subheader("NT WME candidate (neconfirmate)")
                     st.dataframe(dossier["wme_nt_candidates_unverified"], use_container_width=True)
+                    if dossier.get("nt_candidate_screen_truncated"):
+                        st.warning("Lista NT este incompleta: sunt mai multe documente decat limita de afisare.")
                     st.subheader("Sold inainte/dupa fiecare linie F — WME (aritmetic)")
                     st.dataframe(dossier.get("invoice_balance_evidence", {}).get("records", []), use_container_width=True)
                     st.caption("Sold anterior dedus matematic; NU certifica stocul fizic, lotul sau corectitudinea gestiunii.")
