@@ -15,7 +15,7 @@ from .review_queue import build_mose_review_queue
 
 def create_review_cases_from_existing_index(
     *, cache_dir: str | Path, wms_path: str | Path,
-    wme_path: str | Path, production_path: str | Path,
+    wme_path: str | Path, production_path: str | Path | None = None,
     max_invoices: int = 20000,
 ) -> dict[str, Any]:
     """Generate review cases only when the source index matches raw file hashes.
