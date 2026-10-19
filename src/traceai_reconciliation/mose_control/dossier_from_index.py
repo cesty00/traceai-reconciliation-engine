@@ -16,7 +16,7 @@ from .invoice_balance_evidence import invoice_balance_evidence
 
 def dossier_from_current_index(*, case: dict[str, Any],
     cache_dir: str | Path, wms_path: str | Path, wme_path: str | Path,
-    production_path: str | Path) -> dict[str, Any]:
+    production_path: str | Path | None = None) -> dict[str, Any]:
     if not all(Path(p).is_file() for p in (wms_path, wme_path)):
         return {"status": "SOURCE_FILES_MISSING", "verdict": "REVIEW"}
     index = MOSESQLiteSourceIndex(cache_dir)
