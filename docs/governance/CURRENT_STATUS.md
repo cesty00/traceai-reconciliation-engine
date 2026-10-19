@@ -9,7 +9,7 @@ Primary objective: complete CORE WMS↔WME reconciliation and source-backed DOCX
 - V1 Daily remains NO_GO per existing architecture audit and requirements; no UAT signoff observed.
 
 ## Active checkpoint
-**GOV-002 — IN PROGRESS**. Documentation-only audit and risk assessment. No authorization to restructure main / PR #56.
+**GOV-002 — IN PROGRESS (dependency assessment documented)**. Static import boundaries assessed; documentation only. No authorization to restructure main / PR #56.
 
 ## Current blockers
 1. Complete dependency assessment of shared CORE files and 321 branch commits.
@@ -18,7 +18,7 @@ Primary objective: complete CORE WMS↔WME reconciliation and source-backed DOCX
 4. Assess confidentiality/security of branch artifacts and local pilot.
 
 ## Next recommended action
-Produce commit-to-path/dependency cut plan and an explicit proposed sequence for CORE branch, MOSE isolation and EXT freeze; request approval *before any code reorganization*.
+Audit commit-to-path ownership and tests for 28 shared CORE paths; review indirect dependencies and CI failure logs. Split order already proposed in GOV_002_ARCHITECTURE_AUDIT.md: CORE baseline -> MOSE -> EXT. Request explicit approval before any code reorganization.
 
 ## Conversation restart procedure
 1. Read `docs/governance/TRACEAI_DEVELOPMENT_PLAN.md`.
