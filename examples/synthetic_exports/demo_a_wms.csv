@@ -1,0 +1,3 @@
+profile_id,source_key,source_row,SKU,MovedQty,OrderRef,Site,Action
+DEMO_A_WMS_ERP,warehouse_export,1,SYN-101,-12.50,FICT-INV-001,DC_NORTH,PICK
+DEMO_A_WMS_ERP,warehouse_export,2,SYN-102,8.00,FICT-REC-002,DC_NORTH,RECEIPT
