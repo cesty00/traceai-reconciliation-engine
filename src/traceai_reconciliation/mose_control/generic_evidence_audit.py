@@ -21,10 +21,23 @@ def audit_mose_document_evidence(dossier: Mapping[str, Any]) -> dict[str, Any]:
     nt = dossier.get("wme_nt_candidates_unverified") or []
     transfers = dossier.get("wms_transfer_candidates_unverified") or []
     deliveries = dossier.get("wms_delivery_candidates_unverified") or []
-    warehouses = sorted({str(row["warehouse"]).upper() for row in invoice})
+    by_product = {}
+    for row in invoice:
+        name = str(row.get("product_name") or "").strip().upper()
+        warehouse = str(row["warehouse"]).strip().upper()
+        quantity = row.get("quantity")
+        if not name or quantity is None:
+            continue
+        try:
+            outflow = float(quantity) < 0
+        except (TypeError, ValueError):
+            continue
+        if outflow:
+            by_product.setdefault(name, set()).add(warehouse)
+    repeated_outflow = any(len(locations) > 1 for locations in by_product.values())
     checks = {
         "INVOICE_WME_SOURCE": "PRESENT",
-        "MULTI_WAREHOUSE_F_OUTFLOW": "SUSPECT_REVIEW" if len(warehouses) > 1 else "NOT_INDICATED",
+        "MULTI_WAREHOUSE_F_OUTFLOW": "SUSPECT_REVIEW" if repeated_outflow else "NOT_INDICATED",
         "NT_WME_CANDIDATES": "PRESENT_UNVERIFIED" if nt else "NO_CANDIDATES_IN_SCREEN",
         "WMS_MOSE_TRANSFER_CANDIDATES": "PRESENT_UNVERIFIED" if transfers else "NO_CANDIDATES_IN_SCREEN",
         "WMS_CUSTOMER_DELIVERY_CANDIDATES": (
