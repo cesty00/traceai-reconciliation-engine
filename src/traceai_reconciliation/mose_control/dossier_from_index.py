@@ -82,7 +82,7 @@ def dossier_from_current_index(*, case: dict[str, Any],
             ]
     except sqlite3.Error:
         return {"status": "SOURCE_QUERY_BLOCKED", "verdict": "REVIEW"}
-    wms_screen = screen_wms_invoice_candidates(path, names, invoice_date=invoice_day.isoformat())
+    wms_screen = screen_wms_invoice_candidates(path, names, invoice_date=invoice_day.isoformat(), invoice_partner=invoice_rows[0]['partner'])
     if wms_screen['status'] != 'WMS_CANDIDATES_REVIEW':
         return {'status': wms_screen['status'], 'verdict': 'REVIEW',
                 'wms_screen': wms_screen}
