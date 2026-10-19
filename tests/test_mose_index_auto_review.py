@@ -4,7 +4,7 @@ def test_missing_index_is_not_reported_as_clean_or_matched(tmp_path):
     result = create_review_cases_from_existing_index(
         cache_dir=tmp_path, wms_path=tmp_path/"wms.csv",
         wme_path=tmp_path/"wme.xlsx", production_path=tmp_path/"prod.xlsx")
-    assert result["status"] == "SOURCE_INDEX_MISSING_OR_STALE"
+    assert result["status"] == "SOURCE_FILES_MISSING"
     assert result["verdict"] == "REVIEW"
     assert result["cases"] == []
 
