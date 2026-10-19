@@ -30,3 +30,6 @@ Audit commit-to-path ownership and tests for 28 shared CORE paths; review indire
 
 ## GOV-002D — 2026-10-19
 Inspected five targeted test files covering engine, daily, source index, economic event ownership and DOCX provenance. Confirmed test existence, test assertions and CI #1189 SUCCESS on mixed branch; no independent real-source E2E run or isolated branch verification. Report: `docs/governance/GOV_002D_CRITICAL_TEST_AUDIT.md`. GOV-002 remains IN PROGRESS / release NO_GO. Next: verify economic-event ledger integration and private index dependencies, then propose dependency-safe cut for approval.
+
+## GOV-002E — 2026-10-19
+Static audit identified no ledger invocation in inspected main CORE entrypoints and direct MOSE inheritance/import of CORE private index helpers. Report: `docs/governance/GOV_002E_LEDGER_AND_INDEX_AUDIT.md`. G0 remains OPEN; V1 NO_GO. Next GOV-002F checks indirect consumers, inherited API signatures, and defines integration test before split. No functional changes.
