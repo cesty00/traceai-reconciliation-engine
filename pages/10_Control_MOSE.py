@@ -86,6 +86,9 @@ else:
             if dossier:
                 st.write("Stare fisa:", dossier["status"])
                 if dossier.get("status") == "AWAITING_OPERATOR_DOCUMENT_CHECK":
+                    if dossier.get("generic_evidence_audit"):
+                        st.subheader("Control documentar general — doar REVIEW")
+                        st.json(dossier["generic_evidence_audit"]["checks"])
                     if dossier.get("reference_acceptance"):
                         audit = dossier["reference_acceptance"]
                         st.info(f"Control referinte documentare: {audit['status']} — nu MATCH")
