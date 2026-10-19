@@ -39,3 +39,6 @@ Reviewed SQLiteSourceIndex/MOSE subclass signatures and ledger class contract. M
 
 ## GOV-002G — 2026-10-19
 Inspected MOSE index test (1 test), dossier index test (1), transfer index test (2) and economic ledger test (6). None demonstrates full two-source MOSE index construction or global CORE ledger enforcement. Whole-repo symbol search not yet available; do not assert global non-use. Added pending acceptance tests GOV-AT-01..09 in `docs/governance/GOV_002G_ACCEPTANCE_TEST_SPEC.md`. GOV-002 OPEN; next verify remaining references and approve test-only implementation, no functional migration.
+
+## GOV-002H — 2026-10-19
+Created test-only branch `test/gov-002h-mose-index-acceptance` from pinned mixed MOSE SHA 6a9d0a6e; committed four synthetic MOSE index integration tests at `52f04fcb` (build, reuse, hash invalidation, malformed WMS columns). No production code altered. GitHub workflow runs for new test commit were not returned at last check: TEST EXECUTION UNVERIFIED; no acceptance declared. GitHub code search searches default branch and returned no EventOwnershipLedger results; it cannot establish symbol absence in feature branch. Next: execute test-only branch CI (or isolated pytest) and debug failures, then decide test coverage. G0 OPEN / V1 NO_GO.
