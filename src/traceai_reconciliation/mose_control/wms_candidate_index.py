@@ -76,17 +76,19 @@ def screen_wms_invoice_candidates(db_path: str | Path, product_names: Sequence[s
                 for product, operation, order, quantity, day, partner, source_row in rows[:limit_per_product]:
                     order = str(order or "").strip()
                     is_transfer = order.upper().startswith("TRANSFER_MOSE") and str(partner or "").strip().upper() == "DP->MOSE"
+                    internal_route = str(partner or "").strip().upper() == "DP->MOSE"
                     normalized_partner = " ".join(str(partner or "").upper().replace("-SEDIU FIRMA", "").replace("S.R.L.", "SRL").split())
                     expected_partner = " ".join(str(invoice_partner or "").upper().replace("-SEDIU FIRMA", "").replace("S.R.L.", "SRL").split())
                     found.append({
                         "product_name": product, "operation_type": operation,
                         "document": order, "order": order, "quantity": quantity,
                         "date": day, "source_row": source_row, "partner": partner,
-                        "partner_screen": ("NOT_APPLICABLE_TRANSFER" if is_transfer else
+                        "partner_screen": ("NOT_APPLICABLE_TRANSFER" if internal_route else
                             "PARTNER_CANDIDATE" if expected_partner and normalized_partner == expected_partner else
                             "DIFFERENT_OR_UNVERIFIED_PARTNER"),
                         "candidate_class": (
                             "TRANSFER_MOSE" if is_transfer
+                            else "INTERNAL_ROUTE_REVIEW" if internal_route or order.upper().startswith("TRANSFER_MOSE")
                             else "DIRECT_DELIVERY_CANDIDATE"
                         ),
                     })
