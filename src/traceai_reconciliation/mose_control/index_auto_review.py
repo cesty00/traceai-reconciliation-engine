@@ -28,7 +28,7 @@ def create_review_cases_from_existing_index(
     if not all(Path(p).is_file() for p in (wms_path, wme_path)):
         return {"status": "SOURCE_FILES_MISSING", "cases": [], "verdict": "REVIEW"}
     index = MOSESQLiteSourceIndex(cache_dir)
-    if not index.is_current(wms_path, wme_path):
+    if not index.is_mose_current(wms_path, wme_path):
         return {"status": "SOURCE_INDEX_MISSING_OR_STALE", "cases": [], "verdict": "REVIEW"}
     # Read F rows belonging to MOSE user OR MOSE warehouse; include companion
     # lines from other warehouses on the same invoice, keyed by doc/date.
