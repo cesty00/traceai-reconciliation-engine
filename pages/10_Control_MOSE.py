@@ -95,6 +95,9 @@ else:
                         st.warning("Lista WMS a fost limitata; absenta unui document nu poate fi concluzionata.")
                     st.subheader("NT WME candidate (neconfirmate)")
                     st.dataframe(dossier["wme_nt_candidates_unverified"], use_container_width=True)
+                    st.subheader("Sold inainte/dupa fiecare linie F — WME (aritmetic)")
+                    st.dataframe(dossier.get("invoice_balance_evidence", {}).get("records", []), use_container_width=True)
+                    st.caption("Sold anterior dedus matematic; NU certifica stocul fizic, lotul sau corectitudinea gestiunii.")
                     st.write("Solduri WME raportate (scope nevalidat)",
                              dossier["wme_observed_balances_unverified_scope"])
                     st.caption("Legatura NT↔WMS si soldul final raman NOT_VERIFIED.")
