@@ -54,3 +54,6 @@ Workflow #1206 (39278812496) remained QUEUED on repeat check; all four jobs queu
 
 ## GOV-002I — verified partial CI progress (2026-10-19)
 Workflow #1206 remains overall QUEUED on last run query. Job details successfully retrieved once: `pytest` COMPLETED/SUCCESS; `daily-release-gate` COMPLETED/SUCCESS; `release-readiness-gate` QUEUED; `release-candidate-gate` QUEUED. Subsequent jobs-detail calls timed out. Do not infer root cause or full workflow success. No code changes or PR merges. Continue checking two pending gates; investigate their job details/logs if failed. GOV-002 OPEN; V1 NO_GO.
+
+## GOV-002I — further CI check (2026-10-19)
+Workflow #1206 overall QUEUED at verification; jobs: pytest SUCCESS, daily-release-gate SUCCESS, release-readiness-gate QUEUED, release-candidate-gate IN_PROGRESS. No final success or failed logs established. Note: release candidate workflow job may start before readiness due to `if: always()`; must verify actual conclusion. No code changed, no merges, GOV-002 OPEN, V1 NO_GO. Next inspect final job outcomes, especially readiness and candidate.
