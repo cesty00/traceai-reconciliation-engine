@@ -60,3 +60,8 @@ Workflow #1206 overall QUEUED at verification; jobs: pytest SUCCESS, daily-relea
 
 ## GOV-002I — CI #1206 follow-up (2026-10-19)
 Workflow #1206 IN_PROGRESS. pytest SUCCESS; daily-release-gate SUCCESS; release-readiness-gate SUCCESS; release-candidate-gate IN_PROGRESS at observed check. No operational UAT or full pipeline conclusion established. PR #56 and PR #57 remain Draft; no merges or functional changes. Next: verify candidate gate final outcome, then assess which GOV-AT assertions are actually executed before closing GOV-002I. GOV-002 OPEN / V1 NO_GO.
+
+## GOV-002I — CI #1211/#1212 verified by run IDs (2026-10-19)
+- #1211 (`39281612997`), push on governance docs branch at `11715627`: workflow IN_PROGRESS; pytest SUCCESS, daily-release-gate SUCCESS, release-readiness-gate SUCCESS, release-candidate-gate QUEUED at inspection.
+- #1212 (`39282529293`), push on governance docs branch at `5663329c`: workflow QUEUED; pytest SUCCESS, three other gates QUEUED.
+- Neither run was FAILED at inspected time. No failure logs, no evidence of broken product code. Both refer to documentation branch commits, not operational source tests. Do not label these tests as final approval. G0 OPEN / V1 NO_GO.
