@@ -96,8 +96,21 @@ def audit_mose_flows(
             status = "DIRECT_DELIVERY_REVIEW"
         else:
             status = "OTHER_WAREHOUSE_F_REVIEW"
+        if status == "WAREHOUSE_CONFLICT_REVIEW":
+            recommendation = ("A (preferata): verificati stornarea/corectarea facturii si refacturarea din MOSE. "
+                              "B (avarie): analizati un NT invers doar dupa justificare si aprobare umana; "
+                              "transmiterea facturii la ANAF nu interzice automat corectarea fiscala.")
+        elif status == "DIRECT_DELIVERY_REVIEW":
+            recommendation = ("Livrarea directa din Depozit Principal este acceptata fara TRANSFER_MOSE/NT "
+                              "cand corespondenta factura F - livrare WMS este demonstrata; verificati documentele.")
+        elif status == "MOSE_F_INVOICE_REVIEW":
+            recommendation = "Verificati separat TRANSFER_MOSE WMS si NT WME; factura F nu inlocuieste NT."
+        else:
+            recommendation = "Verificati gestiunea efectiva si documentele sursa."
         findings.append({
             "status": status,
+            "recommendation": recommendation,
+            "policy_version": "MOSE-OP-2026-10-19",
             "verdict": "REVIEW",
             "scope": {"user_mose": by_user, "warehouse_mose": in_warehouse},
             "invoice": _identity(entry),
