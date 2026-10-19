@@ -42,3 +42,6 @@ Inspected MOSE index test (1 test), dossier index test (1), transfer index test 
 
 ## GOV-002H — 2026-10-19
 Created test-only branch `test/gov-002h-mose-index-acceptance` from pinned mixed MOSE SHA 6a9d0a6e; committed four synthetic MOSE index integration tests at `52f04fcb` (build, reuse, hash invalidation, malformed WMS columns). No production code altered. GitHub workflow runs for new test commit were not returned at last check: TEST EXECUTION UNVERIFIED; no acceptance declared. GitHub code search searches default branch and returned no EventOwnershipLedger results; it cannot establish symbol absence in feature branch. Next: execute test-only branch CI (or isolated pytest) and debug failures, then decide test coverage. G0 OPEN / V1 NO_GO.
+
+## GOV-002I — 2026-10-19
+Created Draft PR #57 (test-only) from `test/gov-002h-mose-index-acceptance` into the existing mixed MOSE feature branch to request CI on four synthetic acceptance tests. Commit `52f04fcb`, one added test file, no functional production changes. GitHub Actions #1206 observed QUEUED; tests NOT yet accepted. PR #56 remains Draft; no merges. Next: inspect #1206 final outcome and failed-job logs if necessary. GOV-002 OPEN, V1 NO_GO.
