@@ -56,3 +56,27 @@ def test_duplicate_source_row_blocks():
                                mv(1, "2026-10-03", "MOSE", 10, "F")],
                               opening_balances={("MOSE", "SKU", "L1"): 100})
     assert result["status"] == "BLOCKED_WITH_REASON"
+
+
+def test_negative_outflow_in_raw_wme_increases_stock():
+    # Real WME F 92189 (06.04.2026): Out=-0.5 means +0.5 on ledger.
+    # Adapter converts raw In-Out into the signed replay quantity.
+    opening = {("DEPOZIT PRINCIPAL", "SKU", "L1"): 1499.76}
+    signed = 0 - (-0.5)
+    result = replay_wme_stock(
+        [mv(2067, "2026-04-06", "DEPOZIT PRINCIPAL", signed, "F", observed=1500.26)],
+        opening_balances=opening,
+    )
+    assert result["timeline"][0]["after"] == "1500.26"
+    assert result["timeline"][0]["status"] == "ARITHMETIC_REPLAY_REVIEW"
+
+
+def test_positive_outflow_in_raw_wme_reduces_stock():
+    # Real WME F 92190 reverses the 92189 effect for this line.
+    opening = {("DEPOZIT PRINCIPAL", "SKU", "L1"): 1500.26}
+    signed = 0 - 0.5
+    result = replay_wme_stock(
+        [mv(2070, "2026-04-06", "DEPOZIT PRINCIPAL", signed, "F", observed=1499.76)],
+        opening_balances=opening,
+    )
+    assert result["timeline"][0]["after"] == "1499.76"
