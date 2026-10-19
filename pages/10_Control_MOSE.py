@@ -86,6 +86,11 @@ else:
             if dossier:
                 st.write("Stare fisa:", dossier["status"])
                 if dossier.get("status") == "AWAITING_OPERATOR_DOCUMENT_CHECK":
+                    if dossier.get("reference_acceptance"):
+                        audit = dossier["reference_acceptance"]
+                        st.info(f"Control referinte documentare: {audit['status']} — nu MATCH")
+                        if audit.get("missing"):
+                            st.warning("Referinte lipsa: " + ", ".join(audit["missing"]))
                     st.subheader("Linii factura WME")
                     st.dataframe(dossier["wme_invoices_source_evidence"], use_container_width=True)
                     st.subheader("Transferuri WMS candidate — nu MATCH")
