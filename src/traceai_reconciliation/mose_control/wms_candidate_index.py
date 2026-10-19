@@ -12,6 +12,7 @@ from datetime import date, datetime, timedelta
 
 def screen_wms_invoice_candidates(db_path: str | Path, product_names: Sequence[str],
                                   *, invoice_date: str | None = None,
+                                  invoice_partner: str | None = None,
                                   lookback_days: int = 30,
                                   limit_per_product: int = 100) -> dict[str, Any]:
     if lookback_days < 0 or lookback_days > 366:
@@ -30,6 +31,7 @@ def screen_wms_invoice_candidates(db_path: str | Path, product_names: Sequence[s
         "order": ("Numar comanda", "Numar Comanda", "Număr comandă"),
         "quantity": ("Cantitate",),
         "date": ("Data", "Data operatie", "Data operatiune"),
+        "partner": ("Partener", "Client"),
     }
     try:
         with closing(sqlite3.connect(f"file:{Path(db_path).resolve().as_posix()}?mode=ro", uri=True)) as db:
@@ -48,7 +50,7 @@ def screen_wms_invoice_candidates(db_path: str | Path, product_names: Sequence[s
             for name in sorted({str(x).strip() for x in product_names if str(x).strip()}):
                 query = f"""SELECT {quoted('product')}, {quoted('operation')},
                                {quoted('order')}, {quoted('quantity')}, {quoted('date')},
-                               SourceRowNumber FROM wms
+                               {quoted('partner')}, SourceRowNumber FROM wms
                             WHERE UPPER(TRIM({quoted('product')}))=UPPER(TRIM(?))
                             AND UPPER(TRIM({quoted('operation')})) IN ('LIVRARE', 'DELIVERY')
                             ORDER BY SourceRowNumber DESC LIMIT ?"""
@@ -61,8 +63,9 @@ def screen_wms_invoice_candidates(db_path: str | Path, product_names: Sequence[s
                         raw_day = str(item[4] or "").strip()
                         parsed = None
                         for fmt in ("%Y-%m-%d", "%d.%m.%Y", "%m/%d/%Y"):
+                            fragment = raw_day[:10] if fmt != "%m/%d/%Y" else raw_day.split(" ")[0]
                             try:
-                                parsed = datetime.strptime(raw_day[:10], fmt).date()
+                                parsed = datetime.strptime(fragment, fmt).date()
                                 break
                             except ValueError:
                                 continue
@@ -70,14 +73,20 @@ def screen_wms_invoice_candidates(db_path: str | Path, product_names: Sequence[s
                             filtered.append(item)
                     rows = filtered
                 truncated = truncated or len(rows) > limit_per_product
-                for product, operation, order, quantity, day, source_row in rows[:limit_per_product]:
+                for product, operation, order, quantity, day, partner, source_row in rows[:limit_per_product]:
                     order = str(order or "").strip()
+                    is_transfer = order.upper().startswith("TRANSFER_MOSE") and str(partner or "").strip().upper() == "DP->MOSE"
+                    normalized_partner = " ".join(str(partner or "").upper().replace("-SEDIU FIRMA", "").replace("S.R.L.", "SRL").split())
+                    expected_partner = " ".join(str(invoice_partner or "").upper().replace("-SEDIU FIRMA", "").replace("S.R.L.", "SRL").split())
                     found.append({
                         "product_name": product, "operation_type": operation,
                         "document": order, "order": order, "quantity": quantity,
-                        "date": day, "source_row": source_row,
+                        "date": day, "source_row": source_row, "partner": partner,
+                        "partner_screen": ("NOT_APPLICABLE_TRANSFER" if is_transfer else
+                            "PARTNER_CANDIDATE" if expected_partner and normalized_partner == expected_partner else
+                            "DIFFERENT_OR_UNVERIFIED_PARTNER"),
                         "candidate_class": (
-                            "TRANSFER_MOSE" if order.upper().startswith("TRANSFER_MOSE")
+                            "TRANSFER_MOSE" if is_transfer
                             else "DIRECT_DELIVERY_CANDIDATE"
                         ),
                     })
