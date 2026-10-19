@@ -10,6 +10,7 @@ from typing import Any
 
 from traceai_reconciliation.investigation.source_index import SQLiteSourceIndex
 from .case_dossier import compose_mose_case
+from .wms_candidate_index import screen_wms_invoice_candidates
 
 
 def dossier_from_current_index(*, case: dict[str, Any],
@@ -60,7 +61,17 @@ def dossier_from_current_index(*, case: dict[str, Any],
             ]
     except sqlite3.Error:
         return {"status": "SOURCE_QUERY_BLOCKED", "verdict": "REVIEW"}
-    return compose_mose_case(
+    wms_screen = screen_wms_invoice_candidates(path, names)
+    if wms_screen['status'] != 'WMS_CANDIDATES_REVIEW':
+        return {'status': wms_screen['status'], 'verdict': 'REVIEW',
+                'wms_screen': wms_screen}
+    transfers = [x for x in wms_screen['candidates'] if x['candidate_class'] == 'TRANSFER_MOSE']
+    deliveries = [x for x in wms_screen['candidates'] if x['candidate_class'] != 'TRANSFER_MOSE']
+    dossier = compose_mose_case(
         case_id=str(case.get("case_id") or ""), invoices_wme=invoice_rows,
         nt_wme_candidates=nt, observed_wme_balances=balances,
+        transfers_wms_candidates=transfers, delivery_wms_candidates=deliveries,
     )
+    if dossier.get('status') == 'AWAITING_OPERATOR_DOCUMENT_CHECK':
+        dossier['wms_candidate_screen_truncated'] = wms_screen['truncated']
+    return dossier
