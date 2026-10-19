@@ -52,3 +52,25 @@ def test_missing_nt_or_wms_not_fabricated_as_match():
     assert finding["nt_candidates"] == []
     assert finding["wms_delivery_candidates"] == []
     assert finding["verdict"] == "REVIEW"
+
+
+def test_direct_delivery_policy_does_not_require_nt():
+    finding = audit_mose_flows([f("DEPOZIT PRINCIPAL")], [delivery("SFA123")]).findings[0]
+    assert finding["status"] == "DIRECT_DELIVERY_REVIEW"
+    assert "fara TRANSFER_MOSE/NT" in finding["recommendation"]
+    assert finding["nt_candidates"] == []
+    assert finding["verdict"] == "REVIEW"
+
+
+def test_conflict_prefers_correction_a_and_b_is_emergency_only():
+    finding = audit_mose_flows([nt(), f("DEPOZIT PRINCIPAL")],
+                               [delivery("TRANSFER_MOSE-01")]).findings[0]
+    assert finding["status"] == "WAREHOUSE_CONFLICT_REVIEW"
+    assert finding["recommendation"].index("A (preferata)") < finding["recommendation"].index("B (avarie)")
+    assert "aprobare umana" in finding["recommendation"]
+
+
+def test_no_delivery_does_not_prove_direct_invoice_valid():
+    finding = audit_mose_flows([f("DEPOZIT PRINCIPAL")], []).findings[0]
+    assert finding["verdict"] == "REVIEW"
+    assert finding["wms_delivery_candidates"] == []
