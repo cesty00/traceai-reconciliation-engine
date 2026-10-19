@@ -9,6 +9,7 @@ import json
 from pathlib import Path
 import streamlit as st
 from traceai_reconciliation.mose_control.index_auto_review import create_review_cases_from_existing_index
+from traceai_reconciliation.mose_control.dossier_from_index import dossier_from_current_index
 from traceai_reconciliation.mose_control.review_import import validate_review_cases
 
 st.set_page_config(page_title="TraceAI — Control MOSE", layout="wide")
@@ -68,3 +69,27 @@ else:
     for step in case.get("required_checks", []):
         st.write("- " + str(step))
     st.caption("Operatorul verifica documentele in sistemele originale. Acest panou nu inregistreaza confirmari si nu modifica stocul.")
+    if (uploaded is None and auto_result is not None and
+            auto_result.get("status") == "WME_CROSS_WAREHOUSE_SCREEN_REVIEW"):
+        if st.button("Deschide fisa documentara din sursele locale", key="mose_dossier"):
+            dossier = dossier_from_current_index(
+                case=case, cache_dir=Path(cache_dir).expanduser(),
+                wms_path=Path(wms_path).expanduser(),
+                wme_path=Path(wme_path).expanduser(),
+                production_path=Path(prod_path).expanduser(),
+            )
+            st.session_state["mose_dossier_result"] = dossier
+            st.session_state["mose_dossier_case"] = selected
+        if st.session_state.get("mose_dossier_case") == selected:
+            dossier = st.session_state.get("mose_dossier_result")
+            if dossier:
+                st.write("Stare fisa:", dossier["status"])
+                if dossier.get("status") == "AWAITING_OPERATOR_DOCUMENT_CHECK":
+                    st.subheader("Linii factura WME")
+                    st.dataframe(dossier["wme_invoices_source_evidence"], use_container_width=True)
+                    st.subheader("NT WME candidate (neconfirmate)")
+                    st.dataframe(dossier["wme_nt_candidates_unverified"], use_container_width=True)
+                    st.write("Solduri WME raportate (scope nevalidat)",
+                             dossier["wme_observed_balances_unverified_scope"])
+                    st.caption("Legatura NT↔WMS si soldul final raman NOT_VERIFIED.")
+
