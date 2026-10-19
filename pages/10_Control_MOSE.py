@@ -87,6 +87,12 @@ else:
                 if dossier.get("status") == "AWAITING_OPERATOR_DOCUMENT_CHECK":
                     st.subheader("Linii factura WME")
                     st.dataframe(dossier["wme_invoices_source_evidence"], use_container_width=True)
+                    st.subheader("Transferuri WMS candidate — nu MATCH")
+                    st.dataframe(dossier["wms_transfer_candidates_unverified"], use_container_width=True)
+                    st.subheader("Livrari directe WMS candidate — nu MATCH")
+                    st.dataframe(dossier["wms_delivery_candidates_unverified"], use_container_width=True)
+                    if dossier.get("wms_candidate_screen_truncated"):
+                        st.warning("Lista WMS a fost limitata; absenta unui document nu poate fi concluzionata.")
                     st.subheader("NT WME candidate (neconfirmate)")
                     st.dataframe(dossier["wme_nt_candidates_unverified"], use_container_width=True)
                     st.write("Solduri WME raportate (scope nevalidat)",
