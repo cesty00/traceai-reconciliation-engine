@@ -21,6 +21,7 @@ def audit_mose_document_evidence(dossier: Mapping[str, Any]) -> dict[str, Any]:
     nt = dossier.get("wme_nt_candidates_unverified") or []
     transfers = dossier.get("wms_transfer_candidates_unverified") or []
     deliveries = dossier.get("wms_delivery_candidates_unverified") or []
+    invoice_warehouses = {str(row["warehouse"]).strip().upper() for row in invoice}
     by_product = {}
     for row in invoice:
         name = str(row.get("product_name") or "").strip().upper()
@@ -37,6 +38,7 @@ def audit_mose_document_evidence(dossier: Mapping[str, Any]) -> dict[str, Any]:
     repeated_outflow = any(len(locations) > 1 for locations in by_product.values())
     checks = {
         "INVOICE_WME_SOURCE": "PRESENT",
+        "INVOICE_SINGLE_WAREHOUSE": "SUSPECT_REVIEW" if len(invoice_warehouses) > 1 else "ONE_WAREHOUSE_OBSERVED",
         "MULTI_WAREHOUSE_F_OUTFLOW": "SUSPECT_REVIEW" if repeated_outflow else "NOT_INDICATED",
         "NT_WME_CANDIDATES": "PRESENT_UNVERIFIED" if nt else "NO_CANDIDATES_IN_SCREEN",
         "WMS_MOSE_TRANSFER_CANDIDATES": "PRESENT_UNVERIFIED" if transfers else "NO_CANDIDATES_IN_SCREEN",
