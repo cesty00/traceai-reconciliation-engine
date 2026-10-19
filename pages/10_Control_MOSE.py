@@ -6,21 +6,50 @@ Only accepts exported review-queue JSON, not invented case records.
 from __future__ import annotations
 
 import json
+from pathlib import Path
 import streamlit as st
+from traceai_reconciliation.mose_control.index_auto_review import create_review_cases_from_existing_index
 from traceai_reconciliation.mose_control.review_import import validate_review_cases
 
 st.set_page_config(page_title="TraceAI — Control MOSE", layout="wide")
 st.title("TraceAI Control — Control MOSE")
 st.caption("Pilot separat · read-only · verdict motor si decizie operator distincte")
 st.warning("Sectiune pilot: cazurile trebuie generate din surse reale; niciun MATCH sau corectie WMS/WME automata.")
-uploaded = st.file_uploader("Importa lista de investigatii MOSE (JSON)", type=["json"])
-if uploaded is None:
-    st.info("Incarca fisierul JSON generat din review_queue pentru a vedea cazurile. Nu este conectat inca la importul automat WME/WMS.")
+with st.expander("Generare automata din indexul local WMS/WME", expanded=True):
+    st.caption("Se reutilizeaza indexul verificat TraceAI. Sursele locale raman pe calculator.")
+    cache_dir = st.text_input("Folder cache index TraceAI", key="mose_cache")
+    wms_path = st.text_input("Cale export WMS CSV", key="mose_wms")
+    wme_path = st.text_input("Cale fisa magazie WME XLSX", key="mose_wme")
+    prod_path = st.text_input("Cale raport productie", key="mose_prod")
+    if st.button("Genereaza cazuri MOSE din sursele locale"):
+        if not all((cache_dir.strip(), wms_path.strip(), wme_path.strip(), prod_path.strip())):
+            st.error("Completeaza toate cele patru cai locale.")
+        else:
+            try:
+                result = create_review_cases_from_existing_index(
+                    cache_dir=Path(cache_dir).expanduser(),
+                    wms_path=Path(wms_path).expanduser(),
+                    wme_path=Path(wme_path).expanduser(),
+                    production_path=Path(prod_path).expanduser(),
+                )
+                st.session_state["mose_auto_result"] = result
+            except (ValueError, OSError) as exc:
+                st.error(f"Generarea MOSE a fost blocata: {exc}")
+auto_result = st.session_state.get("mose_auto_result")
+if auto_result is not None:
+    st.write("Status generare:", auto_result.get("status"))
+    st.caption(auto_result.get("limitations", "Diagnosticul ramane REVIEW."))
+uploaded = st.file_uploader("Alternativ: importa lista investigatii MOSE (JSON)", type=["json"])
+if uploaded is None and not (auto_result and auto_result.get("status") == "WME_CROSS_WAREHOUSE_SCREEN_REVIEW"):
+    st.info("Genereaza cazuri din indexul TraceAI sau importa un JSON existent.")
 else:
     try:
-        if uploaded.size > 5 * 1024 * 1024:
-            raise ValueError("JSON prea mare (maxim 5 MB)")
-        cases = validate_review_cases(json.loads(uploaded.getvalue().decode("utf-8")))
+        if uploaded is not None:
+            if uploaded.size > 5 * 1024 * 1024:
+                raise ValueError("JSON prea mare (maxim 5 MB)")
+            cases = validate_review_cases(json.loads(uploaded.getvalue().decode("utf-8")))
+        else:
+            cases = validate_review_cases(auto_result["cases"])
     except (UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
         st.error(f"Fisier invalid: {exc}")
         st.stop()
