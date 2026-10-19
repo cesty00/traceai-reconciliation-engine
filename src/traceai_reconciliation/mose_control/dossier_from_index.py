@@ -47,13 +47,27 @@ def dossier_from_current_index(*, case: dict[str, Any],
                 for x in invoices
             ]
             names = sorted({str(x["product_name"]) for x in invoice_rows})
+            invoice_dates = {str(x["date"])[:10] for x in invoice_rows}
+            if len(invoice_dates) != 1:
+                return {"status": "INVOICE_DATE_AMBIGUITY_REVIEW", "verdict": "REVIEW"}
+            invoice_day = next(iter(invoice_dates))
             nt = []
+            from datetime import date, timedelta
+            try:
+                cutoff = (date.fromisoformat(invoice_day) - timedelta(days=30)).isoformat()
+            except ValueError:
+                return {"status": "INVALID_INVOICE_DATE_REVIEW", "verdict": "REVIEW"}
+            nt_truncated = False
             for name in names:
                 for x in db.execute(
                     """SELECT Document, Date, ProductName, Warehouse, SignedQuantity,
                               SourceRowNumber, OperationType FROM wme
                        WHERE ProductName=? AND UPPER(TRIM(OperationType))='NT'
-                       ORDER BY SourceRowNumber DESC LIMIT 30""", (name,)):
+                       AND SUBSTR(TRIM(CAST(Date AS TEXT)), 1, 10) BETWEEN ? AND ?
+                       ORDER BY SourceRowNumber DESC LIMIT 61""",
+                    (name, cutoff, invoice_day)).fetchall()
+                nt_truncated = nt_truncated or len(rows) > 60
+                for x in rows[:60]:
                     nt.append(dict(zip(("document","date","product_name","warehouse",
                                         "quantity","source_row","operation_type"), x)))
             balances = [
@@ -63,7 +77,7 @@ def dossier_from_current_index(*, case: dict[str, Any],
             ]
     except sqlite3.Error:
         return {"status": "SOURCE_QUERY_BLOCKED", "verdict": "REVIEW"}
-    wms_screen = screen_wms_invoice_candidates(path, names)
+    wms_screen = screen_wms_invoice_candidates(path, names, invoice_date=invoice_day)
     if wms_screen['status'] != 'WMS_CANDIDATES_REVIEW':
         return {'status': wms_screen['status'], 'verdict': 'REVIEW',
                 'wms_screen': wms_screen}
@@ -76,5 +90,6 @@ def dossier_from_current_index(*, case: dict[str, Any],
     )
     if dossier.get('status') == 'AWAITING_OPERATOR_DOCUMENT_CHECK':
         dossier['wms_candidate_screen_truncated'] = wms_screen['truncated']
+        dossier['nt_candidate_screen_truncated'] = nt_truncated
         dossier['invoice_balance_evidence'] = invoice_balance_evidence(invoice_rows)
     return dossier
