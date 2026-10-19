@@ -86,6 +86,9 @@ else:
             if dossier:
                 st.write("Stare fisa:", dossier["status"])
                 if dossier.get("status") == "AWAITING_OPERATOR_DOCUMENT_CHECK":
+                    if dossier.get("direct_dp_delivery_review"):
+                        st.subheader("Facturare directa DP — verificare livrare WMS")
+                        st.json(dossier["direct_dp_delivery_review"])
                     if dossier.get("document_link_audit"):
                         st.subheader("Comenzi WMS candidate — asociere factura neconfirmata")
                         st.dataframe(dossier["document_link_audit"].get("customer_order_candidates", []))
