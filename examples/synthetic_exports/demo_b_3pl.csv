@@ -1,0 +1,3 @@
+ExternalItem,UnitsDelta,MovementId,Zone,EventCode
+FAKE-301,-4,SIM-OUT-001,ZONE_X,DESPATCH
+FAKE-302,6,SIM-IN-002,ZONE_X,INBOUND

@@ -1,0 +1,36 @@
+{
+  "profile_id": "DEMO_A_WMS_ERP",
+  "sources": [
+    {
+      "key": "warehouse_export",
+      "kind": "wms",
+      "columns": {
+        "product_code": "SKU",
+        "quantity": "MovedQty",
+        "document": "OrderRef",
+        "warehouse": "Site",
+        "operation_type": "Action"
+      }
+    },
+    {
+      "key": "accounting_export",
+      "kind": "erp",
+      "columns": {
+        "product_code": "Item",
+        "quantity": "SignedQty",
+        "document": "DocNo",
+        "warehouse": "Location"
+      }
+    }
+  ],
+  "operation_map": {
+    "PICK": "DELIVERY",
+    "RECEIPT": "RECEIPT",
+    "MOVE": "TRANSFER"
+  },
+  "warehouse_aliases": {
+    "DC_NORTH": "MAIN",
+    "BOOK_N": "MAIN"
+  },
+  "enforce_single_warehouse_invoice": true
+}
