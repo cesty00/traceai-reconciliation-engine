@@ -1,0 +1,10 @@
+{
+  "profile_id": "DEMO_B_3PL_EXCEL",
+  "sources": [
+    {"key": "third_party_log", "kind": "3pl", "columns": {"product_code": "ExternalItem", "quantity": "UnitsDelta", "document": "MovementId", "warehouse": "Zone"}},
+    {"key": "owner_spreadsheet", "kind": "excel", "columns": {"product_code": "InternalSKU", "quantity": "QuantityChange", "document": "Reference", "warehouse": "StorageArea"}}
+  ],
+  "operation_map": {"DESPATCH": "DELIVERY", "INBOUND": "RECEIPT", "MOVE_BETWEEN_ZONES": "TRANSFER"},
+  "warehouse_aliases": {"ZONE_X": "MAIN", "SPREADSHEET_MAIN": "MAIN"},
+  "enforce_single_warehouse_invoice": false
+}
