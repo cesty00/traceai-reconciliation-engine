@@ -33,3 +33,6 @@ Inspected five targeted test files covering engine, daily, source index, economi
 
 ## GOV-002E — 2026-10-19
 Static audit identified no ledger invocation in inspected main CORE entrypoints and direct MOSE inheritance/import of CORE private index helpers. Report: `docs/governance/GOV_002E_LEDGER_AND_INDEX_AUDIT.md`. G0 remains OPEN; V1 NO_GO. Next GOV-002F checks indirect consumers, inherited API signatures, and defines integration test before split. No functional changes.
+
+## GOV-002F — 2026-10-19
+Reviewed SQLiteSourceIndex/MOSE subclass signatures and ledger class contract. MOSE passes WME as placeholder production arg and relies on overridden methods + CORE private helpers. Ledger global integration remains unverified. Report: `docs/governance/GOV_002F_INTEGRATION_CONTRACT.md`. Next GOV-002G comprehensive reference/test inspection and acceptance spec. No implementation changes. GOV-002 remains OPEN / V1 NO_GO.
