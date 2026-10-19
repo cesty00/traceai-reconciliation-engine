@@ -51,3 +51,6 @@ Workflow 39278812496 still QUEUED; jobs pytest, daily-release-gate, release-read
 
 ## GOV-002I — CI queue diagnostic (2026-10-19)
 Workflow #1206 (39278812496) remained QUEUED on repeat check; all four jobs queued including root `pytest`. Inspected `.github/workflows/tests.yml`: pull_request triggers tests and root job uses GitHub-hosted `ubuntu-latest`; downstream gates require pytest. No job execution/failure logs yet. Runner capacity/organization Actions restrictions cannot be concluded with available evidence. No code or tests modified. Continue to inspect queue or GitHub Actions settings by authorized user; do not rerun failed jobs when no failed job exists. GOV-002 remains OPEN, V1 NO_GO.
+
+## GOV-002I — verified partial CI progress (2026-10-19)
+Workflow #1206 remains overall QUEUED on last run query. Job details successfully retrieved once: `pytest` COMPLETED/SUCCESS; `daily-release-gate` COMPLETED/SUCCESS; `release-readiness-gate` QUEUED; `release-candidate-gate` QUEUED. Subsequent jobs-detail calls timed out. Do not infer root cause or full workflow success. No code changes or PR merges. Continue checking two pending gates; investigate their job details/logs if failed. GOV-002 OPEN; V1 NO_GO.
