@@ -10,6 +10,7 @@ def adapt_wme_stock_rows(records: Iterable[Mapping[str, Any]], *,
                          require_lot: bool = True) -> dict[str, Any]:
     """Adapt explicit standardized WME fields, with complete provenance."""
     movements, blocked = [], []
+    lot_coverage = "LOT" if require_lot else "ARTICLE_WAREHOUSE_ONLY"
     for index, row in enumerate(records):
         product, warehouse = clean(row.get("product_code")), clean(row.get("Warehouse"))
         lot, number = clean(row.get("Lot")), row.get("SourceRowNumber")
@@ -31,4 +32,5 @@ def adapt_wme_stock_rows(records: Iterable[Mapping[str, Any]], *,
     if blocked:
         return {"status": "BLOCKED_WITH_REASON", "reasons": blocked, "movements": [], "verdict": "REVIEW"}
     return {"status": "ADAPTED_REVIEW", "movements": movements, "verdict": "REVIEW",
+            "granularity": lot_coverage,
             "warning": "WME reported balance scope and opening stock need external verification."}
