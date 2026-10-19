@@ -47,27 +47,32 @@ def dossier_from_current_index(*, case: dict[str, Any],
                 for x in invoices
             ]
             names = sorted({str(x["product_name"]) for x in invoice_rows})
-            invoice_dates = {str(x["date"])[:10] for x in invoice_rows}
-            if len(invoice_dates) != 1:
+            from datetime import datetime, timedelta
+            def parse_day(value):
+                raw = str(value or "").strip()
+                for fmt in ("%Y-%m-%d", "%d.%m.%Y"):
+                    try:
+                        return datetime.strptime(raw[:10], fmt).date()
+                    except ValueError:
+                        continue
+                return None
+            days = {parse_day(x["date"]) for x in invoice_rows}
+            if len(days) != 1 or None in days:
                 return {"status": "INVOICE_DATE_AMBIGUITY_REVIEW", "verdict": "REVIEW"}
-            invoice_day = next(iter(invoice_dates))
+            invoice_day = next(iter(days))
+            cutoff = invoice_day - timedelta(days=30)
             nt = []
-            from datetime import date, timedelta
-            try:
-                cutoff = (date.fromisoformat(invoice_day) - timedelta(days=30)).isoformat()
-            except ValueError:
-                return {"status": "INVALID_INVOICE_DATE_REVIEW", "verdict": "REVIEW"}
             nt_truncated = False
             for name in names:
-                for x in db.execute(
+                rows = db.execute(
                     """SELECT Document, Date, ProductName, Warehouse, SignedQuantity,
                               SourceRowNumber, OperationType FROM wme
                        WHERE ProductName=? AND UPPER(TRIM(OperationType))='NT'
-                       AND SUBSTR(TRIM(CAST(Date AS TEXT)), 1, 10) BETWEEN ? AND ?
-                       ORDER BY SourceRowNumber DESC LIMIT 61""",
-                    (name, cutoff, invoice_day)).fetchall()
-                nt_truncated = nt_truncated or len(rows) > 60
-                for x in rows[:60]:
+                       ORDER BY SourceRowNumber DESC""", (name,)).fetchall()
+                valid = [x for x in rows if (parse_day(x[1]) is not None
+                         and cutoff <= parse_day(x[1]) <= invoice_day)]
+                nt_truncated = nt_truncated or len(valid) > 60
+                for x in valid[:60]:
                     nt.append(dict(zip(("document","date","product_name","warehouse",
                                         "quantity","source_row","operation_type"), x)))
             balances = [
@@ -77,7 +82,7 @@ def dossier_from_current_index(*, case: dict[str, Any],
             ]
     except sqlite3.Error:
         return {"status": "SOURCE_QUERY_BLOCKED", "verdict": "REVIEW"}
-    wms_screen = screen_wms_invoice_candidates(path, names, invoice_date=invoice_day)
+    wms_screen = screen_wms_invoice_candidates(path, names, invoice_date=invoice_day.isoformat())
     if wms_screen['status'] != 'WMS_CANDIDATES_REVIEW':
         return {'status': wms_screen['status'], 'verdict': 'REVIEW',
                 'wms_screen': wms_screen}
