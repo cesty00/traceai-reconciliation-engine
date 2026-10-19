@@ -30,3 +30,14 @@ def test_one_ambiguous_row_blocks_complete_replay():
     result = adapt_wme_stock_rows([row(), row(Lot="", SourceRowNumber=41)])
     assert result["status"] == "BLOCKED_WITH_REASON"
     assert result["movements"] == []
+
+def test_article_warehouse_mode_does_not_claim_lot_coverage():
+    result = adapt_wme_stock_rows([row(Lot=None)], require_lot=False)
+    assert result["status"] == "ADAPTED_REVIEW"
+    assert result["granularity"] == "ARTICLE_WAREHOUSE_ONLY"
+    assert result["movements"][0]["lot"] == ""
+
+
+def test_lot_mode_explicitly_declares_granularity():
+    result = adapt_wme_stock_rows([row()], require_lot=True)
+    assert result["granularity"] == "LOT"
