@@ -4,8 +4,8 @@ def evidence():
     return {
         "status": "AWAITING_OPERATOR_DOCUMENT_CHECK", "case_id": "MOSE-A",
         "invoice_document": "987", "wme_invoices_source_evidence": [
-            {"document": "987", "warehouse": "MOSE", "source_row": 40},
-            {"document": "987", "warehouse": "DEPOZIT PRINCIPAL", "source_row": 41}],
+            {"document": "987", "warehouse": "MOSE", "source_row": 40, "product_name": "COD A", "quantity": -10},
+            {"document": "987", "warehouse": "DEPOZIT PRINCIPAL", "source_row": 41, "product_name": "COD A", "quantity": -10}],
         "wme_nt_candidates_unverified": [], "wms_transfer_candidates_unverified": [],
         "wms_delivery_candidates_unverified": [],
     }
@@ -25,3 +25,16 @@ def test_invalid_invoice_provenance_blocks():
     item = evidence()
     del item["wme_invoices_source_evidence"][0]["source_row"]
     assert audit_mose_document_evidence(item)["status"] == "SOURCE_PROVENANCE_INCOMPLETE_REVIEW"
+
+def test_two_warehouses_different_articles_is_not_double_outflow():
+    data = evidence()
+    data["wme_invoices_source_evidence"][1]["product_name"] = "COD B"
+    result = audit_mose_document_evidence(data)
+    assert result["checks"]["MULTI_WAREHOUSE_F_OUTFLOW"] == "NOT_INDICATED"
+    assert result["verdict"] == "REVIEW"
+
+def test_negative_and_reversal_do_not_trigger_double_outflow():
+    data = evidence()
+    data["wme_invoices_source_evidence"][1]["quantity"] = 10
+    result = audit_mose_document_evidence(data)
+    assert result["checks"]["MULTI_WAREHOUSE_F_OUTFLOW"] == "NOT_INDICATED"
