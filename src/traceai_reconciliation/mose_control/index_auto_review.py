@@ -25,6 +25,8 @@ def create_review_cases_from_existing_index(
     """
     if not 1 <= max_invoices <= 20000:
         raise ValueError("max_invoices must be between 1 and 20000")
+    if not all(Path(p).is_file() for p in (wms_path, wme_path, production_path)):
+        return {"status": "SOURCE_FILES_MISSING", "cases": [], "verdict": "REVIEW"}
     index = SQLiteSourceIndex(cache_dir)
     if not index.is_current(wms_path, wme_path, production_path):
         return {"status": "SOURCE_INDEX_MISSING_OR_STALE", "cases": [], "verdict": "REVIEW"}
