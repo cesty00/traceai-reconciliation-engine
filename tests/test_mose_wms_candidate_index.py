@@ -68,3 +68,28 @@ def test_us_date_and_customer_partner_screen(tmp_path):
     by_doc = {x["document"]: x for x in result["candidates"]}
     assert by_doc["TRANSFER_MOSE-01"]["candidate_class"] == "TRANSFER_MOSE"
     assert by_doc["SFA-01"]["partner_screen"] == "PARTNER_CANDIDATE"
+
+def test_internal_route_without_standard_order_is_not_customer_delivery(tmp_path):
+    path = tmp_path / "idx.sqlite"
+    make_db(path)
+    with sqlite3.connect(path) as db:
+        db.execute('INSERT INTO wms VALUES (?,?,?,?,?,?,?)',
+                   ("FILE CRAP", "Livrare", "MOV-OTHER", -10,
+                    "2026-03-11", "DP->MOSE", 88))
+    result = screen_wms_invoice_candidates(path, ["FILE CRAP"],
+        invoice_date="2026-03-11", invoice_partner="FISHERMEN INN S.R.L.")
+    row = next(x for x in result["candidates"] if x["source_row"] == 88)
+    assert row["candidate_class"] == "INTERNAL_ROUTE_REVIEW"
+    assert row["partner_screen"] == "NOT_APPLICABLE_TRANSFER"
+
+def test_transfer_document_with_unexpected_partner_is_not_direct_delivery(tmp_path):
+    path = tmp_path / "idx.sqlite"
+    make_db(path)
+    with sqlite3.connect(path) as db:
+        db.execute('INSERT INTO wms VALUES (?,?,?,?,?,?,?)',
+                   ("FILE CRAP", "Livrare", "TRANSFER_MOSE-X", -10,
+                    "2026-03-11", "FISHERMEN INN S.R.L.", 89))
+    result = screen_wms_invoice_candidates(path, ["FILE CRAP"],
+        invoice_date="2026-03-11", invoice_partner="FISHERMEN INN S.R.L.")
+    row = next(x for x in result["candidates"] if x["source_row"] == 89)
+    assert row["candidate_class"] == "INTERNAL_ROUTE_REVIEW"
