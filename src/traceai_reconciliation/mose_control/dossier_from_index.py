@@ -14,6 +14,7 @@ from .wms_candidate_index import screen_wms_invoice_candidates
 from .invoice_balance_evidence import invoice_balance_evidence
 from .reference_acceptance import audit_f91655_dossier
 from .generic_evidence_audit import audit_mose_document_evidence
+from .quantity_candidate_audit import screen_invoice_delivery_quantities
 
 
 def dossier_from_current_index(*, case: dict[str, Any],
@@ -100,6 +101,9 @@ def dossier_from_current_index(*, case: dict[str, Any],
         dossier['nt_candidate_screen_truncated'] = nt_truncated
         dossier['invoice_balance_evidence'] = invoice_balance_evidence(invoice_rows)
         dossier['generic_evidence_audit'] = audit_mose_document_evidence(dossier)
+        dossier['quantity_candidate_audit'] = screen_invoice_delivery_quantities(
+            dossier['wme_invoices_source_evidence'], wms_screen['candidates'],
+            candidates_truncated=wms_screen['truncated'])
         if str(dossier.get('invoice_document')) == '91655':
             dossier['reference_acceptance'] = audit_f91655_dossier(dossier)
     return dossier
