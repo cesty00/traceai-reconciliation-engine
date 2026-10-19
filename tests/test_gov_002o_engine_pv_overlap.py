@@ -37,6 +37,7 @@ def test_gov_002o_file_backed_pv_mismatch_remains_review_without_double_explanat
         "Document": "INV-SYN-1",
         "Numar comanda": "",
         "Locatie sursa": "A-01",
+        "Lot": "LOT-SYN-01",
         "Gestiune": "Depozitare",
     }]).to_csv(wms, index=False)
     pd.DataFrame([
