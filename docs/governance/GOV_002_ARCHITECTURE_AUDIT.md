@@ -36,3 +36,22 @@
 - CI failure logs for #1160 / #1161.
 - Whether every existing test is relevant or passes when split.
 - Real-source regression coverage and security clearance.
+
+## Dependency assessment — checkpoint GOV-002B, 2026-10-19
+Checked import statements and key references on MOSE branch head `6a9d0a6e`.
+- CORE `investigation/engine.py` (~1608 lines) imports internal CORE operation matchers and `source_index_policy`; observed **no direct import of `client_config` or the new `mose_control` package**. Existing CORE transfer-MOSE matching is a distinct older CORE module, not proof that the new optional MOSE package is independent.
+- MOSE `mose_control/mose_source_index.py` explicitly imports `SQLiteSourceIndex`, `_csv_chunks` and `_fingerprint` from CORE `investigation/source_index.py`. These private helpers create a version-sensitive dependency.
+- MOSE `mose_control/dossier_from_index.py` imports several MOSE siblings; `pages/10_Control_MOSE.py` imports MOSE index/review/dossier modules. MOSE feature requires CORE index compatibility and an isolated operator entrypoint.
+- EXT `client_config/normalizer.py` imports only `client_config/contract.py` (observed); no direct references to this package in the reviewed CORE engine, CORE daily or operator entrypoint. Isolation looks feasible **but full reverse-reference scan remains outstanding**.
+- `operator_app.py` imports shared investigation, loaders, stock view and registry components; therefore pilot UI and shared CORE must be integration tested together.
+
+### Controlled cut sequence — proposal, not executed
+1. Freeze PR #56 (Draft), pin SHA, preserve all docs and tests.
+2. **CORE baseline**: enumerate 28 shared paths and their test dependencies against main; define expected product-evidence and reporting behavior before porting any code. Particularly review `engine.py`, `source_index.py`, `daily.py`, `docx_report.py`.
+3. **CORE candidate branch from main**: move only approved and tested changes. Integration verify source provenance, effect-on-stock uniqueness, zero/negative mismatches, no forced MATCH and DOCX correctness. Do not call acceptance passed from CI alone.
+4. **MOSE branch based on approved CORE**: isolate MOSE-only paths; refactor direct usage of private CORE index helpers or pin an explicit adapter contract and test it.
+5. **EXT later**: independently move `client_config`, synthetic fixtures and tests after CORE acceptance gate; no production data in examples.
+6. Separate PRs reviewed in order, NEVER merge mixed branch wholesale. Retain original PR #56 for historical reference until approved split is verified.
+
+### Additional audit limitations
+Static import inspection is not a complete runtime/dependency graph; indirect imports, dynamic loads, hidden sensitive data, behavior, performance and exact per-commit boundary have not been verified. Existing observed green #1189 does not prove isolated branch tests.
