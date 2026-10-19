@@ -53,3 +53,12 @@ def test_mose_build_screen_and_dossier_no_production(tmp_path):
     assert len(dossier["wms_transfer_candidates_unverified"]) == 1
     assert dossier["wms_delivery_candidates_unverified"] == []
     assert dossier["automatic_correction_allowed"] is False
+    assert dossier["verdict"] == "REVIEW"
+    assert dossier["nt_to_wms_link"] == "NOT_VERIFIED"
+    assert dossier["generic_evidence_audit"]["checks"]["INVOICE_SINGLE_WAREHOUSE"] == "SUSPECT_REVIEW"
+    assert dossier["generic_evidence_audit"]["checks"]["MULTI_WAREHOUSE_F_OUTFLOW"] == "SUSPECT_REVIEW"
+    assert dossier["document_link_audit"]["document_link_status"] == "NOT_VERIFIED"
+    assert dossier["document_link_audit"]["customer_order_candidates"] == []
+    assert dossier["quantity_candidate_audit"]["items"][0]["status"] == "NO_CUSTOMER_DELIVERY_CANDIDATE_REVIEW"
+    assert dossier["quantity_candidate_audit"]["automatic_match_allowed"] is False
+
