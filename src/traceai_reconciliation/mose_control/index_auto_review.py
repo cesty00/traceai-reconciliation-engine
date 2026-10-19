@@ -8,7 +8,7 @@ from contextlib import closing
 import sqlite3
 from typing import Any
 
-from traceai_reconciliation.investigation.source_index import SQLiteSourceIndex
+from .mose_source_index import MOSESQLiteSourceIndex
 from .cross_warehouse_invoice import cross_warehouse_invoice_exits
 from .review_queue import build_mose_review_queue
 
@@ -25,10 +25,10 @@ def create_review_cases_from_existing_index(
     """
     if not 1 <= max_invoices <= 20000:
         raise ValueError("max_invoices must be between 1 and 20000")
-    if not all(Path(p).is_file() for p in (wms_path, wme_path, production_path)):
+    if not all(Path(p).is_file() for p in (wms_path, wme_path)):
         return {"status": "SOURCE_FILES_MISSING", "cases": [], "verdict": "REVIEW"}
-    index = SQLiteSourceIndex(cache_dir)
-    if not index.is_current(wms_path, wme_path, production_path):
+    index = MOSESQLiteSourceIndex(cache_dir)
+    if not index.is_current(wms_path, wme_path):
         return {"status": "SOURCE_INDEX_MISSING_OR_STALE", "cases": [], "verdict": "REVIEW"}
     # Read F rows belonging to MOSE user OR MOSE warehouse; include companion
     # lines from other warehouses on the same invoice, keyed by doc/date.
