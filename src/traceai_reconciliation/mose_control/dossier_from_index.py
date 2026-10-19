@@ -11,6 +11,7 @@ from typing import Any
 from traceai_reconciliation.investigation.source_index import SQLiteSourceIndex
 from .case_dossier import compose_mose_case
 from .wms_candidate_index import screen_wms_invoice_candidates
+from .invoice_balance_evidence import invoice_balance_evidence
 
 
 def dossier_from_current_index(*, case: dict[str, Any],
@@ -41,7 +42,8 @@ def dossier_from_current_index(*, case: dict[str, Any],
             invoice_rows = [
                 {"document": x[0], "date": x[1], "product_name": x[2],
                  "warehouse": x[3], "quantity": x[4], "source_row": x[5],
-                 "operation_type": x[6], "partner": x[7], "unit": x[8]}
+                 "operation_type": x[6], "partner": x[7], "unit": x[8],
+                 "reported_balance": x[9]}
                 for x in invoices
             ]
             names = sorted({str(x["product_name"]) for x in invoice_rows})
@@ -74,4 +76,5 @@ def dossier_from_current_index(*, case: dict[str, Any],
     )
     if dossier.get('status') == 'AWAITING_OPERATOR_DOCUMENT_CHECK':
         dossier['wms_candidate_screen_truncated'] = wms_screen['truncated']
+        dossier['invoice_balance_evidence'] = invoice_balance_evidence(invoice_rows)
     return dossier
