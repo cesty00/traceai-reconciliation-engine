@@ -98,3 +98,6 @@ Added test-only commit `299dacec` to PR #58 branch: `tests/test_gov_002n_invento
 
 ## GOV-002N — CI verified (2026-10-19)
 Run #1226 (`39294591345`) for test-only commit `299dacec` COMPLETED/SUCCESS, all 4 jobs SUCCESS. Pytest log: `571 passed, 1 xfailed, 4 warnings in 7.50s`. GOV-002N synthetic matcher tests pass for exact INV-MIN/PV and mismatch REVIEW persistence. The expected xfail on CORE engine ledger wiring persists; global GOV-AT-05/06 are NOT approved. No production changes. Next GOV-002O: characterize complete `investigate_product` overlap path with synthetic source files; track actual source row provenance and explained/unexplained delta, and introduce a failing regression only if reproducible. GOV-002 OPEN, V1 NO_GO.
+
+## GOV-002O — File-backed synthetic inventory PV engine case (2026-10-19)
+Test-only commit `aa25f95d` on PR #58 branch adds `tests/test_gov_002o_engine_pv_overlap.py`: six synthetic sources, real `investigate_product` with WMS INV-MIN -10 and WME PV -9, expects initial delta -1, inventory matcher residual -1, WME PV REVIEW residual +9 not added as a second confirmed explanation, arithmetic consistency and unchanged source SHA. At initial check CI #1229 (`39295888911`) QUEUED; **not validated** and assertions may need debugging based on actual result. No CORE production changes. GOV-AT-05/06 remain OPEN; GOV-002 OPEN, V1 NO_GO.
