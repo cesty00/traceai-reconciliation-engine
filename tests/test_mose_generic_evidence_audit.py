@@ -38,3 +38,17 @@ def test_negative_and_reversal_do_not_trigger_double_outflow():
     data["wme_invoices_source_evidence"][1]["quantity"] = 10
     result = audit_mose_document_evidence(data)
     assert result["checks"]["MULTI_WAREHOUSE_F_OUTFLOW"] == "NOT_INDICATED"
+
+def test_different_products_two_warehouses_violate_single_warehouse_rule():
+    data = evidence()
+    data["wme_invoices_source_evidence"][1]["product_name"] = "OTHER ITEM"
+    checks = audit_mose_document_evidence(data)["checks"]
+    assert checks["INVOICE_SINGLE_WAREHOUSE"] == "SUSPECT_REVIEW"
+    assert checks["MULTI_WAREHOUSE_F_OUTFLOW"] == "NOT_INDICATED"
+
+def test_same_warehouse_multiple_products_respects_warehouse_rule():
+    data = evidence()
+    data["wme_invoices_source_evidence"][1]["warehouse"] = "MOSE"
+    data["wme_invoices_source_evidence"][1]["product_name"] = "OTHER ITEM"
+    checks = audit_mose_document_evidence(data)["checks"]
+    assert checks["INVOICE_SINGLE_WAREHOUSE"] == "ONE_WAREHOUSE_OBSERVED"
