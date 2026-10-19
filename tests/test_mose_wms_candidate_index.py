@@ -40,3 +40,17 @@ def test_candidate_limit_reported(tmp_path):
     result = screen_wms_invoice_candidates(path, ["FILE CRAP"], limit_per_product=1)
     assert result["truncated"] is True
     assert len(result["candidates"]) == 1
+
+
+def test_invoice_date_filters_future_and_keeps_historical_transfer(tmp_path):
+    path = tmp_path / "idx.sqlite"
+    make_db(path)
+    with sqlite3.connect(path) as db:
+        db.execute('INSERT INTO wms VALUES (?,?,?,?,?,?)',
+                   ("FILE CRAP", "Livrare", "FUTURE", -10, "2026-10-07", 13))
+    result = screen_wms_invoice_candidates(
+        path, ["FILE CRAP"], invoice_date="2026-03-11", lookback_days=30)
+    docs = {x["document"] for x in result["candidates"]}
+    assert "TRANSFER_MOSE-01" in docs
+    assert "FUTURE" not in docs
+    assert result["truncated"] is False
