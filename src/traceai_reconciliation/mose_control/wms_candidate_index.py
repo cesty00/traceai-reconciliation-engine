@@ -7,10 +7,21 @@ from contextlib import closing
 import sqlite3
 from pathlib import Path
 from typing import Any, Sequence
+from datetime import date, datetime, timedelta
 
 
 def screen_wms_invoice_candidates(db_path: str | Path, product_names: Sequence[str],
-                                  *, limit_per_product: int = 100) -> dict[str, Any]:
+                                  *, invoice_date: str | None = None,
+                                  lookback_days: int = 30,
+                                  limit_per_product: int = 100) -> dict[str, Any]:
+    if lookback_days < 0 or lookback_days > 366:
+        raise ValueError('Invalid lookback window')
+    target = None
+    if invoice_date is not None:
+        try:
+            target = date.fromisoformat(str(invoice_date)[:10])
+        except ValueError as exc:
+            raise ValueError('Invalid invoice date') from exc
     if not 1 <= limit_per_product <= 500:
         raise ValueError("Invalid candidate limit")
     allowed = {
@@ -41,7 +52,23 @@ def screen_wms_invoice_candidates(db_path: str | Path, product_names: Sequence[s
                             WHERE UPPER(TRIM({quoted('product')}))=UPPER(TRIM(?))
                             AND UPPER(TRIM({quoted('operation')})) IN ('LIVRARE', 'DELIVERY')
                             ORDER BY SourceRowNumber DESC LIMIT ?"""
-                rows = db.execute(query, (name, limit_per_product + 1)).fetchall()
+                # A source-row LIMIT before date screening may hide historical
+                # candidates. Read all matching product deliveries, then bound.
+                rows = db.execute(query.replace("ORDER BY SourceRowNumber DESC LIMIT ?", "ORDER BY SourceRowNumber DESC"), (name,)).fetchall()
+                if target is not None:
+                    filtered = []
+                    for item in rows:
+                        raw_day = str(item[4] or "").strip()
+                        parsed = None
+                        for fmt in ("%Y-%m-%d", "%d.%m.%Y", "%m/%d/%Y"):
+                            try:
+                                parsed = datetime.strptime(raw_day[:10], fmt).date()
+                                break
+                            except ValueError:
+                                continue
+                        if parsed is not None and target - timedelta(days=lookback_days) <= parsed <= target:
+                            filtered.append(item)
+                    rows = filtered
                 truncated = truncated or len(rows) > limit_per_product
                 for product, operation, order, quantity, day, source_row in rows[:limit_per_product]:
                     order = str(order or "").strip()
@@ -58,4 +85,4 @@ def screen_wms_invoice_candidates(db_path: str | Path, product_names: Sequence[s
         return {"status": "WMS_QUERY_BLOCKED_REVIEW", "candidates": [], "verdict": "REVIEW"}
     return {"status": "WMS_CANDIDATES_REVIEW", "candidates": found,
             "truncated": truncated, "verdict": "REVIEW",
-            "warning": "Candidate by product only, no invoice linkage or match."}
+            "warning": "Candidate by product and optional date range only; no invoice linkage or match."}
