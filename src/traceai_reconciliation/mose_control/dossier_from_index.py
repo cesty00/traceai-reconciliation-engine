@@ -8,7 +8,7 @@ from contextlib import closing
 import sqlite3
 from typing import Any
 
-from traceai_reconciliation.investigation.source_index import SQLiteSourceIndex
+from .mose_source_index import MOSESQLiteSourceIndex
 from .case_dossier import compose_mose_case
 from .wms_candidate_index import screen_wms_invoice_candidates
 from .invoice_balance_evidence import invoice_balance_evidence
@@ -17,10 +17,10 @@ from .invoice_balance_evidence import invoice_balance_evidence
 def dossier_from_current_index(*, case: dict[str, Any],
     cache_dir: str | Path, wms_path: str | Path, wme_path: str | Path,
     production_path: str | Path) -> dict[str, Any]:
-    if not all(Path(p).is_file() for p in (wms_path, wme_path, production_path)):
+    if not all(Path(p).is_file() for p in (wms_path, wme_path)):
         return {"status": "SOURCE_FILES_MISSING", "verdict": "REVIEW"}
-    index = SQLiteSourceIndex(cache_dir)
-    if not index.is_current(wms_path, wme_path, production_path):
+    index = MOSESQLiteSourceIndex(cache_dir)
+    if not index.is_current(wms_path, wme_path):
         return {"status": "SOURCE_INDEX_MISSING_OR_STALE", "verdict": "REVIEW"}
     rows = case.get("evidence_source_rows")
     if (not isinstance(rows, list) or not rows
