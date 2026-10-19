@@ -86,6 +86,9 @@ else:
             if dossier:
                 st.write("Stare fisa:", dossier["status"])
                 if dossier.get("status") == "AWAITING_OPERATOR_DOCUMENT_CHECK":
+                    if dossier.get("quantity_candidate_audit"):
+                        st.subheader("Cantitati factura vs livrari WMS candidate — nu MATCH")
+                        st.dataframe(dossier["quantity_candidate_audit"].get("items", []))
                     if dossier.get("generic_evidence_audit"):
                         st.subheader("Control documentar general — doar REVIEW")
                         st.json(dossier["generic_evidence_audit"]["checks"])
