@@ -16,6 +16,7 @@ from .reference_acceptance import audit_f91655_dossier
 from .generic_evidence_audit import audit_mose_document_evidence
 from .quantity_candidate_audit import screen_invoice_delivery_quantities
 from .document_link_audit import screen_delivery_document_links
+from .direct_dp_delivery_review import assess_mose_direct_dp_invoice
 
 
 def dossier_from_current_index(*, case: dict[str, Any],
@@ -102,6 +103,10 @@ def dossier_from_current_index(*, case: dict[str, Any],
         dossier['nt_candidate_screen_truncated'] = nt_truncated
         dossier['invoice_balance_evidence'] = invoice_balance_evidence(invoice_rows)
         dossier['generic_evidence_audit'] = audit_mose_document_evidence(dossier)
+        if case.get('reason') == 'MOSE_USER_DIRECT_DP_INVOICE_WMS_CHECK_REVIEW':
+            dossier['direct_dp_delivery_review'] = assess_mose_direct_dp_invoice(
+                dossier['wme_invoices_source_evidence'], wms_screen['candidates'],
+                truncated=wms_screen['truncated'])
         dossier['document_link_audit'] = screen_delivery_document_links(
             dossier['wme_invoices_source_evidence'], wms_screen['candidates'])
         dossier['quantity_candidate_audit'] = screen_invoice_delivery_quantities(
