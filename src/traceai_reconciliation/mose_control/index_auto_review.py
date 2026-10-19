@@ -50,16 +50,16 @@ def create_review_cases_from_existing_index(
                 rows = connection.execute(
                     """SELECT Document, Date, ProductName, Partner, Unit,
                               Warehouse, SignedQuantity, SourceRowNumber,
-                              OperationType
+                              OperationType, Note
                        FROM wme WHERE TRIM(CAST(Document AS TEXT)) = ?
                        AND TRIM(CAST(Date AS TEXT)) = ?
                        AND UPPER(TRIM(CAST(OperationType AS TEXT))) = 'F'""",
                     (document, day),
                 )
-                for doc, dt, product, partner, unit, warehouse, qty, source_row, op in rows:
+                for doc, dt, product, partner, unit, warehouse, qty, source_row, op, note in rows:
                     events.append(dict(document=doc, date=dt, product_name=product,
                                        partner=partner, unit=unit, warehouse=warehouse,
-                                       quantity=qty, source_row=source_row, operation_type=op))
+                                       quantity=qty, source_row=source_row, operation_type=op, user=note))
     except sqlite3.Error as exc:
         return {"status": "SOURCE_QUERY_BLOCKED", "error_type": type(exc).__name__,
                 "cases": [], "verdict": "REVIEW"}
@@ -69,7 +69,11 @@ def create_review_cases_from_existing_index(
     existing = {(str(x['invoice_document']), str(x['date']), str(x['partner']).upper()) for x in findings}
     findings.extend(x for x in cross_warehouse_invoice_exits(events)
                     if (str(x['invoice_document']), str(x['date']), str(x['partner']).upper()) not in existing)
+    from .single_warehouse_operator_screen import mose_user_dp_invoice_reviews
+    multi_keys = {(str(x["invoice_document"]), str(x["date"]), str(x["partner"]).upper()) for x in findings}
+    findings.extend(x for x in mose_user_dp_invoice_reviews(events)
+                    if (str(x["invoice_document"]), str(x["date"]), str(x["partner"]).upper()) not in multi_keys)
     return {"status": "WME_CROSS_WAREHOUSE_SCREEN_REVIEW",
             "scanned_invoice_keys": len(keys), "findings": len(findings),
             "cases": build_mose_review_queue(findings), "verdict": "REVIEW",
-            "limitations": "Invoice-level multi-warehouse only; single-warehouse MOSE-user invoices require separate WMS review. No delivery proof or human acceptance."}
+            "limitations": "Includes single-warehouse DP invoices by MOSE user as neutral controls requiring WMS review, not errors. No delivery proof or human acceptance."}
