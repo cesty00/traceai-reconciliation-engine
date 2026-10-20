@@ -189,3 +189,9 @@ As established in `TRACEAI_DEVELOPMENT_PLAN.md`, apply all six professional revi
 **Working method:** for each substantive step, make a brief risk/acceptance assessment through these roles; report only roles relevant to a particular decision in detail. Roles must not be used to claim six separate real-world experts approved a change. User/operator approval and authorized real-source acceptance remain separate and mandatory.
 
 **Next step unchanged:** inspect existing Daily UI and DOCX interfaces, propose backward-compatible read-only operator-validation presentation; do not wire to CORE or merge without separate approval. Latest observed CI #1276 SUCCESS (602 passed, 1 xfailed), GOV-AT-05/06 OPEN, GOV-002 OPEN, V1 NO_GO.
+
+## CORE-UAT-03 — 2026-10-20 (isolated prototype)
+- Read-only adapter and synthetic tests placed on `docs/core-uat-03-readonly-prototype`; no CORE engine, Daily runtime, report_model, or DOCX production changes.
+- Prototype distinguishes `CAUSE_IDENTIFIED` evidence attribution and `OPERATIONAL_REVIEW` / `OPERATOR_VALIDATED` rationale only. Preexisting economic verdict and quantities remain untouched. No automated WMS/WME/registry mutation.
+- Design/evidence: `docs/governance/CORE_UAT_03_READONLY_DISPLAY_COMPATIBILITY.md`.
+- Synthetic tests must be assessed against the exact CI run; UI, real source provenance, operator identity/audit logging and DOCX annex remain UNVERIFIED / NOT IMPLEMENTED. GOV-002 and GOV-AT-05/06 OPEN. V1 NO_GO; no merge authorization.
