@@ -176,3 +176,16 @@ Article DS099904440, snapshot 2026-10-11 20:00; stock WME 9811.10, WMS 9724.75, 
 
 ## CORE-UAT-01 / CORE-UAT-02 — CI success and operator-facing design (2026-10-20)
 Draft PR #66 CI #1276 (`39451318454`) COMPLETED/SUCCESS: all four jobs green, pytest `602 passed, 1 xfailed, 4 warnings in 8.02s`. Three synthetic operator-review contract tests passed; they do NOT prove CORE operator/UI implementation. Created `docs/governance/CORE_UAT_02_OPERATOR_VALIDATION_CONTRACT.md`: proposed read-only UI, distinction machine diagnosis/operator rationale, audit evidence, no auto WME adjustment, no forced MATCH, source freshness, report compatibility. No production code modified or merged. Next: static inspection of existing UI/report extension points, then separate approval for bounded prototype. GOV-002 OPEN, GOV-AT-05/06 OPEN, V1 NO_GO.
+
+## Active review roles — required at every checkpoint (2026-10-20)
+As established in `TRACEAI_DEVELOPMENT_PLAN.md`, apply all six professional review lenses. These are quality-control perspectives for the assistant/team, **not autonomous background agents**:
+1. **Software Architecture / Python** — modular CORE/MOSE/EXT boundaries, maintainable interfaces, performance, regression and rollback.
+2. **WMS/WME Functional Specialist** — operation/document semantics, transfers, receipts, deliveries, returns, inventory, BC/NP and defensible equivalence rules.
+3. **Stock Controller / Inventory Analyst** — stock conservation and signed differences, source-row evidence, operational feasibility, operator validation, actions to investigate.
+4. **QA / Testing** — reproducible synthetic unit/integration/negative cases, actual CI logs, fail-closed REVIEW, no forced MATCH, independent checks for global double economic attribution.
+5. **Data Analyst / Power Query / Power BI** — clean data mapping, reproducible imports, quality checks, auditable analytical outputs and gradual practical learning; BI does not replace Python CORE.
+6. **Product Management + Security / Intellectual Property** — prioritize Daily operator workflow and user value; permissions, privacy, source segregation, ownership/IP and restrictions on demo data.
+
+**Working method:** for each substantive step, make a brief risk/acceptance assessment through these roles; report only roles relevant to a particular decision in detail. Roles must not be used to claim six separate real-world experts approved a change. User/operator approval and authorized real-source acceptance remain separate and mandatory.
+
+**Next step unchanged:** inspect existing Daily UI and DOCX interfaces, propose backward-compatible read-only operator-validation presentation; do not wire to CORE or merge without separate approval. Latest observed CI #1276 SUCCESS (602 passed, 1 xfailed), GOV-AT-05/06 OPEN, GOV-002 OPEN, V1 NO_GO.
