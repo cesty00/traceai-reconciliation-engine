@@ -227,3 +227,8 @@ As established in `TRACEAI_DEVELOPMENT_PLAN.md`, apply all six professional revi
 - Previous CI #1321 SUCCESS 4/4 jobs for head 44c3dad1.
 - Synthetic pointer -> verified source -> operator display -> separate DOCX annex demonstration added, 2 tests; no SQLiteSourceIndex integration claimed. See docs/governance/CORE_UAT_03G_SYNTHETIC_CHAIN.md.
 - No production CORE or DOCX changes, no merge. New head CI pending. GOV-002 / GOV-AT-05/06 OPEN, V1 NO_GO.
+
+## CORE-UAT-03H — 2026-10-20
+- CI #1328 SUCCESS 4/4 for preceding head 65f2a547.
+- Added isolated index-pointer format gate and five synthetic tests; rejects SQLite rowid and WME LineNo as unverified raw coordinates. See docs/governance/CORE_UAT_03H_INDEX_POINTER_GATE.md.
+- Format gate alone does not authenticate row. Production source index, Daily and DOCX unchanged, PR #67 Draft; new CI pending. GOV-002 / GOV-AT-05/06 OPEN, V1 NO_GO.
