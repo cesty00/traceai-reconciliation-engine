@@ -31,6 +31,11 @@ class ReceiptProvenance:
     reason: str
     source_lines: tuple[SourceCoordinate, ...] = ()
 
+    @property
+    def operational_equivalence(self) -> Literal["NOT_VERIFIED"]:
+        """Source-set identification cannot establish operation equivalence."""
+        return "NOT_VERIFIED"
+
 
 def _unavailable(reason: str) -> ReceiptProvenance:
     return ReceiptProvenance("UNAVAILABLE", reason)
