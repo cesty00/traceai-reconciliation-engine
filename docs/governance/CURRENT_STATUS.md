@@ -201,3 +201,9 @@ As established in `TRACEAI_DEVELOPMENT_PLAN.md`, apply all six professional revi
 - Provenance audit: prototype checks field presence, NOT real source hash/row authenticity; do not claim production source-backed CAUSE_IDENTIFIED from these tests.
 - Existing CaseReport and production DOCX generator untouched. Synthetic compatibility tests are not equivalent to full legacy-output equivalence.
 - See `docs/governance/CORE_UAT_03B_DOCX_PROVENANCE.md`. No merge; GOV-002 / GOV-AT-05/06 OPEN, V1 NO_GO. CI for current head must be verified separately.
+
+## CORE-UAT-03C — 2026-10-20
+- CI #1294 confirmed completed SUCCESS, all four jobs, for preceding CORE-UAT-03B head `0a6cd1a4`.
+- Added isolated read-only exact-source-SHA, physical-CSV-record-start and document-field verification with six synthetic tests. No CORE/Daily/DOCX production edits.
+- Physical row/source identity remains unverified in existing SQLite index, WME XLSX and production end-to-end. See `docs/governance/CORE_UAT_03C_SOURCE_PROVENANCE.md`.
+- Verify NEW head CI before acceptance. PR #67 Draft; GOV-002 / GOV-AT-05/06 OPEN, V1 NO_GO.
