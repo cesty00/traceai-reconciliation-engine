@@ -207,3 +207,8 @@ As established in `TRACEAI_DEVELOPMENT_PLAN.md`, apply all six professional revi
 - Added isolated read-only exact-source-SHA, physical-CSV-record-start and document-field verification with six synthetic tests. No CORE/Daily/DOCX production edits.
 - Physical row/source identity remains unverified in existing SQLite index, WME XLSX and production end-to-end. See `docs/governance/CORE_UAT_03C_SOURCE_PROVENANCE.md`.
 - Verify NEW head CI before acceptance. PR #67 Draft; GOV-002 / GOV-AT-05/06 OPEN, V1 NO_GO.
+
+## CORE-UAT-03D — 2026-10-20
+- CI #1301 on previous head `43b5449c` completed SUCCESS, all four jobs.
+- Static audit confirmed WMS SQLite index lacks authoritative physical CSV start-line identifiers; WME stored `LineNo` originates from column A, not necessarily actual XLSX XML row coordinate. File-level SHA cache validity does not prove row-level source provenance.
+- Audit and forward acceptance requirements: `docs/governance/CORE_UAT_03D_SOURCE_INDEX_AUDIT.md`. No CORE/index schema/DOCX runtime changes, no merge. GOV-002, GOV-AT-05/06 OPEN; V1 NO_GO.
