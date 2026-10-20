@@ -237,3 +237,9 @@ As established in `TRACEAI_DEVELOPMENT_PLAN.md`, apply all six professional revi
 - CI #1335 SUCCESS 4/4 jobs for previous head 967adbfef.
 - Added combined pointer-contract and source-verification gate, five synthetic tests, and docs/governance/CORE_UAT_03I_INTEGRATED_POINTER_TEST.md.
 - Not a real SQLiteSourceIndex integration or production UAT. No CORE / DOCX modifications; PR #67 Draft, no merge; new CI needs verification. GOV-002 / GOV-AT-05/06 OPEN, V1 NO_GO.
+
+## CORE-UAT-04 — 2026-10-20 source-backed reference check
+- CI #1342 SUCCESS, 4/4 jobs for previous head abc92acd.
+- Independently inspected authorized original 2026-10-11 report, WMS tracing CSV, WME ledger XLSX for DS099904440. Report -86.35kg corresponds exactly to three WMS doc 00060 signed movements, with source-row references and SHA. WME primary warehouse last balance 9811.10kg in that export; no matching WME doc 00060 for item observed.
+- Evidence and caveats in docs/governance/CORE_UAT_04_REAL_CASE_PILOT.md; this is manual source analysis, NOT executed CORE engine E2E. Operator reason separately stated, no posting authorization.
+- CORE and production DOCX unchanged, PR #67 Draft. GOV-002 / GOV-AT-05/06 OPEN; V1 NO_GO. Verify new head CI.
