@@ -249,3 +249,9 @@ As established in `TRACEAI_DEVELOPMENT_PLAN.md`, apply all six professional revi
 - Ran real six-source CORE self-service case DS099904440 using tested source artifact with original authorized exports. Delta -86.35, explained -86.35, residual 0, INV-01, REVIEW, generated case DOCX/JSON.
 - Three WMS 00060 movements appear in timeline but NOT explicitly linked in auto_explain component; WME warehouse-sum vs ERP report discrepancy 4.400kg and 8 unmatched operation warnings remain.
 - See docs/governance/CORE_UAT_04B_EXECUTED_CORE_CASE.md. No production code changes or merge. GOV-002 / GOV-AT-05/06 OPEN; V1 NO_GO.
+
+## CORE-UAT-04C — 2026-10-20
+- Prior CI #1350: 4/4 jobs SUCCESS for CORE-UAT-04B head 68d1d3c1.
+- Inspected auto_explain.py: INV-01 draws net from inventory_adjustment_matching but does not expose linked document 00060 and three source rows as structured causal evidence.
+- Added isolated strict xfail acceptance requirement and invariant test (tests/test_core_uat_04c_inv01_provenance_acceptance.py) plus docs/governance/CORE_UAT_04C_INV01_CAUSAL_PROVENANCE.md.
+- Pending criterion remains OPEN even if CI passes; no CORE/Daily/DOCX runtime modifications, no merge. GOV-002 and GOV-AT-05/06 OPEN; V1 NO_GO. Verify CI for new head.
