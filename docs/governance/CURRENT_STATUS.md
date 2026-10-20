@@ -243,3 +243,9 @@ As established in `TRACEAI_DEVELOPMENT_PLAN.md`, apply all six professional revi
 - Independently inspected authorized original 2026-10-11 report, WMS tracing CSV, WME ledger XLSX for DS099904440. Report -86.35kg corresponds exactly to three WMS doc 00060 signed movements, with source-row references and SHA. WME primary warehouse last balance 9811.10kg in that export; no matching WME doc 00060 for item observed.
 - Evidence and caveats in docs/governance/CORE_UAT_04_REAL_CASE_PILOT.md; this is manual source analysis, NOT executed CORE engine E2E. Operator reason separately stated, no posting authorization.
 - CORE and production DOCX unchanged, PR #67 Draft. GOV-002 / GOV-AT-05/06 OPEN; V1 NO_GO. Verify new head CI.
+
+## CORE-UAT-04B — 2026-10-20
+- CI #1344 SUCCESS for previous head 0da8fcfc (confirm individual jobs separately before asserting 4/4).
+- Ran real six-source CORE self-service case DS099904440 using tested source artifact with original authorized exports. Delta -86.35, explained -86.35, residual 0, INV-01, REVIEW, generated case DOCX/JSON.
+- Three WMS 00060 movements appear in timeline but NOT explicitly linked in auto_explain component; WME warehouse-sum vs ERP report discrepancy 4.400kg and 8 unmatched operation warnings remain.
+- See docs/governance/CORE_UAT_04B_EXECUTED_CORE_CASE.md. No production code changes or merge. GOV-002 / GOV-AT-05/06 OPEN; V1 NO_GO.
