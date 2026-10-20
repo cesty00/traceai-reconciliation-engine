@@ -195,3 +195,9 @@ As established in `TRACEAI_DEVELOPMENT_PLAN.md`, apply all six professional revi
 - Prototype distinguishes `CAUSE_IDENTIFIED` evidence attribution and `OPERATIONAL_REVIEW` / `OPERATOR_VALIDATED` rationale only. Preexisting economic verdict and quantities remain untouched. No automated WMS/WME/registry mutation.
 - Design/evidence: `docs/governance/CORE_UAT_03_READONLY_DISPLAY_COMPATIBILITY.md`.
 - Synthetic tests must be assessed against the exact CI run; UI, real source provenance, operator identity/audit logging and DOCX annex remain UNVERIFIED / NOT IMPLEMENTED. GOV-002 and GOV-AT-05/06 OPEN. V1 NO_GO; no merge authorization.
+
+## CORE-UAT-03B — 2026-10-20
+- Isolated synthetic DOCX annex preview and tests added on PR #67 branch; separate new DOCX output, refuses overwrite and retains existing economic verdict.
+- Provenance audit: prototype checks field presence, NOT real source hash/row authenticity; do not claim production source-backed CAUSE_IDENTIFIED from these tests.
+- Existing CaseReport and production DOCX generator untouched. Synthetic compatibility tests are not equivalent to full legacy-output equivalence.
+- See `docs/governance/CORE_UAT_03B_DOCX_PROVENANCE.md`. No merge; GOV-002 / GOV-AT-05/06 OPEN, V1 NO_GO. CI for current head must be verified separately.
