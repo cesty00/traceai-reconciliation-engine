@@ -222,3 +222,8 @@ As established in `TRACEAI_DEVELOPMENT_PLAN.md`, apply all six professional revi
 - CI #1313 SUCCESS 4/4 jobs for prior checkpoint 43c36e57.
 - Isolated source evidence bridge for WMS CSV / WME XLSX pointers and five synthetic tests added; see docs/governance/CORE_UAT_03F_EVIDENCE_BRIDGE.md.
 - Provenance is not economic MATCH or operator authorization; source-index real binding and actual export headers remain unverified. No CORE/index/DOCX runtime changes, no merge. PR #67 Draft; GOV-002 and GOV-AT-05/06 OPEN, V1 NO_GO. New head CI pending.
+
+## CORE-UAT-03G — 2026-10-20
+- Previous CI #1321 SUCCESS 4/4 jobs for head 44c3dad1.
+- Synthetic pointer -> verified source -> operator display -> separate DOCX annex demonstration added, 2 tests; no SQLiteSourceIndex integration claimed. See docs/governance/CORE_UAT_03G_SYNTHETIC_CHAIN.md.
+- No production CORE or DOCX changes, no merge. New head CI pending. GOV-002 / GOV-AT-05/06 OPEN, V1 NO_GO.
