@@ -217,3 +217,8 @@ As established in `TRACEAI_DEVELOPMENT_PLAN.md`, apply all six professional revi
 - CI #1305 SUCCESS (four jobs) for preceding commit 34e0ec5d.
 - Added isolated WME XLSX SHA + physical worksheet-row verifier and six synthetic tests. Details: docs/governance/CORE_UAT_03E_WME_POINTER_CONTRACT.md.
 - No production CORE, index or DOCX edits. New CI #1311 pending verification. PR #67 Draft, GOV-002 OPEN, GOV-AT-05/06 OPEN, V1 NO_GO.
+
+## CORE-UAT-03F — 2026-10-20
+- CI #1313 SUCCESS 4/4 jobs for prior checkpoint 43c36e57.
+- Isolated source evidence bridge for WMS CSV / WME XLSX pointers and five synthetic tests added; see docs/governance/CORE_UAT_03F_EVIDENCE_BRIDGE.md.
+- Provenance is not economic MATCH or operator authorization; source-index real binding and actual export headers remain unverified. No CORE/index/DOCX runtime changes, no merge. PR #67 Draft; GOV-002 and GOV-AT-05/06 OPEN, V1 NO_GO. New head CI pending.
