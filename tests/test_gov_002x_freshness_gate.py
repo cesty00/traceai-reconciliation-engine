@@ -15,6 +15,14 @@ def checked_probe(index, wms, wme, production, wms_rows, wme_rows, document, exp
                "WME": hashlib.sha256(wme.read_bytes()).hexdigest()}
     if current != expected_sha:
         return ProbeResult("UNAVAILABLE", (), "SOURCE_HASH_MISMATCH")
+    # Reject multi-product candidate pools rather than claiming a unique document.
+    product_col = "ProductName"
+    if product_col not in wme_rows.columns or "Denumire articol" not in wms_rows.columns:
+        return ProbeResult("UNAVAILABLE", (), "PRODUCT_IDENTITY_MISSING")
+    wme_names = {str(v).strip() for v in wme_rows[product_col].dropna()}
+    wms_names = {str(v).strip() for v in wms_rows["Denumire articol"].dropna()}
+    if len(wme_names) != 1 or wme_names != wms_names:
+        return ProbeResult("UNAVAILABLE", (), "AMBIGUOUS_PRODUCT_SCOPE")
     return probe_receipt_rows(wms_rows, wme_rows, document, current)
 
 
