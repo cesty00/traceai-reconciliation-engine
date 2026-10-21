@@ -230,3 +230,8 @@ As established in `TRACEAI_DEVELOPMENT_PLAN.md`, apply all six professional revi
 ## CORE INV-01 human-link prototype — 2026-10-21
 - CI #1401 SUCCESS for prior head c8b50aa5 (confirm individual job results if cited). Isolated non-persistent human document-link decision proposal and 5 synthetic tests added; see docs/governance/CORE_INV01_HUMAN_LINK_PROTOTYPE.md.
 - NOT wired to UI, authentication, audit database or economic engine. In-chat operator statement does not equal validated link. PR #68 Draft; no merge; GOV-002 / GOV-AT-05/06 OPEN, V1 NO_GO. New CI pending.
+
+## CORE INV-01 Daily review architecture — 2026-10-21
+- CI #1405 SUCCESS 4/4 jobs for previous head fc857760.
+- Design contract saved: docs/governance/CORE_INV01_DAILY_VALIDATION_ARCHITECTURE.md. Formal Daily validation requires trusted session identity, server-side case authorization, immutable append-only audit, optimistic concurrency, source SHA checks and versioned operator JSON/DOCX; not yet implemented.
+- Existing human_document_link.py remains NON-PERSISTENT proposal, not authenticated audit. No UI wiring, CORE economic matcher modification or merge. PR #68 Draft; GOV-002/GOV-AT-05/06 OPEN; V1 NO_GO.
