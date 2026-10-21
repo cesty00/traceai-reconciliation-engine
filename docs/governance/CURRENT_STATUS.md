@@ -216,3 +216,8 @@ As established in `TRACEAI_DEVELOPMENT_PLAN.md`, apply all six professional revi
 - Independently verified original WMS CSV SHA-256 98e1a88a...3c377ece and physical lines 351551-351553 for DS099904440 document 00060, net -86.35 kg. Runtime inventory refs retain document and lots but lack verified physical-row pointers.
 - IMPORTANT INV-01 net = WMS residual total +74.46 minus WME PV residual total +160.81 = -86.35. Doc 00060 independently nets -86.35 but is NOT proven as exclusive causal allocation because other residual events exist. See docs/governance/CORE_INV01_RAW_CSV_PROVENANCE_CHECK.md.
 - No code change or merge; GOV-002/GOV-AT-05/06 OPEN, V1 NO_GO. Verify CI on new head.
+
+## CORE INV-01 individual contribution audit — 2026-10-21
+- CI #1397 SUCCESS 4/4 for preceding head cdab0d0c.
+- Real-case DS099904440: WMS earlier inventories 160520206 +160.40 and 28082026 net +0.41 exactly cancel arithmetically WME PV 1178 +160.81; WMS doc 00060 net -86.35 remains as arithmetic residual. WME PV 1178 observed at XLSX physical row 111872 (stored LineNo 111326).
+- This is NOT validated documentary equivalence: May-to-Aug date gap exceeds matcher tolerance, operator must investigate PV 1178 and earlier inventories. Full itemization: docs/governance/CORE_INV01_INDIVIDUAL_CONTRIBUTION_AUDIT.md. No CORE changes/merge, GOV-002 / GOV-AT-05/06 OPEN, V1 NO_GO.
