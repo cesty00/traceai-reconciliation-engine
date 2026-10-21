@@ -52,4 +52,8 @@ def test_mixed_unmatched_documents_not_exclusively_attributed():
     )
     documents=inventory_document_candidates(case)
     assert {d["document"] for d in documents}=={"00060","SYN-OLDER"}
-    assert all(d["source_status"]=="UNVERIFIED" for d in documents)
+    assert all(e["source_status"]=="UNVERIFIED" for d in documents for e in d["events"])
+    payload=operator_payload()
+    payload["document_candidates"]=documents
+    display=operator_view(payload)
+    assert all(d["source_status"]=="UNVERIFIED" for d in display["document_candidates"])
