@@ -6,9 +6,11 @@ import json
 from pathlib import Path
 import streamlit as st
 from traceai_reconciliation.daily_ui.read_model import operator_view
+from traceai_reconciliation.daily_ui.inventory_candidates import inventory_document_candidates
 
 parser=argparse.ArgumentParser(add_help=False)
 parser.add_argument("--case")
+parser.add_argument("--investigation")
 args,_=parser.parse_known_args()
 st.set_page_config(page_title="TraceAI Daily — read-only",layout="wide")
 st.title("TraceAI Control — Daily")
@@ -18,6 +20,11 @@ if not args.case:
     st.stop()
 try:
     data=json.loads(Path(args.case).read_text(encoding="utf-8"))
+    if args.investigation:
+        investigation=json.loads(Path(args.investigation).read_text(encoding="utf-8"))
+        if investigation.get("case_id") != data.get("case_id"):
+            raise ValueError("Case mismatch between operator and investigation JSON")
+        data["document_candidates"] = inventory_document_candidates(investigation)
     view=operator_view(data)
 except (OSError, ValueError, TypeError, json.JSONDecodeError) as exc:
     st.error("Rezultatul nu poate fi afișat în siguranță: " + str(exc))
