@@ -235,3 +235,8 @@ As established in `TRACEAI_DEVELOPMENT_PLAN.md`, apply all six professional revi
 - CI #1405 SUCCESS 4/4 jobs for previous head fc857760.
 - Design contract saved: docs/governance/CORE_INV01_DAILY_VALIDATION_ARCHITECTURE.md. Formal Daily validation requires trusted session identity, server-side case authorization, immutable append-only audit, optimistic concurrency, source SHA checks and versioned operator JSON/DOCX; not yet implemented.
 - Existing human_document_link.py remains NON-PERSISTENT proposal, not authenticated audit. No UI wiring, CORE economic matcher modification or merge. PR #68 Draft; GOV-002/GOV-AT-05/06 OPEN; V1 NO_GO.
+
+## INV-01 SQLite review audit — 2026-10-21
+- CI #1407 SUCCESS 4/4 for previous head 858a5dde.
+- Isolated persistent review audit prototype and six synthetic tests added. See docs/governance/CORE_INV01_SQLITE_REVIEW_AUDIT_PROTOTYPE.md.
+- Caller-injected identity is NOT authentication, no source/people verification, no Daily wiring, no CORE economic mutation or merge. GOV-002/GOV-AT-05/06 OPEN, V1 NO_GO. New CI pending.
