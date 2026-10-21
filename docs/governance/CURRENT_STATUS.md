@@ -205,3 +205,8 @@ As established in `TRACEAI_DEVELOPMENT_PLAN.md`, apply all six professional revi
 - CI #1390 SUCCESS 4/4 on preceding head 43c0e38a.
 - Preserve `Document intrare` as text in indexed and direct WMS CSV read paths, version cache filename to v2, add two regression tests. See docs/governance/CORE_INV01_DOCUMENT_TEXT_PRESERVATION.md.
 - New-head CI and real pilot regression pending; no merge, no WMS/WME write. GOV-002 / GOV-AT-05/06 OPEN, V1 NO_GO.
+
+## CORE INV-01 read-only real replay — 2026-10-21
+- CI #1394 SUCCESS 4/4 jobs at previous head 5395760d.
+- Replayed six-source DS099904440 case using locally reconstructed PR #68 import changes. WMS document identifier `00060` persisted as text in 3 contributing refs, lots and signed qty (-131.75,-0.25,+45.65); original difference -86.35, explained -86.35, residual 0, verdict REVIEW, operator JSON unchanged.
+- Local replay is NOT an exact-head binary validation or physical-row SHA proof. See docs/governance/CORE_INV01_REAL_DOCUMENT_TEXT_REGRESSION.md. No merge; GOV-002 / GOV-AT-05/06 OPEN, V1 NO_GO.
