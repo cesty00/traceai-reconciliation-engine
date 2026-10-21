@@ -221,3 +221,8 @@ As established in `TRACEAI_DEVELOPMENT_PLAN.md`, apply all six professional revi
 - CI #1397 SUCCESS 4/4 for preceding head cdab0d0c.
 - Real-case DS099904440: WMS earlier inventories 160520206 +160.40 and 28082026 net +0.41 exactly cancel arithmetically WME PV 1178 +160.81; WMS doc 00060 net -86.35 remains as arithmetic residual. WME PV 1178 observed at XLSX physical row 111872 (stored LineNo 111326).
 - This is NOT validated documentary equivalence: May-to-Aug date gap exceeds matcher tolerance, operator must investigate PV 1178 and earlier inventories. Full itemization: docs/governance/CORE_INV01_INDIVIDUAL_CONTRIBUTION_AUDIT.md. No CORE changes/merge, GOV-002 / GOV-AT-05/06 OPEN, V1 NO_GO.
+
+## CORE INV-01 human validation requirement — 2026-10-21
+- Operator indicates WME PV 1178 relates to an earlier WMS inventory; this is contextual guidance, NOT completed validation of precise documents/people in application.
+- Candidate association with WMS 160520206 / 28082026 stays HUMAN_VALIDATION_PENDING and REVIEW. Require operator verification of original documents, persons/roles, scope, decision, timestamp and append-only audit. No forced MATCH or 1-day rule override.
+- See docs/governance/CORE_INV01_HUMAN_DOCUMENT_VALIDATION.md. No CORE code changes/merge; GOV-002/GOV-AT-05/06 OPEN, V1 NO_GO.
