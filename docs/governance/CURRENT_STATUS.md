@@ -265,3 +265,8 @@ As established in `TRACEAI_DEVELOPMENT_PLAN.md`, apply all six professional revi
 - CI #1364 SUCCESS 4/4 jobs for previous head 23f1b501.
 - Static trace confirmed causal evidence is lost in inventory_adjustment_matching.py before auto_explain: WMS grouped by day/reason; residual_wms_adjustments retains only date/reason/quantity/status, not document or physical source pointer.
 - Design-only minimum integration and acceptance gates recorded in docs/governance/CORE_UAT_04E_INV01_INTEGRATION_DESIGN.md. No CORE/runtime changes or merge, prior strict xfail remains OPEN. GOV-002 and GOV-AT-05/06 OPEN; V1 NO_GO. Verify CI for this new head.
+
+## CORE-UAT-04F — 2026-10-21
+- CI #1368 SUCCESS all four jobs for previous head 767a6317.
+- Added isolated inventory-group sidecar preserving Document/Lot and four synthetic regression tests against unchanged real matcher; source pointers remain UNVERIFIED. See docs/governance/CORE_UAT_04F_GROUPING_REGRESSION.md.
+- No production CORE/Daily/DOCX changes or merge. Current CI pending. GOV-002 and GOV-AT-05/06 OPEN; V1 NO_GO.
