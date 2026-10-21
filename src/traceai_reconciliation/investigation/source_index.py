@@ -57,6 +57,7 @@ def _csv_chunks(
                 sep=delimiter,
                 chunksize=chunksize,
                 low_memory=False,
+                dtype={"Document intrare": str},
                 encoding=encoding,
             )
             for chunk in iterator:
@@ -81,7 +82,7 @@ class SQLiteSourceIndex:
 
     def __init__(self, cache_dir: str | Path) -> None:
         self.cache_dir = Path(cache_dir)
-        self.db_path = self.cache_dir / "operational_sources.sqlite"
+        self.db_path = self.cache_dir / "operational_sources_v2.sqlite"
 
     def _expected_meta(
         self,
