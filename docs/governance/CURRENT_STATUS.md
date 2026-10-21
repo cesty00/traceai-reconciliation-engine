@@ -255,3 +255,8 @@ As established in `TRACEAI_DEVELOPMENT_PLAN.md`, apply all six professional revi
 - Inspected auto_explain.py: INV-01 draws net from inventory_adjustment_matching but does not expose linked document 00060 and three source rows as structured causal evidence.
 - Added isolated strict xfail acceptance requirement and invariant test (tests/test_core_uat_04c_inv01_provenance_acceptance.py) plus docs/governance/CORE_UAT_04C_INV01_CAUSAL_PROVENANCE.md.
 - Pending criterion remains OPEN even if CI passes; no CORE/Daily/DOCX runtime modifications, no merge. GOV-002 and GOV-AT-05/06 OPEN; V1 NO_GO. Verify CI for new head.
+
+## CORE-UAT-04D — 2026-10-21
+- Previous CI #1356 SUCCESS, 4/4 jobs for head 6a96b676.
+- Isolated one-event-one-causal-owner acceptance prototype plus six synthetic tests added: prototypes/core_uat_03/causal_ownership.py; tests/test_core_uat_04d_causal_ownership.py.
+- No source-backed link from INV-01 to document 00060 added in CORE. Prior strict xfail still OPEN; GOV-AT-05/06 and GOV-002 OPEN. See docs/governance/CORE_UAT_04D_CAUSAL_OWNERSHIP.md. PR #67 Draft, no merge, V1 NO_GO. Latest CI unverified.
