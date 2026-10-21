@@ -14,6 +14,12 @@ def operator_view(payload: Mapping[str, Any]) -> dict[str, Any]:
     for key in ("difference", "residual"):
         if isinstance(payload[key], bool) or not isinstance(payload[key], (int, float)):
             raise ValueError("Invalid numerical field " + key)
+    # The legacy Daily JSON lists generic rule descriptions, not verified
+    # document IDs / physical rows. Never imply source-row validation.
+    evidence = payload["evidence"]
+    if not isinstance(evidence, (list, tuple)) or not all(isinstance(x, str) for x in evidence):
+        raise ValueError("Invalid evidence field")
+    documentary_status = "SOURCE_LINES_NOT_VERIFIED"
     return {
         "case_id": str(payload["case_id"]), "product_code": str(payload["product_code"]),
         "product_name": str(payload["product_name"]), "unit": str(payload["unit"]),
@@ -23,7 +29,8 @@ def operator_view(payload: Mapping[str, Any]) -> dict[str, Any]:
         "operator_status": str(payload["operator_status"]),
         "operator_action": str(payload["operator_action"]),
         "correction_target": str(payload["correction_target"]),
-        "evidence": list(payload["evidence"]), "blockers": list(payload["blockers"]),
+        "evidence": list(evidence), "blockers": list(payload["blockers"]),
         "warnings": list(payload["warnings"]), "documentary_validation": "NOT_AVAILABLE",
+        "source_line_status": documentary_status,
         "economic_match_authorized": False, "reviewer_validation_enabled": False,
     }
