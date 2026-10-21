@@ -265,3 +265,8 @@ As established in `TRACEAI_DEVELOPMENT_PLAN.md`, apply all six professional revi
 - CI #1421 SUCCESS 4/4 for prior branch head 4165e595.
 - Isolated Streamlit read-only Daily preview created on feature/core-daily-ui-01-readonly-20261021, Draft PR #69 targeting CORE INV-01 branch. Existing operator JSON compatibility adapter and 4 synthetic tests, optional Streamlit dependency; see docs/governance/CORE_DAILY_UI_01_READONLY.md.
 - Not browser-tested or deployed, no authenticated review or approval buttons. CORE economics/DOCX unchanged, no merge; GOV-002/GOV-AT-05/06 OPEN, V1 NO_GO. New CI not yet confirmed.
+
+## CORE-DAILY-UI-02 — 2026-10-21
+- CI #1430 SUCCESS 4/4 previous head ddd22339. Inspected real DS099904440 operator JSON: numeric result and REVIEW preserved; no document/physical row references in this legacy output.
+- Added UI warning and source_line_status SOURCE_LINES_NOT_VERIFIED, synthetic compatibility test, details at docs/governance/CORE_DAILY_UI_02_REAL_JSON_COMPATIBILITY.md.
+- Streamlit browser not tested (not installed in local runtime). No approval or merge, GOV-002/GOV-AT-05/06 OPEN, V1 NO_GO; check new CI.
