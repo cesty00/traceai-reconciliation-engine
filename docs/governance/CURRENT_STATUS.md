@@ -260,3 +260,8 @@ As established in `TRACEAI_DEVELOPMENT_PLAN.md`, apply all six professional revi
 - Previous CI #1356 SUCCESS, 4/4 jobs for head 6a96b676.
 - Isolated one-event-one-causal-owner acceptance prototype plus six synthetic tests added: prototypes/core_uat_03/causal_ownership.py; tests/test_core_uat_04d_causal_ownership.py.
 - No source-backed link from INV-01 to document 00060 added in CORE. Prior strict xfail still OPEN; GOV-AT-05/06 and GOV-002 OPEN. See docs/governance/CORE_UAT_04D_CAUSAL_OWNERSHIP.md. PR #67 Draft, no merge, V1 NO_GO. Latest CI unverified.
+
+## CORE-UAT-04E — 2026-10-21
+- CI #1364 SUCCESS 4/4 jobs for previous head 23f1b501.
+- Static trace confirmed causal evidence is lost in inventory_adjustment_matching.py before auto_explain: WMS grouped by day/reason; residual_wms_adjustments retains only date/reason/quantity/status, not document or physical source pointer.
+- Design-only minimum integration and acceptance gates recorded in docs/governance/CORE_UAT_04E_INV01_INTEGRATION_DESIGN.md. No CORE/runtime changes or merge, prior strict xfail remains OPEN. GOV-002 and GOV-AT-05/06 OPEN; V1 NO_GO. Verify CI for this new head.
