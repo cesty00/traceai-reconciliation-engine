@@ -245,3 +245,8 @@ As established in `TRACEAI_DEVELOPMENT_PLAN.md`, apply all six professional revi
 - CI #1411 SUCCESS 4/4 for prior head 04910654.
 - Inspected Daily/self-service authority guards. They disallow automatic mutation but do not establish a trusted reviewer login/session in those modules. Isolated SQLite audit accepts caller-supplied reviewer and authorization flag, so cannot safely wire into UI yet.
 - Design and tests gate in docs/governance/CORE_INV01_DAILY_AUTH_SECURITY_AUDIT.md. No production UI wiring or merge; GOV-002/GOV-AT-05/06 OPEN, V1 NO_GO.
+
+## CORE INV-01 identity boundary — 2026-10-21
+- CI #1413 SUCCESS 4/4 prior head 70efa6ac. CLI-based Python package; trusted login provider unverified in examined components.
+- Isolated reviewer identity boundary and five synthetic tests added. No real authentication integration; VerifiedPrincipal can be constructed by caller and is NOT secure proof of identity. See docs/governance/CORE_INV01_IDENTITY_BOUNDARY_AUDIT.md.
+- No Daily wiring or merge. PR #68 Draft, GOV-002/GOV-AT-05/06 OPEN, V1 NO_GO. New CI pending.
