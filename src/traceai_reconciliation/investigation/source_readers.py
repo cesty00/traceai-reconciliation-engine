@@ -263,6 +263,7 @@ def filter_csv_by_values(
                 sep=delimiter,
                 chunksize=chunksize,
                 low_memory=False,
+                dtype={"Document intrare": str},
                 encoding=encoding,
             )
             for chunk in iterator:

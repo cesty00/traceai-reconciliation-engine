@@ -19,6 +19,37 @@ class InventoryAdjustmentMatchResult:
     matched_wme_indexes: tuple[object, ...]
 
 
+def _audit_value(row: pd.Series, names: tuple[str, ...]) -> str | None:
+    """Read optional business identifiers without inventing raw source pointers."""
+    for name in names:
+        if name in row.index and pd.notna(row[name]):
+            value = str(row[name]).strip()
+            if value and value.lower() not in {"nan", "none"}:
+                return value
+    return None
+
+
+def _contributing_event_refs(group: pd.DataFrame) -> list[dict[str, Any]]:
+    """Additive read-only lineage hints; never evidence of verified source rows."""
+    refs = []
+    for _, row in group.iterrows():
+        refs.append({
+            "document": _audit_value(row, ("Document intrare", "Document comanda", "Numar comanda", "Document", "Nr document", "Numar document", "Nr. document")),
+            "lot": _audit_value(row, ("Lot", "Lot productie", "Lot produs")),
+            "date": row["_date"].date().isoformat(),
+            "reason": str(row["_reason"]),
+            "quantity": float(row["_qty"]),
+            "source_pointer_status": "UNVERIFIED",
+            "document_format_status": (
+                "LOSSY_NUMERIC_IMPORT"
+                if any(name in row.index and isinstance(row[name], float) and pd.notna(row[name])
+                       for name in ("Document intrare", "Document comanda", "Numar comanda"))
+                else "UNVERIFIED"
+            ),
+        })
+    return refs
+
+
 def match_inventory_adjustments(
     wms_rows: pd.DataFrame,
     wme_rows: pd.DataFrame,
@@ -63,6 +94,7 @@ def match_inventory_adjustments(
                 "day": day, "reason": reason,
                 "qty": round(float(group["_qty"].sum()), 6),
                 "rows": len(group),
+                "contributing_event_refs": _contributing_event_refs(group),
             })
 
     pgroups = []
@@ -116,7 +148,8 @@ def match_inventory_adjustments(
 
     residual_wms = [
         {"date": w["day"].isoformat(), "reason": w["reason"], "quantity": w["qty"],
-         "status": "WMS_ONLY_INVENTORY_REVIEW"}
+         "status": "WMS_ONLY_INVENTORY_REVIEW",
+         "contributing_event_refs": w["contributing_event_refs"]}
         for i, w in enumerate(wgroups) if i not in mw
     ]
     residual_wme = [

@@ -189,3 +189,74 @@ As established in `TRACEAI_DEVELOPMENT_PLAN.md`, apply all six professional revi
 **Working method:** for each substantive step, make a brief risk/acceptance assessment through these roles; report only roles relevant to a particular decision in detail. Roles must not be used to claim six separate real-world experts approved a change. User/operator approval and authorized real-source acceptance remain separate and mandatory.
 
 **Next step unchanged:** inspect existing Daily UI and DOCX interfaces, propose backward-compatible read-only operator-validation presentation; do not wire to CORE or merge without separate approval. Latest observed CI #1276 SUCCESS (602 passed, 1 xfailed), GOV-AT-05/06 OPEN, GOV-002 OPEN, V1 NO_GO.
+
+## CORE INV-01 approved limited implementation — 2026-10-21
+- User explicitly approved read-only CORE patch on separate branch, without merge or WMS/WME mutation.
+- PR #68 Draft, branch core/inv01-contributing-event-refs-20261021. Added additive UNVERIFIED per-row document/lot refs to unmatched inventory adjustment groups; 3 synthetic regression tests and docs/governance/CORE_INV01_READONLY_IMPLEMENTATION.md.
+- Numeric matching, PV neutralization, original schema fields and economics preserved by design; verify in new CI and real pilot before acceptance. Not yet source-verified in operator output or DOCX. GOV-002 / GOV-AT-05/06 OPEN, V1 NO_GO.
+
+## CORE INV-01 real-source regression — 2026-10-21
+- CI #1386 SUCCESS, all four jobs for previous commit aa72bdae.
+- Re-ran baseline and patched CORE on six authorized DS099904440 exports. Both: initial/explained -86.35kg, residual 0, REVIEW; daily_operator_result JSON identical. Patch retained three 2026-10-10 rows (-131.75,-0.25,+45.65), lots and net -86.35.
+- Found actual WMS source uses `Document intrare`, not `Document`. Added alias support and identified lossy numeric import: original `00060` becomes `60.0` in SQLite/pandas; flag as LOSSY_NUMERIC_IMPORT and UNVERIFIED, NOT proof of exact document identity. Correct fix requires original-byte pointer and preserved document string.
+- Updated tests. New-head CI pending; PR #68 Draft, no merge. No automatic WMS/WME changes, GOV-002/GOV-AT-05/06 OPEN, V1 NO_GO.
+
+## CORE INV-01 document text preservation — 2026-10-21
+- CI #1390 SUCCESS 4/4 on preceding head 43c0e38a.
+- Preserve `Document intrare` as text in indexed and direct WMS CSV read paths, version cache filename to v2, add two regression tests. See docs/governance/CORE_INV01_DOCUMENT_TEXT_PRESERVATION.md.
+- New-head CI and real pilot regression pending; no merge, no WMS/WME write. GOV-002 / GOV-AT-05/06 OPEN, V1 NO_GO.
+
+## CORE INV-01 read-only real replay — 2026-10-21
+- CI #1394 SUCCESS 4/4 jobs at previous head 5395760d.
+- Replayed six-source DS099904440 case using locally reconstructed PR #68 import changes. WMS document identifier `00060` persisted as text in 3 contributing refs, lots and signed qty (-131.75,-0.25,+45.65); original difference -86.35, explained -86.35, residual 0, verdict REVIEW, operator JSON unchanged.
+- Local replay is NOT an exact-head binary validation or physical-row SHA proof. See docs/governance/CORE_INV01_REAL_DOCUMENT_TEXT_REGRESSION.md. No merge; GOV-002 / GOV-AT-05/06 OPEN, V1 NO_GO.
+
+## CORE INV-01 raw CSV provenance — 2026-10-21
+- CI #1395 SUCCESS all four jobs for previous head f8ec4675.
+- Independently verified original WMS CSV SHA-256 98e1a88a...3c377ece and physical lines 351551-351553 for DS099904440 document 00060, net -86.35 kg. Runtime inventory refs retain document and lots but lack verified physical-row pointers.
+- IMPORTANT INV-01 net = WMS residual total +74.46 minus WME PV residual total +160.81 = -86.35. Doc 00060 independently nets -86.35 but is NOT proven as exclusive causal allocation because other residual events exist. See docs/governance/CORE_INV01_RAW_CSV_PROVENANCE_CHECK.md.
+- No code change or merge; GOV-002/GOV-AT-05/06 OPEN, V1 NO_GO. Verify CI on new head.
+
+## CORE INV-01 individual contribution audit — 2026-10-21
+- CI #1397 SUCCESS 4/4 for preceding head cdab0d0c.
+- Real-case DS099904440: WMS earlier inventories 160520206 +160.40 and 28082026 net +0.41 exactly cancel arithmetically WME PV 1178 +160.81; WMS doc 00060 net -86.35 remains as arithmetic residual. WME PV 1178 observed at XLSX physical row 111872 (stored LineNo 111326).
+- This is NOT validated documentary equivalence: May-to-Aug date gap exceeds matcher tolerance, operator must investigate PV 1178 and earlier inventories. Full itemization: docs/governance/CORE_INV01_INDIVIDUAL_CONTRIBUTION_AUDIT.md. No CORE changes/merge, GOV-002 / GOV-AT-05/06 OPEN, V1 NO_GO.
+
+## CORE INV-01 human validation requirement — 2026-10-21
+- Operator indicates WME PV 1178 relates to an earlier WMS inventory; this is contextual guidance, NOT completed validation of precise documents/people in application.
+- Candidate association with WMS 160520206 / 28082026 stays HUMAN_VALIDATION_PENDING and REVIEW. Require operator verification of original documents, persons/roles, scope, decision, timestamp and append-only audit. No forced MATCH or 1-day rule override.
+- See docs/governance/CORE_INV01_HUMAN_DOCUMENT_VALIDATION.md. No CORE code changes/merge; GOV-002/GOV-AT-05/06 OPEN, V1 NO_GO.
+
+## CORE INV-01 human-link prototype — 2026-10-21
+- CI #1401 SUCCESS for prior head c8b50aa5 (confirm individual job results if cited). Isolated non-persistent human document-link decision proposal and 5 synthetic tests added; see docs/governance/CORE_INV01_HUMAN_LINK_PROTOTYPE.md.
+- NOT wired to UI, authentication, audit database or economic engine. In-chat operator statement does not equal validated link. PR #68 Draft; no merge; GOV-002 / GOV-AT-05/06 OPEN, V1 NO_GO. New CI pending.
+
+## CORE INV-01 Daily review architecture — 2026-10-21
+- CI #1405 SUCCESS 4/4 jobs for previous head fc857760.
+- Design contract saved: docs/governance/CORE_INV01_DAILY_VALIDATION_ARCHITECTURE.md. Formal Daily validation requires trusted session identity, server-side case authorization, immutable append-only audit, optimistic concurrency, source SHA checks and versioned operator JSON/DOCX; not yet implemented.
+- Existing human_document_link.py remains NON-PERSISTENT proposal, not authenticated audit. No UI wiring, CORE economic matcher modification or merge. PR #68 Draft; GOV-002/GOV-AT-05/06 OPEN; V1 NO_GO.
+
+## INV-01 SQLite review audit — 2026-10-21
+- CI #1407 SUCCESS 4/4 for previous head 858a5dde.
+- Isolated persistent review audit prototype and six synthetic tests added. See docs/governance/CORE_INV01_SQLITE_REVIEW_AUDIT_PROTOTYPE.md.
+- Caller-injected identity is NOT authentication, no source/people verification, no Daily wiring, no CORE economic mutation or merge. GOV-002/GOV-AT-05/06 OPEN, V1 NO_GO. New CI pending.
+
+## CORE INV-01 Daily authentication security audit — 2026-10-21
+- CI #1411 SUCCESS 4/4 for prior head 04910654.
+- Inspected Daily/self-service authority guards. They disallow automatic mutation but do not establish a trusted reviewer login/session in those modules. Isolated SQLite audit accepts caller-supplied reviewer and authorization flag, so cannot safely wire into UI yet.
+- Design and tests gate in docs/governance/CORE_INV01_DAILY_AUTH_SECURITY_AUDIT.md. No production UI wiring or merge; GOV-002/GOV-AT-05/06 OPEN, V1 NO_GO.
+
+## CORE INV-01 identity boundary — 2026-10-21
+- CI #1413 SUCCESS 4/4 prior head 70efa6ac. CLI-based Python package; trusted login provider unverified in examined components.
+- Isolated reviewer identity boundary and five synthetic tests added. No real authentication integration; VerifiedPrincipal can be constructed by caller and is NOT secure proof of identity. See docs/governance/CORE_INV01_IDENTITY_BOUNDARY_AUDIT.md.
+- No Daily wiring or merge. PR #68 Draft, GOV-002/GOV-AT-05/06 OPEN, V1 NO_GO. New CI pending.
+
+## CORE INV-01 Daily runtime/auth inventory — 2026-10-21
+- CI #1417 SUCCESS 4/4 on previous head b79ed133.
+- Verified Python CLI entrypoints and no established authenticated reviewer session in inspected Daily/self-service modules. Common UI entrypoint candidates absent from this branch; do not claim full repo or external frontend nonexistent.
+- Provider-verified reviewer identity required before SQLite audit connection. Stop mock-auth integrations; see docs/governance/CORE_INV01_DAILY_RUNTIME_AUTH_INVENTORY.md. PR #68 Draft, GOV-002/GOV-AT-05/06 OPEN, V1 NO_GO.
+
+## Daily architecture decision — 2026-10-21
+- CI #1419 SUCCESS 4/4 on prior head ecd51c08.
+- Proposed architecture: Streamlit read-only presentation, separately authenticated validation service with server-side OIDC and case permissions, transactional audit storage. See docs/governance/ADR_DAILY_STREAMLIT_VALIDATION_SERVICE.md.
+- Design proposal only: hosting/identity provider unknown, no UI deployment or validation API implemented. PR #68 Draft; no merge. GOV-002/GOV-AT-05/06 OPEN, V1 NO_GO.
