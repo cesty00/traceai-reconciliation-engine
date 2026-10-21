@@ -297,3 +297,8 @@ As established in `TRACEAI_DEVELOPMENT_PLAN.md`, apply all six professional revi
 - GitHub CI #1476 FAILED with 1 pytest failure (incorrect intermediate status assertion); corrected in 2c71558f and CI #1480 SUCCESS all four jobs at c3e04c22.
 - Replayed six authorized DS099904440 sources on isolated local copy of previous tested CORE patched to mirror PR68; output difference/explained -86.35 kg, residual 0, REVIEW. WMS candidates 160520206 +160.40, 28082026 +0.41, 00060 -86.35; UI-compatible projection UNVERIFIED/PENDING.
 - This is NOT exact-SHA PR68+PR69 execution nor browser validation. Details docs/governance/CORE_DAILY_UI_07_LOCAL_REGRESSION.md. No merge; GOV-002/GOV-AT-05/06 OPEN, V1 NO_GO.
+
+## CORE-DAILY-UI-08 — 2026-10-21
+- Previous CI #1484 SUCCESS 4/4 for head 499dfb93.
+- Validated real authorized saved DS099904440 nested case.json with Daily operator JSON: WMS 160520206 +160.40 (1 row), 28082026 +0.41 (4), 00060 -86.35 (3); same case ID, delta -86.35, residual zero, REVIEW and mutation disabled.
+- Local CORE matcher blob differs from exact PR68 blob; do NOT claim exact-SHA PR68+PR69 executed. Streamlit browser not tested, proven raw source-row pointers absent from UI. See docs/governance/CORE_DAILY_UI_08_REAL_CASE_CROSSCHECK.md. PR #68/#69 Draft; GOV-002/GOV-AT-05/06 OPEN; V1 NO_GO.
