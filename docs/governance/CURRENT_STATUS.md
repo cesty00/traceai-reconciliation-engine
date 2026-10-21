@@ -270,3 +270,8 @@ As established in `TRACEAI_DEVELOPMENT_PLAN.md`, apply all six professional revi
 - CI #1430 SUCCESS 4/4 previous head ddd22339. Inspected real DS099904440 operator JSON: numeric result and REVIEW preserved; no document/physical row references in this legacy output.
 - Added UI warning and source_line_status SOURCE_LINES_NOT_VERIFIED, synthetic compatibility test, details at docs/governance/CORE_DAILY_UI_02_REAL_JSON_COMPATIBILITY.md.
 - Streamlit browser not tested (not installed in local runtime). No approval or merge, GOV-002/GOV-AT-05/06 OPEN, V1 NO_GO; check new CI.
+
+## CORE-DAILY-UI-03 — 2026-10-21
+- CI #1440 SUCCESS all four jobs for prior head 7d602288.
+- Optional document_candidates JSON presentation, separate read-only UI section, three synthetic tests. Incoming candidate provenance always UNVERIFIED, human validation PENDING. No CORE producer yet, no browser UAT. See docs/governance/CORE_DAILY_UI_03_DOCUMENT_CANDIDATES.md.
+- PR #69 Draft, no merge; GOV-002/GOV-AT-05/06 OPEN, V1 NO_GO. New CI pending.
