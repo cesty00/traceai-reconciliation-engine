@@ -189,3 +189,94 @@ As established in `TRACEAI_DEVELOPMENT_PLAN.md`, apply all six professional revi
 **Working method:** for each substantive step, make a brief risk/acceptance assessment through these roles; report only roles relevant to a particular decision in detail. Roles must not be used to claim six separate real-world experts approved a change. User/operator approval and authorized real-source acceptance remain separate and mandatory.
 
 **Next step unchanged:** inspect existing Daily UI and DOCX interfaces, propose backward-compatible read-only operator-validation presentation; do not wire to CORE or merge without separate approval. Latest observed CI #1276 SUCCESS (602 passed, 1 xfailed), GOV-AT-05/06 OPEN, GOV-002 OPEN, V1 NO_GO.
+
+## CORE-UAT-03 — 2026-10-20 (isolated prototype)
+- Read-only adapter and synthetic tests placed on `docs/core-uat-03-readonly-prototype`; no CORE engine, Daily runtime, report_model, or DOCX production changes.
+- Prototype distinguishes `CAUSE_IDENTIFIED` evidence attribution and `OPERATIONAL_REVIEW` / `OPERATOR_VALIDATED` rationale only. Preexisting economic verdict and quantities remain untouched. No automated WMS/WME/registry mutation.
+- Design/evidence: `docs/governance/CORE_UAT_03_READONLY_DISPLAY_COMPATIBILITY.md`.
+- Synthetic tests must be assessed against the exact CI run; UI, real source provenance, operator identity/audit logging and DOCX annex remain UNVERIFIED / NOT IMPLEMENTED. GOV-002 and GOV-AT-05/06 OPEN. V1 NO_GO; no merge authorization.
+
+## CORE-UAT-03B — 2026-10-20
+- Isolated synthetic DOCX annex preview and tests added on PR #67 branch; separate new DOCX output, refuses overwrite and retains existing economic verdict.
+- Provenance audit: prototype checks field presence, NOT real source hash/row authenticity; do not claim production source-backed CAUSE_IDENTIFIED from these tests.
+- Existing CaseReport and production DOCX generator untouched. Synthetic compatibility tests are not equivalent to full legacy-output equivalence.
+- See `docs/governance/CORE_UAT_03B_DOCX_PROVENANCE.md`. No merge; GOV-002 / GOV-AT-05/06 OPEN, V1 NO_GO. CI for current head must be verified separately.
+
+## CORE-UAT-03C — 2026-10-20
+- CI #1294 confirmed completed SUCCESS, all four jobs, for preceding CORE-UAT-03B head `0a6cd1a4`.
+- Added isolated read-only exact-source-SHA, physical-CSV-record-start and document-field verification with six synthetic tests. No CORE/Daily/DOCX production edits.
+- Physical row/source identity remains unverified in existing SQLite index, WME XLSX and production end-to-end. See `docs/governance/CORE_UAT_03C_SOURCE_PROVENANCE.md`.
+- Verify NEW head CI before acceptance. PR #67 Draft; GOV-002 / GOV-AT-05/06 OPEN, V1 NO_GO.
+
+## CORE-UAT-03D — 2026-10-20
+- CI #1301 on previous head `43b5449c` completed SUCCESS, all four jobs.
+- Static audit confirmed WMS SQLite index lacks authoritative physical CSV start-line identifiers; WME stored `LineNo` originates from column A, not necessarily actual XLSX XML row coordinate. File-level SHA cache validity does not prove row-level source provenance.
+- Audit and forward acceptance requirements: `docs/governance/CORE_UAT_03D_SOURCE_INDEX_AUDIT.md`. No CORE/index schema/DOCX runtime changes, no merge. GOV-002, GOV-AT-05/06 OPEN; V1 NO_GO.
+
+## CORE-UAT-03E — 2026-10-20
+- CI #1305 SUCCESS (four jobs) for preceding commit 34e0ec5d.
+- Added isolated WME XLSX SHA + physical worksheet-row verifier and six synthetic tests. Details: docs/governance/CORE_UAT_03E_WME_POINTER_CONTRACT.md.
+- No production CORE, index or DOCX edits. New CI #1311 pending verification. PR #67 Draft, GOV-002 OPEN, GOV-AT-05/06 OPEN, V1 NO_GO.
+
+## CORE-UAT-03F — 2026-10-20
+- CI #1313 SUCCESS 4/4 jobs for prior checkpoint 43c36e57.
+- Isolated source evidence bridge for WMS CSV / WME XLSX pointers and five synthetic tests added; see docs/governance/CORE_UAT_03F_EVIDENCE_BRIDGE.md.
+- Provenance is not economic MATCH or operator authorization; source-index real binding and actual export headers remain unverified. No CORE/index/DOCX runtime changes, no merge. PR #67 Draft; GOV-002 and GOV-AT-05/06 OPEN, V1 NO_GO. New head CI pending.
+
+## CORE-UAT-03G — 2026-10-20
+- Previous CI #1321 SUCCESS 4/4 jobs for head 44c3dad1.
+- Synthetic pointer -> verified source -> operator display -> separate DOCX annex demonstration added, 2 tests; no SQLiteSourceIndex integration claimed. See docs/governance/CORE_UAT_03G_SYNTHETIC_CHAIN.md.
+- No production CORE or DOCX changes, no merge. New head CI pending. GOV-002 / GOV-AT-05/06 OPEN, V1 NO_GO.
+
+## CORE-UAT-03H — 2026-10-20
+- CI #1328 SUCCESS 4/4 for preceding head 65f2a547.
+- Added isolated index-pointer format gate and five synthetic tests; rejects SQLite rowid and WME LineNo as unverified raw coordinates. See docs/governance/CORE_UAT_03H_INDEX_POINTER_GATE.md.
+- Format gate alone does not authenticate row. Production source index, Daily and DOCX unchanged, PR #67 Draft; new CI pending. GOV-002 / GOV-AT-05/06 OPEN, V1 NO_GO.
+
+## CORE-UAT-03I — 2026-10-20
+- CI #1335 SUCCESS 4/4 jobs for previous head 967adbfef.
+- Added combined pointer-contract and source-verification gate, five synthetic tests, and docs/governance/CORE_UAT_03I_INTEGRATED_POINTER_TEST.md.
+- Not a real SQLiteSourceIndex integration or production UAT. No CORE / DOCX modifications; PR #67 Draft, no merge; new CI needs verification. GOV-002 / GOV-AT-05/06 OPEN, V1 NO_GO.
+
+## CORE-UAT-04 — 2026-10-20 source-backed reference check
+- CI #1342 SUCCESS, 4/4 jobs for previous head abc92acd.
+- Independently inspected authorized original 2026-10-11 report, WMS tracing CSV, WME ledger XLSX for DS099904440. Report -86.35kg corresponds exactly to three WMS doc 00060 signed movements, with source-row references and SHA. WME primary warehouse last balance 9811.10kg in that export; no matching WME doc 00060 for item observed.
+- Evidence and caveats in docs/governance/CORE_UAT_04_REAL_CASE_PILOT.md; this is manual source analysis, NOT executed CORE engine E2E. Operator reason separately stated, no posting authorization.
+- CORE and production DOCX unchanged, PR #67 Draft. GOV-002 / GOV-AT-05/06 OPEN; V1 NO_GO. Verify new head CI.
+
+## CORE-UAT-04B — 2026-10-20
+- CI #1344 SUCCESS for previous head 0da8fcfc (confirm individual jobs separately before asserting 4/4).
+- Ran real six-source CORE self-service case DS099904440 using tested source artifact with original authorized exports. Delta -86.35, explained -86.35, residual 0, INV-01, REVIEW, generated case DOCX/JSON.
+- Three WMS 00060 movements appear in timeline but NOT explicitly linked in auto_explain component; WME warehouse-sum vs ERP report discrepancy 4.400kg and 8 unmatched operation warnings remain.
+- See docs/governance/CORE_UAT_04B_EXECUTED_CORE_CASE.md. No production code changes or merge. GOV-002 / GOV-AT-05/06 OPEN; V1 NO_GO.
+
+## CORE-UAT-04C — 2026-10-20
+- Prior CI #1350: 4/4 jobs SUCCESS for CORE-UAT-04B head 68d1d3c1.
+- Inspected auto_explain.py: INV-01 draws net from inventory_adjustment_matching but does not expose linked document 00060 and three source rows as structured causal evidence.
+- Added isolated strict xfail acceptance requirement and invariant test (tests/test_core_uat_04c_inv01_provenance_acceptance.py) plus docs/governance/CORE_UAT_04C_INV01_CAUSAL_PROVENANCE.md.
+- Pending criterion remains OPEN even if CI passes; no CORE/Daily/DOCX runtime modifications, no merge. GOV-002 and GOV-AT-05/06 OPEN; V1 NO_GO. Verify CI for new head.
+
+## CORE-UAT-04D — 2026-10-21
+- Previous CI #1356 SUCCESS, 4/4 jobs for head 6a96b676.
+- Isolated one-event-one-causal-owner acceptance prototype plus six synthetic tests added: prototypes/core_uat_03/causal_ownership.py; tests/test_core_uat_04d_causal_ownership.py.
+- No source-backed link from INV-01 to document 00060 added in CORE. Prior strict xfail still OPEN; GOV-AT-05/06 and GOV-002 OPEN. See docs/governance/CORE_UAT_04D_CAUSAL_OWNERSHIP.md. PR #67 Draft, no merge, V1 NO_GO. Latest CI unverified.
+
+## CORE-UAT-04E — 2026-10-21
+- CI #1364 SUCCESS 4/4 jobs for previous head 23f1b501.
+- Static trace confirmed causal evidence is lost in inventory_adjustment_matching.py before auto_explain: WMS grouped by day/reason; residual_wms_adjustments retains only date/reason/quantity/status, not document or physical source pointer.
+- Design-only minimum integration and acceptance gates recorded in docs/governance/CORE_UAT_04E_INV01_INTEGRATION_DESIGN.md. No CORE/runtime changes or merge, prior strict xfail remains OPEN. GOV-002 and GOV-AT-05/06 OPEN; V1 NO_GO. Verify CI for this new head.
+
+## CORE-UAT-04F — 2026-10-21
+- CI #1368 SUCCESS all four jobs for previous head 767a6317.
+- Added isolated inventory-group sidecar preserving Document/Lot and four synthetic regression tests against unchanged real matcher; source pointers remain UNVERIFIED. See docs/governance/CORE_UAT_04F_GROUPING_REGRESSION.md.
+- No production CORE/Daily/DOCX changes or merge. Current CI pending. GOV-002 and GOV-AT-05/06 OPEN; V1 NO_GO.
+
+## CORE-UAT-04G — 2026-10-21
+- CI #1375 SUCCESS 4/4 jobs for preceding head af3127c5.
+- Constrained CORE INV-01 implementation proposal documented at docs/governance/CORE_UAT_04G_CONTROLLED_CHANGE_PROPOSAL.md: additive event references, no inferred physical row, preserve existing arithmetic and schemas.
+- Proposal only; no CORE modification, merge or implementation approval. GOV-002 and GOV-AT-05/06 OPEN; V1 NO_GO. New head CI unverified.
+
+## CORE-UAT-04H — 2026-10-21
+- CI #1379 SUCCESS, 4/4 jobs for previous head 24e72be1.
+- Six-role readiness and GO/NO_GO decision documented at docs/governance/CORE_UAT_04H_SIX_ROLE_READINESS_REVIEW.md.
+- Proposal ready for controlled review only. No CORE implementation approval, no runtime changes or merge. INV-01 source attribution and GOV-AT-05/06 remain OPEN, V1 NO_GO.
