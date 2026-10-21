@@ -189,3 +189,8 @@ As established in `TRACEAI_DEVELOPMENT_PLAN.md`, apply all six professional revi
 **Working method:** for each substantive step, make a brief risk/acceptance assessment through these roles; report only roles relevant to a particular decision in detail. Roles must not be used to claim six separate real-world experts approved a change. User/operator approval and authorized real-source acceptance remain separate and mandatory.
 
 **Next step unchanged:** inspect existing Daily UI and DOCX interfaces, propose backward-compatible read-only operator-validation presentation; do not wire to CORE or merge without separate approval. Latest observed CI #1276 SUCCESS (602 passed, 1 xfailed), GOV-AT-05/06 OPEN, GOV-002 OPEN, V1 NO_GO.
+
+## CORE INV-01 approved limited implementation — 2026-10-21
+- User explicitly approved read-only CORE patch on separate branch, without merge or WMS/WME mutation.
+- PR #68 Draft, branch core/inv01-contributing-event-refs-20261021. Added additive UNVERIFIED per-row document/lot refs to unmatched inventory adjustment groups; 3 synthetic regression tests and docs/governance/CORE_INV01_READONLY_IMPLEMENTATION.md.
+- Numeric matching, PV neutralization, original schema fields and economics preserved by design; verify in new CI and real pilot before acceptance. Not yet source-verified in operator output or DOCX. GOV-002 / GOV-AT-05/06 OPEN, V1 NO_GO.
