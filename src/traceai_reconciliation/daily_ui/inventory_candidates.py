@@ -7,7 +7,10 @@ from collections import defaultdict
 from typing import Mapping, Any
 
 def inventory_document_candidates(case: Mapping[str, Any]) -> list[dict[str, Any]]:
-    details = case.get("details", {})
+    investigation = case.get("investigation", case)
+    if not isinstance(investigation, dict):
+        raise ValueError("Invalid case investigation")
+    details = investigation.get("details", {})
     inventory = details.get("inventory_adjustment_matching", {}) if isinstance(details, dict) else {}
     residuals = inventory.get("residual_wms_adjustments", []) if isinstance(inventory, dict) else []
     if not isinstance(residuals, list):
