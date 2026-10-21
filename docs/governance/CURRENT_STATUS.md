@@ -288,3 +288,7 @@ As established in `TRACEAI_DEVELOPMENT_PLAN.md`, apply all six professional revi
 - CI #1470 SUCCESS 4/4 preceding head a4e43b4b.
 - Synthetic nested case / PR68 contributing refs -> PR69 UI contract test added, checking three 00060-shaped rows net -86.35 and strict UNVERIFIED/PENDING/REVIEW; tests also keep other docs separate. Exact PR68 head and real data not executed together in this checkpoint.
 - See docs/governance/CORE_DAILY_UI_06_BRIDGE_REGRESSION.md. PR #69 Draft, no merge; GOV-002/GOV-AT-05/06 OPEN, V1 NO_GO. New CI pending.
+
+## CORE-DAILY-UI-06 CI regression fix — 2026-10-21
+- User reported r1471-r1476 failed. Verified exact PR #69 run #1476 FAILED; pytest: 319 passed, 1 failed, 4 warnings. Failure in test_mixed_unmatched_documents_not_exclusively_attributed: test incorrectly expected source_status at intermediate candidate-group root, but it is applied by operator_view; event-level UNVERIFIED already exists.
+- Corrected only test assertions at proper boundaries in commit 2c71558f; CORE economics and UI runtime unchanged. Must verify next CI before claiming fix accepted. Earlier run #1470 was SUCCESS; no blanket claim about all r1471-1475 without independent runs. PR #69 Draft, GOV-002/GOV-AT-05/06 OPEN, V1 NO_GO.
