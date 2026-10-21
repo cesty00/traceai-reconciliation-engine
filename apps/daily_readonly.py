@@ -33,6 +33,7 @@ st.write("Status cauză:",view["cause_status"])
 st.write("Reguli:",", ".join(view["rules"]) or "Nedeterminate")
 st.write("Acțiune recomandată:",view["operator_action"])
 st.subheader("Dovezi raportate de motor")
+st.warning("Referințele la documente și liniile fizice originale NU sunt verificate în acest JSON. Consultați documentele-sursă înainte de validare.")
 for item in view["evidence"]:
     st.write("•",item)
 if view["blockers"]:
