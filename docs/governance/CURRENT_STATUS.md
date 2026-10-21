@@ -283,3 +283,8 @@ As established in `TRACEAI_DEVELOPMENT_PLAN.md`, apply all six professional revi
 ## CORE-DAILY-UI-05 — 2026-10-21
 - CI #1460 SUCCESS 4/4 at previous head. Regenerated real DS099904440 case from six sources; discovered case.json wraps investigation under investigation key, corrected projection and case_id check, added 2 synthetic tests.
 - Baseline JSON has no contributing_event_refs, so no genuine candidate list until patched CORE case is used. No guessed documents. See docs/governance/CORE_DAILY_UI_05_REAL_NESTED_CASE.md. New CI pending; browser untested, no merge; GOV-002/GOV-AT-05/06 OPEN, V1 NO_GO.
+
+## CORE-DAILY-UI-06 — 2026-10-21
+- CI #1470 SUCCESS 4/4 preceding head a4e43b4b.
+- Synthetic nested case / PR68 contributing refs -> PR69 UI contract test added, checking three 00060-shaped rows net -86.35 and strict UNVERIFIED/PENDING/REVIEW; tests also keep other docs separate. Exact PR68 head and real data not executed together in this checkpoint.
+- See docs/governance/CORE_DAILY_UI_06_BRIDGE_REGRESSION.md. PR #69 Draft, no merge; GOV-002/GOV-AT-05/06 OPEN, V1 NO_GO. New CI pending.
