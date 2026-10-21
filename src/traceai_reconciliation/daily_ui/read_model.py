@@ -20,6 +20,27 @@ def operator_view(payload: Mapping[str, Any]) -> dict[str, Any]:
     if not isinstance(evidence, (list, tuple)) or not all(isinstance(x, str) for x in evidence):
         raise ValueError("Invalid evidence field")
     documentary_status = "SOURCE_LINES_NOT_VERIFIED"
+    candidates = payload.get("document_candidates", [])
+    if not isinstance(candidates, list):
+        raise ValueError("Invalid document candidates")
+    sanitized = []
+    for item in candidates:
+        if not isinstance(item, Mapping):
+            raise ValueError("Invalid document candidate")
+        if not item.get("document") or item.get("system") not in ("WMS", "WME"):
+            raise ValueError("Incomplete document candidate")
+        refs = item.get("events", [])
+        if not isinstance(refs, list):
+            raise ValueError("Invalid candidate events")
+        events = []
+        for event in refs:
+            if not isinstance(event, Mapping) or isinstance(event.get("quantity"), bool) or not isinstance(event.get("quantity"), (int, float)):
+                raise ValueError("Invalid event")
+            events.append({"quantity": float(event["quantity"]), "lot": str(event.get("lot") or "-"),
+                           "source_status": "UNVERIFIED"})
+        sanitized.append({"system": item["system"], "document": str(item["document"]),
+                          "events": events, "source_status": "UNVERIFIED",
+                          "human_validation": "PENDING"})
     return {
         "case_id": str(payload["case_id"]), "product_code": str(payload["product_code"]),
         "product_name": str(payload["product_name"]), "unit": str(payload["unit"]),
@@ -32,5 +53,6 @@ def operator_view(payload: Mapping[str, Any]) -> dict[str, Any]:
         "evidence": list(evidence), "blockers": list(payload["blockers"]),
         "warnings": list(payload["warnings"]), "documentary_validation": "NOT_AVAILABLE",
         "source_line_status": documentary_status,
+        "document_candidates": sanitized,
         "economic_match_authorized": False, "reviewer_validation_enabled": False,
     }
