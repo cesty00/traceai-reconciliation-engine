@@ -270,3 +270,8 @@ As established in `TRACEAI_DEVELOPMENT_PLAN.md`, apply all six professional revi
 - CI #1368 SUCCESS all four jobs for previous head 767a6317.
 - Added isolated inventory-group sidecar preserving Document/Lot and four synthetic regression tests against unchanged real matcher; source pointers remain UNVERIFIED. See docs/governance/CORE_UAT_04F_GROUPING_REGRESSION.md.
 - No production CORE/Daily/DOCX changes or merge. Current CI pending. GOV-002 and GOV-AT-05/06 OPEN; V1 NO_GO.
+
+## CORE-UAT-04G — 2026-10-21
+- CI #1375 SUCCESS 4/4 jobs for preceding head af3127c5.
+- Constrained CORE INV-01 implementation proposal documented at docs/governance/CORE_UAT_04G_CONTROLLED_CHANGE_PROPOSAL.md: additive event references, no inferred physical row, preserve existing arithmetic and schemas.
+- Proposal only; no CORE modification, merge or implementation approval. GOV-002 and GOV-AT-05/06 OPEN; V1 NO_GO. New head CI unverified.
