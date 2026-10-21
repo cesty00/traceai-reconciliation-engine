@@ -255,3 +255,8 @@ As established in `TRACEAI_DEVELOPMENT_PLAN.md`, apply all six professional revi
 - CI #1417 SUCCESS 4/4 on previous head b79ed133.
 - Verified Python CLI entrypoints and no established authenticated reviewer session in inspected Daily/self-service modules. Common UI entrypoint candidates absent from this branch; do not claim full repo or external frontend nonexistent.
 - Provider-verified reviewer identity required before SQLite audit connection. Stop mock-auth integrations; see docs/governance/CORE_INV01_DAILY_RUNTIME_AUTH_INVENTORY.md. PR #68 Draft, GOV-002/GOV-AT-05/06 OPEN, V1 NO_GO.
+
+## Daily architecture decision — 2026-10-21
+- CI #1419 SUCCESS 4/4 on prior head ecd51c08.
+- Proposed architecture: Streamlit read-only presentation, separately authenticated validation service with server-side OIDC and case permissions, transactional audit storage. See docs/governance/ADR_DAILY_STREAMLIT_VALIDATION_SERVICE.md.
+- Design proposal only: hosting/identity provider unknown, no UI deployment or validation API implemented. PR #68 Draft; no merge. GOV-002/GOV-AT-05/06 OPEN, V1 NO_GO.
