@@ -194,3 +194,9 @@ As established in `TRACEAI_DEVELOPMENT_PLAN.md`, apply all six professional revi
 - User explicitly approved read-only CORE patch on separate branch, without merge or WMS/WME mutation.
 - PR #68 Draft, branch core/inv01-contributing-event-refs-20261021. Added additive UNVERIFIED per-row document/lot refs to unmatched inventory adjustment groups; 3 synthetic regression tests and docs/governance/CORE_INV01_READONLY_IMPLEMENTATION.md.
 - Numeric matching, PV neutralization, original schema fields and economics preserved by design; verify in new CI and real pilot before acceptance. Not yet source-verified in operator output or DOCX. GOV-002 / GOV-AT-05/06 OPEN, V1 NO_GO.
+
+## CORE INV-01 real-source regression — 2026-10-21
+- CI #1386 SUCCESS, all four jobs for previous commit aa72bdae.
+- Re-ran baseline and patched CORE on six authorized DS099904440 exports. Both: initial/explained -86.35kg, residual 0, REVIEW; daily_operator_result JSON identical. Patch retained three 2026-10-10 rows (-131.75,-0.25,+45.65), lots and net -86.35.
+- Found actual WMS source uses `Document intrare`, not `Document`. Added alias support and identified lossy numeric import: original `00060` becomes `60.0` in SQLite/pandas; flag as LOSSY_NUMERIC_IMPORT and UNVERIFIED, NOT proof of exact document identity. Correct fix requires original-byte pointer and preserved document string.
+- Updated tests. New-head CI pending; PR #68 Draft, no merge. No automatic WMS/WME changes, GOV-002/GOV-AT-05/06 OPEN, V1 NO_GO.
