@@ -275,3 +275,8 @@ As established in `TRACEAI_DEVELOPMENT_PLAN.md`, apply all six professional revi
 - CI #1375 SUCCESS 4/4 jobs for preceding head af3127c5.
 - Constrained CORE INV-01 implementation proposal documented at docs/governance/CORE_UAT_04G_CONTROLLED_CHANGE_PROPOSAL.md: additive event references, no inferred physical row, preserve existing arithmetic and schemas.
 - Proposal only; no CORE modification, merge or implementation approval. GOV-002 and GOV-AT-05/06 OPEN; V1 NO_GO. New head CI unverified.
+
+## CORE-UAT-04H — 2026-10-21
+- CI #1379 SUCCESS, 4/4 jobs for previous head 24e72be1.
+- Six-role readiness and GO/NO_GO decision documented at docs/governance/CORE_UAT_04H_SIX_ROLE_READINESS_REVIEW.md.
+- Proposal ready for controlled review only. No CORE implementation approval, no runtime changes or merge. INV-01 source attribution and GOV-AT-05/06 remain OPEN, V1 NO_GO.
