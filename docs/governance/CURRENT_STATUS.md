@@ -260,3 +260,8 @@ As established in `TRACEAI_DEVELOPMENT_PLAN.md`, apply all six professional revi
 - CI #1419 SUCCESS 4/4 on prior head ecd51c08.
 - Proposed architecture: Streamlit read-only presentation, separately authenticated validation service with server-side OIDC and case permissions, transactional audit storage. See docs/governance/ADR_DAILY_STREAMLIT_VALIDATION_SERVICE.md.
 - Design proposal only: hosting/identity provider unknown, no UI deployment or validation API implemented. PR #68 Draft; no merge. GOV-002/GOV-AT-05/06 OPEN, V1 NO_GO.
+
+## CORE-DAILY-UI-01 — 2026-10-21
+- CI #1421 SUCCESS 4/4 for prior branch head 4165e595.
+- Isolated Streamlit read-only Daily preview created on feature/core-daily-ui-01-readonly-20261021, Draft PR #69 targeting CORE INV-01 branch. Existing operator JSON compatibility adapter and 4 synthetic tests, optional Streamlit dependency; see docs/governance/CORE_DAILY_UI_01_READONLY.md.
+- Not browser-tested or deployed, no authenticated review or approval buttons. CORE economics/DOCX unchanged, no merge; GOV-002/GOV-AT-05/06 OPEN, V1 NO_GO. New CI not yet confirmed.
