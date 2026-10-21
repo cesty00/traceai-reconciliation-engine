@@ -250,3 +250,8 @@ As established in `TRACEAI_DEVELOPMENT_PLAN.md`, apply all six professional revi
 - CI #1413 SUCCESS 4/4 prior head 70efa6ac. CLI-based Python package; trusted login provider unverified in examined components.
 - Isolated reviewer identity boundary and five synthetic tests added. No real authentication integration; VerifiedPrincipal can be constructed by caller and is NOT secure proof of identity. See docs/governance/CORE_INV01_IDENTITY_BOUNDARY_AUDIT.md.
 - No Daily wiring or merge. PR #68 Draft, GOV-002/GOV-AT-05/06 OPEN, V1 NO_GO. New CI pending.
+
+## CORE INV-01 Daily runtime/auth inventory — 2026-10-21
+- CI #1417 SUCCESS 4/4 on previous head b79ed133.
+- Verified Python CLI entrypoints and no established authenticated reviewer session in inspected Daily/self-service modules. Common UI entrypoint candidates absent from this branch; do not claim full repo or external frontend nonexistent.
+- Provider-verified reviewer identity required before SQLite audit connection. Stop mock-auth integrations; see docs/governance/CORE_INV01_DAILY_RUNTIME_AUTH_INVENTORY.md. PR #68 Draft, GOV-002/GOV-AT-05/06 OPEN, V1 NO_GO.
