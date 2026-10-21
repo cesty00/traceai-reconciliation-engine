@@ -210,3 +210,9 @@ As established in `TRACEAI_DEVELOPMENT_PLAN.md`, apply all six professional revi
 - CI #1394 SUCCESS 4/4 jobs at previous head 5395760d.
 - Replayed six-source DS099904440 case using locally reconstructed PR #68 import changes. WMS document identifier `00060` persisted as text in 3 contributing refs, lots and signed qty (-131.75,-0.25,+45.65); original difference -86.35, explained -86.35, residual 0, verdict REVIEW, operator JSON unchanged.
 - Local replay is NOT an exact-head binary validation or physical-row SHA proof. See docs/governance/CORE_INV01_REAL_DOCUMENT_TEXT_REGRESSION.md. No merge; GOV-002 / GOV-AT-05/06 OPEN, V1 NO_GO.
+
+## CORE INV-01 raw CSV provenance — 2026-10-21
+- CI #1395 SUCCESS all four jobs for previous head f8ec4675.
+- Independently verified original WMS CSV SHA-256 98e1a88a...3c377ece and physical lines 351551-351553 for DS099904440 document 00060, net -86.35 kg. Runtime inventory refs retain document and lots but lack verified physical-row pointers.
+- IMPORTANT INV-01 net = WMS residual total +74.46 minus WME PV residual total +160.81 = -86.35. Doc 00060 independently nets -86.35 but is NOT proven as exclusive causal allocation because other residual events exist. See docs/governance/CORE_INV01_RAW_CSV_PROVENANCE_CHECK.md.
+- No code change or merge; GOV-002/GOV-AT-05/06 OPEN, V1 NO_GO. Verify CI on new head.
