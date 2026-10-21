@@ -279,3 +279,7 @@ As established in `TRACEAI_DEVELOPMENT_PLAN.md`, apply all six professional revi
 ## CORE-DAILY-UI-04 — 2026-10-21
 - Prior CI #1450 SUCCESS 4/4. Added optional --investigation case.json read-only projection of WMS residual document candidates, case_id guard, 3 synthetic tests. All candidate status UNVERIFIED/PENDING; no source-line proof or economic MATCH. See docs/governance/CORE_DAILY_UI_04_INVENTORY_PROJECTION.md.
 - PR #69 Draft, no merge, GOV-002/GOV-AT-05/06 OPEN, V1 NO_GO. New CI pending.
+
+## CORE-DAILY-UI-05 — 2026-10-21
+- CI #1460 SUCCESS 4/4 at previous head. Regenerated real DS099904440 case from six sources; discovered case.json wraps investigation under investigation key, corrected projection and case_id check, added 2 synthetic tests.
+- Baseline JSON has no contributing_event_refs, so no genuine candidate list until patched CORE case is used. No guessed documents. See docs/governance/CORE_DAILY_UI_05_REAL_NESTED_CASE.md. New CI pending; browser untested, no merge; GOV-002/GOV-AT-05/06 OPEN, V1 NO_GO.
