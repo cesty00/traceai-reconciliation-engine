@@ -200,3 +200,8 @@ As established in `TRACEAI_DEVELOPMENT_PLAN.md`, apply all six professional revi
 - Re-ran baseline and patched CORE on six authorized DS099904440 exports. Both: initial/explained -86.35kg, residual 0, REVIEW; daily_operator_result JSON identical. Patch retained three 2026-10-10 rows (-131.75,-0.25,+45.65), lots and net -86.35.
 - Found actual WMS source uses `Document intrare`, not `Document`. Added alias support and identified lossy numeric import: original `00060` becomes `60.0` in SQLite/pandas; flag as LOSSY_NUMERIC_IMPORT and UNVERIFIED, NOT proof of exact document identity. Correct fix requires original-byte pointer and preserved document string.
 - Updated tests. New-head CI pending; PR #68 Draft, no merge. No automatic WMS/WME changes, GOV-002/GOV-AT-05/06 OPEN, V1 NO_GO.
+
+## CORE INV-01 document text preservation — 2026-10-21
+- CI #1390 SUCCESS 4/4 on preceding head 43c0e38a.
+- Preserve `Document intrare` as text in indexed and direct WMS CSV read paths, version cache filename to v2, add two regression tests. See docs/governance/CORE_INV01_DOCUMENT_TEXT_PRESERVATION.md.
+- New-head CI and real pilot regression pending; no merge, no WMS/WME write. GOV-002 / GOV-AT-05/06 OPEN, V1 NO_GO.
