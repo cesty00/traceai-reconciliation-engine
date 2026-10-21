@@ -275,3 +275,7 @@ As established in `TRACEAI_DEVELOPMENT_PLAN.md`, apply all six professional revi
 - CI #1440 SUCCESS all four jobs for prior head 7d602288.
 - Optional document_candidates JSON presentation, separate read-only UI section, three synthetic tests. Incoming candidate provenance always UNVERIFIED, human validation PENDING. No CORE producer yet, no browser UAT. See docs/governance/CORE_DAILY_UI_03_DOCUMENT_CANDIDATES.md.
 - PR #69 Draft, no merge; GOV-002/GOV-AT-05/06 OPEN, V1 NO_GO. New CI pending.
+
+## CORE-DAILY-UI-04 — 2026-10-21
+- Prior CI #1450 SUCCESS 4/4. Added optional --investigation case.json read-only projection of WMS residual document candidates, case_id guard, 3 synthetic tests. All candidate status UNVERIFIED/PENDING; no source-line proof or economic MATCH. See docs/governance/CORE_DAILY_UI_04_INVENTORY_PROJECTION.md.
+- PR #69 Draft, no merge, GOV-002/GOV-AT-05/06 OPEN, V1 NO_GO. New CI pending.
