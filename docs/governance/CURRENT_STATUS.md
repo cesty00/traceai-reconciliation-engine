@@ -292,3 +292,8 @@ As established in `TRACEAI_DEVELOPMENT_PLAN.md`, apply all six professional revi
 ## CORE-DAILY-UI-06 CI regression fix — 2026-10-21
 - User reported r1471-r1476 failed. Verified exact PR #69 run #1476 FAILED; pytest: 319 passed, 1 failed, 4 warnings. Failure in test_mixed_unmatched_documents_not_exclusively_attributed: test incorrectly expected source_status at intermediate candidate-group root, but it is applied by operator_view; event-level UNVERIFIED already exists.
 - Corrected only test assertions at proper boundaries in commit 2c71558f; CORE economics and UI runtime unchanged. Must verify next CI before claiming fix accepted. Earlier run #1470 was SUCCESS; no blanket claim about all r1471-1475 without independent runs. PR #69 Draft, GOV-002/GOV-AT-05/06 OPEN, V1 NO_GO.
+
+## CORE-DAILY-UI-07 — 2026-10-21
+- GitHub CI #1476 FAILED with 1 pytest failure (incorrect intermediate status assertion); corrected in 2c71558f and CI #1480 SUCCESS all four jobs at c3e04c22.
+- Replayed six authorized DS099904440 sources on isolated local copy of previous tested CORE patched to mirror PR68; output difference/explained -86.35 kg, residual 0, REVIEW. WMS candidates 160520206 +160.40, 28082026 +0.41, 00060 -86.35; UI-compatible projection UNVERIFIED/PENDING.
+- This is NOT exact-SHA PR68+PR69 execution nor browser validation. Details docs/governance/CORE_DAILY_UI_07_LOCAL_REGRESSION.md. No merge; GOV-002/GOV-AT-05/06 OPEN, V1 NO_GO.
