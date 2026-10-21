@@ -226,3 +226,7 @@ As established in `TRACEAI_DEVELOPMENT_PLAN.md`, apply all six professional revi
 - Operator indicates WME PV 1178 relates to an earlier WMS inventory; this is contextual guidance, NOT completed validation of precise documents/people in application.
 - Candidate association with WMS 160520206 / 28082026 stays HUMAN_VALIDATION_PENDING and REVIEW. Require operator verification of original documents, persons/roles, scope, decision, timestamp and append-only audit. No forced MATCH or 1-day rule override.
 - See docs/governance/CORE_INV01_HUMAN_DOCUMENT_VALIDATION.md. No CORE code changes/merge; GOV-002/GOV-AT-05/06 OPEN, V1 NO_GO.
+
+## CORE INV-01 human-link prototype — 2026-10-21
+- CI #1401 SUCCESS for prior head c8b50aa5 (confirm individual job results if cited). Isolated non-persistent human document-link decision proposal and 5 synthetic tests added; see docs/governance/CORE_INV01_HUMAN_LINK_PROTOTYPE.md.
+- NOT wired to UI, authentication, audit database or economic engine. In-chat operator statement does not equal validated link. PR #68 Draft; no merge; GOV-002 / GOV-AT-05/06 OPEN, V1 NO_GO. New CI pending.
