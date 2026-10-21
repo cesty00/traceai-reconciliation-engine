@@ -40,6 +40,12 @@ def _contributing_event_refs(group: pd.DataFrame) -> list[dict[str, Any]]:
             "reason": str(row["_reason"]),
             "quantity": float(row["_qty"]),
             "source_pointer_status": "UNVERIFIED",
+            "document_format_status": (
+                "LOSSY_NUMERIC_IMPORT"
+                if any(name in row.index and isinstance(row[name], float) and pd.notna(row[name])
+                       for name in ("Document intrare", "Document comanda", "Numar comanda"))
+                else "UNVERIFIED"
+            ),
         })
     return refs
 
