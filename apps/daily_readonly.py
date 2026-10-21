@@ -36,6 +36,12 @@ st.subheader("Dovezi raportate de motor")
 st.warning("Referințele la documente și liniile fizice originale NU sunt verificate în acest JSON. Consultați documentele-sursă înainte de validare.")
 for item in view["evidence"]:
     st.write("•",item)
+if view["document_candidates"]:
+    st.subheader("Documente candidate — proveniență neverificată")
+    for candidate in view["document_candidates"]:
+        st.write(f"{candidate['system']} · {candidate['document']} · {candidate['source_status']} · validare {candidate['human_validation']}")
+        for event in candidate["events"]:
+            st.write(f"  Lot {event['lot']}: {event['quantity']:.3f} {view['unit']} — {event['source_status']}")
 if view["blockers"]:
     st.subheader("Blocaje")
     for item in view["blockers"]: st.write("•",item)
