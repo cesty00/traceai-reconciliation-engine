@@ -34,7 +34,7 @@ def _contributing_event_refs(group: pd.DataFrame) -> list[dict[str, Any]]:
     refs = []
     for _, row in group.iterrows():
         refs.append({
-            "document": _audit_value(row, ("Document", "Nr document", "Numar document", "Nr. document")),
+            "document": _audit_value(row, ("Document intrare", "Document comanda", "Numar comanda", "Document", "Nr document", "Numar document", "Nr. document")),
             "lot": _audit_value(row, ("Lot", "Lot productie", "Lot produs")),
             "date": row["_date"].date().isoformat(),
             "reason": str(row["_reason"]),
