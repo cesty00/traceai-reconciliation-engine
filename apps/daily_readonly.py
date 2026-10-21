@@ -22,7 +22,8 @@ try:
     data=json.loads(Path(args.case).read_text(encoding="utf-8"))
     if args.investigation:
         investigation=json.loads(Path(args.investigation).read_text(encoding="utf-8"))
-        if investigation.get("case_id") != data.get("case_id"):
+        case_record = investigation.get("investigation", investigation)
+        if not isinstance(case_record, dict) or case_record.get("case_id") != data.get("case_id"):
             raise ValueError("Case mismatch between operator and investigation JSON")
         data["document_candidates"] = inventory_document_candidates(investigation)
     view=operator_view(data)
