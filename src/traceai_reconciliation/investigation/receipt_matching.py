@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 import pandas as pd
@@ -15,6 +15,7 @@ class ReceiptMatchResult:
     wms_supported_total: float
     wme_supported_total: float
     residual_total: float
+    matched_wme_indexes: set[object] = field(default_factory=set)
 
 
 def _document_number(value: object) -> str:
@@ -153,6 +154,7 @@ def match_inbound_receipts(
         "TRANSFER_CG": ("NT",),
     }
 
+    matched_wme_indexes: set[object] = set()
     wms_supported_total = 0.0
     wme_supported_total = 0.0
 
@@ -212,6 +214,17 @@ def match_inbound_receipts(
                 ),
             }
             documents.append(item)
+            # Claim only uniquely identifiable WME rows used by a full match.
+            # Keep quantity differences, ambiguous indexes and non-selected
+            # document types visible to the residual investigator.
+            if item["status"] == "MATCH" and wme.index.is_unique:
+                selected_rows = wme_family[
+                    wme_family["_doc"].eq(document)
+                    & wme_family["_op"].eq(selected_type)
+                ]
+                selected_indexes = set(selected_rows.index)
+                if selected_indexes and not selected_indexes.intersection(matched_wme_indexes):
+                    matched_wme_indexes.update(selected_indexes)
             if abs(difference) > tolerance:
                 residual_documents.append(item)
 
@@ -241,4 +254,5 @@ def match_inbound_receipts(
         wms_supported_total=wms_supported_total,
         wme_supported_total=wme_supported_total,
         residual_total=residual_total,
+        matched_wme_indexes=matched_wme_indexes,
     )
