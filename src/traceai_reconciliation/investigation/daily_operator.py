@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
+from typing import Any
 
 from traceai_reconciliation.version import OPERATOR_OUTPUT_SCHEMA_VERSION
 
@@ -55,6 +56,7 @@ class DailyOperatorResult:
     warnings: tuple[str, ...]
     wms_mutation_allowed: bool = False
     wme_mutation_allowed: bool = False
+    technical_receipts: tuple[dict[str, Any], ...] = ()
 
 
 def _contributing_evidence(explanation: AutoExplanation) -> tuple[str, ...]:
@@ -197,6 +199,11 @@ def build_daily_operator_result(
         evidence=evidence,
         blockers=tuple(assessment.blockers),
         warnings=tuple(assessment.warnings),
+        technical_receipts=tuple(
+            dict(item)
+            for item in result.details.get('operator_receipt_classification', [])
+            if isinstance(item, dict)
+        ),
     )
 
 
@@ -213,6 +220,19 @@ def validate_daily_operator_contract(
     for field in REQUIRED_OPERATOR_FIELDS:
         if field not in payload:
             errors.append(f"missing:{field}")
+    if "technical_receipts" in payload:
+        receipts = payload["technical_receipts"]
+        if not isinstance(receipts, list):
+            errors.append("invalid:technical_receipts")
+        else:
+            for item in receipts:
+                if not isinstance(item, dict):
+                    errors.append("invalid:technical_receipt_item")
+                    continue
+                if item.get("family") not in {"RETURN_IN", "RECEIPT_UNCLASSIFIED"}:
+                    errors.append("invalid:technical_receipt_family")
+                if item.get("status") not in {"MATCH", "QTY_DIFF", "REVIEW"}:
+                    errors.append("invalid:technical_receipt_status")
     for field in ("rules", "evidence", "blockers", "warnings"):
         if not isinstance(payload.get(field), list):
             errors.append(f"invalid:{field}")
@@ -231,6 +251,7 @@ def daily_operator_result_to_dict(
     payload["evidence"] = list(result.evidence)
     payload["blockers"] = list(result.blockers)
     payload["warnings"] = list(result.warnings)
+    payload["technical_receipts"] = [dict(item) for item in result.technical_receipts]
     violations = validate_daily_operator_contract(payload)
     if violations:
         raise ValueError(
