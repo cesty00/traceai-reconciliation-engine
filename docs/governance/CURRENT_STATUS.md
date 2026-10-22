@@ -302,3 +302,8 @@ As established in `TRACEAI_DEVELOPMENT_PLAN.md`, apply all six professional revi
 - Previous CI #1484 SUCCESS 4/4 for head 499dfb93.
 - Validated real authorized saved DS099904440 nested case.json with Daily operator JSON: WMS 160520206 +160.40 (1 row), 28082026 +0.41 (4), 00060 -86.35 (3); same case ID, delta -86.35, residual zero, REVIEW and mutation disabled.
 - Local CORE matcher blob differs from exact PR68 blob; do NOT claim exact-SHA PR68+PR69 executed. Streamlit browser not tested, proven raw source-row pointers absent from UI. See docs/governance/CORE_DAILY_UI_08_REAL_CASE_CROSSCHECK.md. PR #68/#69 Draft; GOV-002/GOV-AT-05/06 OPEN; V1 NO_GO.
+
+## CORE-DAILY-UI-09 — 2026-10-22
+- CI #1488 SUCCESS 4/4 previous head 58fc23c4.
+- Retrieved GitHub tested-source artifact and confirmed exact blob SHAs for inventory matcher and Daily candidate adapter. Executed real six-source DS099904440 CORE→case.json→operator_view: WMS docs 160520206 +160.40 (1), 28082026 +0.41 (4), 00060 -86.35 (3), all UNVERIFIED/PENDING and economic REVIEW; residual 0.
+- See docs/governance/CORE_DAILY_UI_09_PINNED_REAL_RUN.md. Not a browser Streamlit test, artifact omitted apps entrypoint; no formal provenance or audit acceptance. PR #68/#69 Draft, no merge. GOV-002/GOV-AT-05/06 OPEN, V1 NO_GO; latest CI pending.
