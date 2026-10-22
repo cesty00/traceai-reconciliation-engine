@@ -189,3 +189,10 @@ As established in `TRACEAI_DEVELOPMENT_PLAN.md`, apply all six professional revi
 **Working method:** for each substantive step, make a brief risk/acceptance assessment through these roles; report only roles relevant to a particular decision in detail. Roles must not be used to claim six separate real-world experts approved a change. User/operator approval and authorized real-source acceptance remain separate and mandatory.
 
 **Next step unchanged:** inspect existing Daily UI and DOCX interfaces, propose backward-compatible read-only operator-validation presentation; do not wire to CORE or merge without separate approval. Latest observed CI #1276 SUCCESS (602 passed, 1 xfailed), GOV-AT-05/06 OPEN, GOV-002 OPEN, V1 NO_GO.
+
+
+## GOV-EXEC-RESET — 2026-10-22 (owner-directed)
+- Owner criticized feature/PR proliferation and insufficient real-product coverage despite a large synthetic test suite. This is an operational direction reset, NOT a new feature or proof of engine progress.
+- Governing plan updated at docs/governance/TRACEAI_DEVELOPMENT_PLAN.md (commit 3954b962) with explicit census-first, stratified source-backed G1 cohorts, measurements/denominators, change discipline and stop/go checkpoints; kept on existing documentation branch, no new PR, no CORE changes or merge.
+- G0 / GOV-002 remains OPEN, V1 NO_GO. Immediate deliverable is PR inventory + pinned CORE baseline + complete difference population census/source manifest + per-family coverage matrix. Population size and verified cross-SKU performance remain UNKNOWN until measured. PRs must not be merged or closed without human approval.
+- Freeze NEW UI/MOSE/EXT features and synthetic-test-only expansions not tied to a demonstrated core risk. Perform full-snapshot read-only triage before selecting a source-backed multi-product sample. Owner approval required for G0 exit, cohort and any baseline split.
