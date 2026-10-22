@@ -307,3 +307,8 @@ As established in `TRACEAI_DEVELOPMENT_PLAN.md`, apply all six professional revi
 - CI #1488 SUCCESS 4/4 previous head 58fc23c4.
 - Retrieved GitHub tested-source artifact and confirmed exact blob SHAs for inventory matcher and Daily candidate adapter. Executed real six-source DS099904440 CORE→case.json→operator_view: WMS docs 160520206 +160.40 (1), 28082026 +0.41 (4), 00060 -86.35 (3), all UNVERIFIED/PENDING and economic REVIEW; residual 0.
 - See docs/governance/CORE_DAILY_UI_09_PINNED_REAL_RUN.md. Not a browser Streamlit test, artifact omitted apps entrypoint; no formal provenance or audit acceptance. PR #68/#69 Draft, no merge. GOV-002/GOV-AT-05/06 OPEN, V1 NO_GO; latest CI pending.
+
+## CORE-DAILY-UI-10 — 2026-10-22
+- CI #1492 SUCCESS all four jobs at prior head 5d4f4d70.
+- Local real-case adapter test PASS DS099904440: -86.35 kg, residual 0, REVIEW, WMS candidate documents 160520206 (1), 28082026 (4), 00060 (3), all UNVERIFIED/PENDING. Presentation smoke with controlled Streamlit stand-in PASS; real Streamlit/browser NOT TESTED because package absent and pip network/DNS unavailable.
+- See docs/governance/CORE_DAILY_UI_10_PRESENTATION_SMOKE.md. No CORE/approval changes or merge, PR #68/#69 Draft, GOV-002/GOV-AT-05/06 OPEN, V1 NO_GO. New CI pending.
