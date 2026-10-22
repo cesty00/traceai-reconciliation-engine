@@ -1109,6 +1109,7 @@ def investigate_product(
         excluded_warehouses={"DETERIORATE", "PROTAN", "MOSTRE"},
         excluded_indexes=(
             set(inventory_adjustment_match.matched_wme_indexes)
+            | set(inventory_adjustment_match.reviewed_wme_pv_indexes)
             | receipt_match.matched_wme_indexes
         ),
     )
