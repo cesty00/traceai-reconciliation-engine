@@ -44,6 +44,13 @@ st.subheader("Dovezi raportate de motor")
 st.warning("Referințele la documente și liniile fizice originale NU sunt verificate în acest JSON. Consultați documentele-sursă înainte de validare.")
 for item in view["evidence"]:
     st.write("•",item)
+if view.get("technical_receipts"):
+    st.subheader("Recepții și retururi — rezultat tehnic")
+    st.caption("MATCH indică numai concordanță documentară/cantitativă. Validare umană: PENDING.")
+    for receipt in view["technical_receipts"]:
+        st.write(f"{receipt['family']} · {receipt['document']} → {receipt['link_document']} · "
+                 f"{receipt['quantity']:.3f} {view['unit']} · {receipt['status']} · "
+                 f"validare {receipt['human_validation']}")
 if view["document_candidates"]:
     st.subheader("Documente candidate — proveniență neverificată")
     for candidate in view["document_candidates"]:
