@@ -22,6 +22,7 @@ from .auto_explain import (
 from .production_matching import match_production_adjustments
 from .delivery_matching import match_deliveries_and_returns
 from .receipt_matching import match_inbound_receipts
+from .receipt_operator_view import classify_receipt_for_operator
 from .special_status_matching import match_special_status_flow
 from .production_input_matching import match_production_inputs
 from .stock_correction_matching import match_generic_wms_stock_corrections
@@ -579,6 +580,11 @@ def investigate_product(
             decimals,
         ),
     }
+
+    result.details["operator_receipt_classification"] = classify_receipt_for_operator(
+        receipt_match.unsupported_receipts,
+        delivery_match.documents,
+    )
 
     if receipt_match.documents:
         matched_count = sum(
