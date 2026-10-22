@@ -312,3 +312,7 @@ As established in `TRACEAI_DEVELOPMENT_PLAN.md`, apply all six professional revi
 - CI #1492 SUCCESS all four jobs at prior head 5d4f4d70.
 - Local real-case adapter test PASS DS099904440: -86.35 kg, residual 0, REVIEW, WMS candidate documents 160520206 (1), 28082026 (4), 00060 (3), all UNVERIFIED/PENDING. Presentation smoke with controlled Streamlit stand-in PASS; real Streamlit/browser NOT TESTED because package absent and pip network/DNS unavailable.
 - See docs/governance/CORE_DAILY_UI_10_PRESENTATION_SMOKE.md. No CORE/approval changes or merge, PR #68/#69 Draft, GOV-002/GOV-AT-05/06 OPEN, V1 NO_GO. New CI pending.
+
+## CORE-DAILY-UI-11 — 2026-10-22
+- Streamlit unavailable locally. Added real Streamlit AppTest synthetic smoke plus dedicated optional UI GitHub workflow; base suite skips UI test when optional dependency absent. See docs/governance/CORE_DAILY_UI_11_STREAMLIT_TEST_GATE.md.
+- New UI test CI unverified; no browser screenshot/visual UAT. PR #69 Draft, no merge, GOV-002/GOV-AT-05/06 OPEN, V1 NO_GO.
