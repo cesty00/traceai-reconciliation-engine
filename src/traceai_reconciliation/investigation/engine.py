@@ -1107,8 +1107,9 @@ def investigate_product(
     wme_residual_match = match_wme_residual_movements(
         wme_rows,
         excluded_warehouses={"DETERIORATE", "PROTAN", "MOSTRE"},
-        excluded_indexes=set(
-            inventory_adjustment_match.matched_wme_indexes
+        excluded_indexes=(
+            set(inventory_adjustment_match.matched_wme_indexes)
+            | receipt_match.matched_wme_indexes
         ),
     )
     result.details["wme_residual_movements"] = {
