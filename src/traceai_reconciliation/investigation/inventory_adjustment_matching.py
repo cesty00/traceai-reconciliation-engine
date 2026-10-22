@@ -17,6 +17,7 @@ class InventoryAdjustmentMatchResult:
     residual_wme_total: float
     system_difference_effect: float
     matched_wme_indexes: tuple[object, ...]
+    reviewed_wme_pv_indexes: tuple[object, ...]
 
 
 def _audit_value(row: pd.Series, names: tuple[str, ...]) -> str | None:
@@ -152,6 +153,7 @@ def match_inventory_adjustments(
          "contributing_event_refs": w["contributing_event_refs"]}
         for i, w in enumerate(wgroups) if i not in mw
     ]
+    reviewed_indexes = tuple(idx for i, p in enumerate(pgroups) if i not in mp for idx in p["indexes"])
     residual_wme = [
         {"date": p["day"].isoformat(), "document": p["document"],
          "warehouse": p["warehouse"], "quantity": p["qty"],
@@ -169,4 +171,5 @@ def match_inventory_adjustments(
         residual_wme_total=rp,
         system_difference_effect=round(rw - rp, 6),
         matched_wme_indexes=tuple(matched_indexes),
+        reviewed_wme_pv_indexes=reviewed_indexes,
     )
