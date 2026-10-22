@@ -21,11 +21,16 @@ def classify_receipt_for_operator(
         status = "REVIEW"
         if is_return and len(candidates) == 1:
             candidate = candidates[0]
-            status = (
-                candidate["status"]
-                if candidate.get("status") in {"MATCH", "QTY_DIFF"}
-                else "REVIEW"
-            )
+            # A net delivery MATCH is not proof that a return leg matches.
+            # Promote only when the entire document consists of this return.
+            qty = float(item.get("quantity") or 0)
+            wms_qty = float(candidate.get("wms_net_quantity") or 0)
+            wme_qty = float(candidate.get("wme_ae_quantity") or 0)
+            if abs(wms_qty - qty) <= 0.001:
+                status = (
+                    "MATCH" if abs(wme_qty - qty) <= 0.001
+                    else "QTY_DIFF"
+                )
         classified.append({
             "document": raw,
             "link_document": key,
