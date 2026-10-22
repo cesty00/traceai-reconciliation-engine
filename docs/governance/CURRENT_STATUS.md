@@ -260,3 +260,59 @@ As established in `TRACEAI_DEVELOPMENT_PLAN.md`, apply all six professional revi
 - CI #1419 SUCCESS 4/4 on prior head ecd51c08.
 - Proposed architecture: Streamlit read-only presentation, separately authenticated validation service with server-side OIDC and case permissions, transactional audit storage. See docs/governance/ADR_DAILY_STREAMLIT_VALIDATION_SERVICE.md.
 - Design proposal only: hosting/identity provider unknown, no UI deployment or validation API implemented. PR #68 Draft; no merge. GOV-002/GOV-AT-05/06 OPEN, V1 NO_GO.
+
+## CORE-DAILY-UI-01 — 2026-10-21
+- CI #1421 SUCCESS 4/4 for prior branch head 4165e595.
+- Isolated Streamlit read-only Daily preview created on feature/core-daily-ui-01-readonly-20261021, Draft PR #69 targeting CORE INV-01 branch. Existing operator JSON compatibility adapter and 4 synthetic tests, optional Streamlit dependency; see docs/governance/CORE_DAILY_UI_01_READONLY.md.
+- Not browser-tested or deployed, no authenticated review or approval buttons. CORE economics/DOCX unchanged, no merge; GOV-002/GOV-AT-05/06 OPEN, V1 NO_GO. New CI not yet confirmed.
+
+## CORE-DAILY-UI-02 — 2026-10-21
+- CI #1430 SUCCESS 4/4 previous head ddd22339. Inspected real DS099904440 operator JSON: numeric result and REVIEW preserved; no document/physical row references in this legacy output.
+- Added UI warning and source_line_status SOURCE_LINES_NOT_VERIFIED, synthetic compatibility test, details at docs/governance/CORE_DAILY_UI_02_REAL_JSON_COMPATIBILITY.md.
+- Streamlit browser not tested (not installed in local runtime). No approval or merge, GOV-002/GOV-AT-05/06 OPEN, V1 NO_GO; check new CI.
+
+## CORE-DAILY-UI-03 — 2026-10-21
+- CI #1440 SUCCESS all four jobs for prior head 7d602288.
+- Optional document_candidates JSON presentation, separate read-only UI section, three synthetic tests. Incoming candidate provenance always UNVERIFIED, human validation PENDING. No CORE producer yet, no browser UAT. See docs/governance/CORE_DAILY_UI_03_DOCUMENT_CANDIDATES.md.
+- PR #69 Draft, no merge; GOV-002/GOV-AT-05/06 OPEN, V1 NO_GO. New CI pending.
+
+## CORE-DAILY-UI-04 — 2026-10-21
+- Prior CI #1450 SUCCESS 4/4. Added optional --investigation case.json read-only projection of WMS residual document candidates, case_id guard, 3 synthetic tests. All candidate status UNVERIFIED/PENDING; no source-line proof or economic MATCH. See docs/governance/CORE_DAILY_UI_04_INVENTORY_PROJECTION.md.
+- PR #69 Draft, no merge, GOV-002/GOV-AT-05/06 OPEN, V1 NO_GO. New CI pending.
+
+## CORE-DAILY-UI-05 — 2026-10-21
+- CI #1460 SUCCESS 4/4 at previous head. Regenerated real DS099904440 case from six sources; discovered case.json wraps investigation under investigation key, corrected projection and case_id check, added 2 synthetic tests.
+- Baseline JSON has no contributing_event_refs, so no genuine candidate list until patched CORE case is used. No guessed documents. See docs/governance/CORE_DAILY_UI_05_REAL_NESTED_CASE.md. New CI pending; browser untested, no merge; GOV-002/GOV-AT-05/06 OPEN, V1 NO_GO.
+
+## CORE-DAILY-UI-06 — 2026-10-21
+- CI #1470 SUCCESS 4/4 preceding head a4e43b4b.
+- Synthetic nested case / PR68 contributing refs -> PR69 UI contract test added, checking three 00060-shaped rows net -86.35 and strict UNVERIFIED/PENDING/REVIEW; tests also keep other docs separate. Exact PR68 head and real data not executed together in this checkpoint.
+- See docs/governance/CORE_DAILY_UI_06_BRIDGE_REGRESSION.md. PR #69 Draft, no merge; GOV-002/GOV-AT-05/06 OPEN, V1 NO_GO. New CI pending.
+
+## CORE-DAILY-UI-06 CI regression fix — 2026-10-21
+- User reported r1471-r1476 failed. Verified exact PR #69 run #1476 FAILED; pytest: 319 passed, 1 failed, 4 warnings. Failure in test_mixed_unmatched_documents_not_exclusively_attributed: test incorrectly expected source_status at intermediate candidate-group root, but it is applied by operator_view; event-level UNVERIFIED already exists.
+- Corrected only test assertions at proper boundaries in commit 2c71558f; CORE economics and UI runtime unchanged. Must verify next CI before claiming fix accepted. Earlier run #1470 was SUCCESS; no blanket claim about all r1471-1475 without independent runs. PR #69 Draft, GOV-002/GOV-AT-05/06 OPEN, V1 NO_GO.
+
+## CORE-DAILY-UI-07 — 2026-10-21
+- GitHub CI #1476 FAILED with 1 pytest failure (incorrect intermediate status assertion); corrected in 2c71558f and CI #1480 SUCCESS all four jobs at c3e04c22.
+- Replayed six authorized DS099904440 sources on isolated local copy of previous tested CORE patched to mirror PR68; output difference/explained -86.35 kg, residual 0, REVIEW. WMS candidates 160520206 +160.40, 28082026 +0.41, 00060 -86.35; UI-compatible projection UNVERIFIED/PENDING.
+- This is NOT exact-SHA PR68+PR69 execution nor browser validation. Details docs/governance/CORE_DAILY_UI_07_LOCAL_REGRESSION.md. No merge; GOV-002/GOV-AT-05/06 OPEN, V1 NO_GO.
+
+## CORE-DAILY-UI-08 — 2026-10-21
+- Previous CI #1484 SUCCESS 4/4 for head 499dfb93.
+- Validated real authorized saved DS099904440 nested case.json with Daily operator JSON: WMS 160520206 +160.40 (1 row), 28082026 +0.41 (4), 00060 -86.35 (3); same case ID, delta -86.35, residual zero, REVIEW and mutation disabled.
+- Local CORE matcher blob differs from exact PR68 blob; do NOT claim exact-SHA PR68+PR69 executed. Streamlit browser not tested, proven raw source-row pointers absent from UI. See docs/governance/CORE_DAILY_UI_08_REAL_CASE_CROSSCHECK.md. PR #68/#69 Draft; GOV-002/GOV-AT-05/06 OPEN; V1 NO_GO.
+
+## CORE-DAILY-UI-09 — 2026-10-22
+- CI #1488 SUCCESS 4/4 previous head 58fc23c4.
+- Retrieved GitHub tested-source artifact and confirmed exact blob SHAs for inventory matcher and Daily candidate adapter. Executed real six-source DS099904440 CORE→case.json→operator_view: WMS docs 160520206 +160.40 (1), 28082026 +0.41 (4), 00060 -86.35 (3), all UNVERIFIED/PENDING and economic REVIEW; residual 0.
+- See docs/governance/CORE_DAILY_UI_09_PINNED_REAL_RUN.md. Not a browser Streamlit test, artifact omitted apps entrypoint; no formal provenance or audit acceptance. PR #68/#69 Draft, no merge. GOV-002/GOV-AT-05/06 OPEN, V1 NO_GO; latest CI pending.
+
+## CORE-DAILY-UI-10 — 2026-10-22
+- CI #1492 SUCCESS all four jobs at prior head 5d4f4d70.
+- Local real-case adapter test PASS DS099904440: -86.35 kg, residual 0, REVIEW, WMS candidate documents 160520206 (1), 28082026 (4), 00060 (3), all UNVERIFIED/PENDING. Presentation smoke with controlled Streamlit stand-in PASS; real Streamlit/browser NOT TESTED because package absent and pip network/DNS unavailable.
+- See docs/governance/CORE_DAILY_UI_10_PRESENTATION_SMOKE.md. No CORE/approval changes or merge, PR #68/#69 Draft, GOV-002/GOV-AT-05/06 OPEN, V1 NO_GO. New CI pending.
+
+## CORE-DAILY-UI-11 — 2026-10-22
+- Streamlit unavailable locally. Added real Streamlit AppTest synthetic smoke plus dedicated optional UI GitHub workflow; base suite skips UI test when optional dependency absent. See docs/governance/CORE_DAILY_UI_11_STREAMLIT_TEST_GATE.md.
+- New UI test CI unverified; no browser screenshot/visual UAT. PR #69 Draft, no merge, GOV-002/GOV-AT-05/06 OPEN, V1 NO_GO.

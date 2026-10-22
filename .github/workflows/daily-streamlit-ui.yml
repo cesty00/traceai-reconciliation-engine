@@ -1,0 +1,19 @@
+name: daily-streamlit-ui-check
+on:
+  pull_request:
+    paths:
+      - "apps/daily_readonly.py"
+      - "src/traceai_reconciliation/daily_ui/**"
+      - "tests/test_daily_ui_11_streamlit_apptest.py"
+      - ".github/workflows/daily-streamlit-ui.yml"
+  workflow_dispatch:
+jobs:
+  streamlit-apptest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -e '.[dev,ui]'
+      - run: pytest -q tests/test_daily_ui_11_streamlit_apptest.py
