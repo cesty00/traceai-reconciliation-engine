@@ -41,6 +41,26 @@ def operator_view(payload: Mapping[str, Any]) -> dict[str, Any]:
         sanitized.append({"system": item["system"], "document": str(item["document"]),
                           "events": events, "source_status": "UNVERIFIED",
                           "human_validation": "PENDING"})
+    technical_receipts = payload.get("technical_receipts", [])
+    if not isinstance(technical_receipts, list):
+        raise ValueError("Invalid technical receipts")
+    safe_receipts = []
+    for receipt in technical_receipts:
+        if not isinstance(receipt, Mapping):
+            raise ValueError("Invalid technical receipt")
+        if receipt.get("family") not in ("RETURN_IN", "RECEIPT_UNCLASSIFIED") or receipt.get("status") not in ("MATCH", "QTY_DIFF", "REVIEW"):
+            raise ValueError("Invalid technical receipt classification")
+        quantity = receipt.get("quantity")
+        if isinstance(quantity, bool) or not isinstance(quantity, (int, float)):
+            raise ValueError("Invalid technical receipt quantity")
+        safe_receipts.append({
+            "document": str(receipt.get("document") or ""),
+            "link_document": str(receipt.get("link_document") or ""),
+            "quantity": float(quantity),
+            "family": receipt["family"],
+            "status": receipt["status"],
+            "human_validation": "PENDING",
+        })
     return {
         "case_id": str(payload["case_id"]), "product_code": str(payload["product_code"]),
         "product_name": str(payload["product_name"]), "unit": str(payload["unit"]),
@@ -53,6 +73,6 @@ def operator_view(payload: Mapping[str, Any]) -> dict[str, Any]:
         "evidence": list(evidence), "blockers": list(payload["blockers"]),
         "warnings": list(payload["warnings"]), "documentary_validation": "NOT_AVAILABLE",
         "source_line_status": documentary_status,
-        "document_candidates": sanitized,
+        "document_candidates": sanitized, "technical_receipts": safe_receipts,
         "economic_match_authorized": False, "reviewer_validation_enabled": False,
     }
