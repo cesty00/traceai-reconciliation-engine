@@ -273,3 +273,20 @@ As established in `TRACEAI_DEVELOPMENT_PLAN.md`, apply all six professional revi
 - Inspected control sheets: `Mapare_gestiuni_locatii_raport_stoc_WMS_WME_DE_VALIDAT` explicitly labels rules CANDIDAT/NEVALIDAT, most WMS locations `DE_MAPAT`, and GST-01..03 prohibit treating warehouse-zone numerical offsets and ERP zero as established real stock anomalies. `Mapare_oficiala_articol_WME_WMS_DE_VALIDAT` holds no validated article rows in its mapping table and rules MAP-01..04: direct ID authoritative only after evidence, name only candidate, duplicate name ambiguous, `NEDEFINIT IN WMS` cannot be asserted as a real discrepancy before mapping.
 - These two mapping control documents reference Oct 05 source export history; do not assume validation as applied to October 11. Source completeness by min/max content dates, units, missing product codes, warehouse scope and mapping remains OPEN. Critically, 355 difference rows / 296 coded products are a **technical report census**, not 296 confirmed genuine economic differences. The two undefined-code exceptions remain separate DATA_REVIEW.
 - G0 / GOV-002 OPEN, V1 NO_GO. Next bounded G0-B3: executable read-only content-level min/max date, unit and gestiune profile across existing six local exports, producing only aggregate counts and local report; no raw uploads to Git. Then prepare precise family-coverage D and owner gate decision. No engine/UI code or PR changes.
+
+
+## GOV-G0-D — 2026-10-23 — operation family coverage and production evidence
+- Local production G0-B5/G0-B6: 74,457 rows, PREDARE 13,024, CONSUM 61,433; 74,448 populated finish timestamps parse with `%d.%m.%Y %I:%M %p`, nine blank, zero other parsing failures, first finish 2025-12-01 07:44 and last 2026-10-10 18:15. No 2026-10-11 finish events in export; operational completeness on snapshot day NOT PROVEN. Prior missing-code and invalid-date warnings were profiling artifacts. No engine changes.
+- G0-D family coverage based on existing code, targeted synthetic tests and sparse operational evidence, not a full product cohort:
+  * RECEIPT: tests passed and DS099904440 F260769/IN3277 document quantity match evidence; operator global validation UNKNOWN.
+  * DELIVERY: matching logic exists, population-backed independent verification UNKNOWN.
+  * RETURN_IN: RET_WME113669 technical candidate, human validation UNKNOWN; not full population proof.
+  * TRANSFER: logic present, inter-warehouse mapping UNVALIDATED; numeric offset does not prove a transfer.
+  * BC: real article 10002 BC23448 discrepancy (-720 WMS vs -90 WME) is documented as a risk case; independent cross-SKU validation UNKNOWN.
+  * NP: code path present; multi-product source-backed validation UNKNOWN.
+  * INVENTORY/PV: DS099904440 doc 00060 confirmed by operator as inventory only in WMS at export; do not infer same for other adjustments. Related WME PV remains REVIEW.
+  * ADJUSTMENT: code paths exist, independent causality proof UNKNOWN.
+  * STOCK OPENING: WMS opening export 513 rows exists, full per-SKU opening reconciliation UNKNOWN.
+  * WAREHOUSE MAPPING: Google Drive mapping control marked DE_VALIDAT; not approved for automatic per-management reconstruction.
+- Status across families remains REVIEW/UNVERIFIED except documented narrowly bounded proofs; **NO empirical family accuracy rates**; tests are not owner acceptance. Numeric census 355 difference rows / 296 coded products with two uncoded source rows separated remains G0-C technical observation, not confirmed true stock gaps.
+- G0 OPEN; GOV-AT-05/06 global ownership NOT PROVEN; CORE candidate `e8e9009285a8c7874b05967733089968abaa3309` diagnostics only. Gate exit still needs operator-approved PR disposition, CORE candidate and coverage gaps, plus source warehouse mapping/cutoff constraints. Suggested next decision: seek owner approval for a narrowly bounded diagnostic, read-only stratified G1 cohort after explicitly accepting G0 risks, without declaring CORE safe to merge.
