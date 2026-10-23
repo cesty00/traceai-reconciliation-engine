@@ -196,3 +196,45 @@ As established in `TRACEAI_DEVELOPMENT_PLAN.md`, apply all six professional revi
 - Governing plan updated at docs/governance/TRACEAI_DEVELOPMENT_PLAN.md (commit 3954b962) with explicit census-first, stratified source-backed G1 cohorts, measurements/denominators, change discipline and stop/go checkpoints; kept on existing documentation branch, no new PR, no CORE changes or merge.
 - G0 / GOV-002 remains OPEN, V1 NO_GO. Immediate deliverable is PR inventory + pinned CORE baseline + complete difference population census/source manifest + per-family coverage matrix. Population size and verified cross-SKU performance remain UNKNOWN until measured. PRs must not be merged or closed without human approval.
 - Freeze NEW UI/MOSE/EXT features and synthetic-test-only expansions not tied to a demonstrated core risk. Perform full-snapshot read-only triage before selecting a source-backed multi-product sample. Owner approval required for G0 exit, cohort and any baseline split.
+
+
+## GOV-G0-CHECKPOINT — 2026-10-23 — owner instruction: complete G0 evidence before G1
+- **Decision:** G0 / GOV-002 OPEN, CORE merge NO_GO, GOV-AT-05/06 global economic ownership NOT PROVEN. No PR merges/closures/new PRs, no code or raw-source uploads. Candidate read-only diagnostic SHA `e8e9009285a8c7874b05967733089968abaa3309`; main observed `f947dfd509f1956023ce29c8f6fcbe1333657302` (local git report), 167 commits ahead, 72 changed paths. Local targeted tests: 19 passed, 2 pandas date-parser warnings. These do not close integration gates.
+- **Census / dataset:** report `Raport_stoc_WMS_WME_2026-10-11_20-00.xlsx`, SHA256 `ae0982ad7498b30c1c5f3732a8a4cd223158eb527d0c85237c3295d6c3d2d128`. Operator local read-only scripts report 733 valid rows, 378 negligible/zero rows (provisional EPS 1e-6), 355 difference rows, 296 distinct SKU, 2 rows with missing WMS item code excluded as DATA_REVIEW (reported differences -1143 and -77197). SKU categories: 27 exact cross-warehouse numerical offsets, 16 partial, 243 single-warehouse, 10 multiple same-sign. Numeric offsets are NOT transfer proof; status for all 296 in new register NEINVESTIGAT.
+- **Six-source local SHA256/identity:** WME ledger `735B4756045AE0C5D22E01BEB3D77430E105A939C2CBF8B6F0BF28AC3E041495`; nomenclature `D65F5B5E378BC0B5A86E2954C4FFCE2FC22671C8F3ABA1443E45FF6F42E543E7`; production `F6B3836B2891D997EE2DC717CED6A60D6B0252E75E9F3D00DBB4FFB4C1713ED6`; stock report SHA above; opening WMS `DB0D427D93A0859F25DCD1BE5F35B994E4C974307072898EB29E420108E48F6E`; WMS movements `98E1A88A438D41FF7DDA555D8A77F675FD9B2CF6736A636FC5C75BF13C377ECE`. Full date/warehouse/unit completeness NOT YET ACCEPTED.
+- **Economic ownership audit:** candidate has local receipt/PV exclusion by DataFrame indexes, but no global `EventOwnershipLedger` and no `SourceRowNumber` in candidate index. The isolated ledger exists on #55 stack but is not wired into `investigate_product`; global double counting NOT PROVEN as a real defect, nor excluded globally. Merging mixed #55/#56 stacks is NOT approved. Stop new exploratory synthetic-only test expansion; require source-backed negative and positive economic checks in future approved CORE fix.
+- **Coverage gaps:** receipt, delivery/return, transfer, BC/NP, inventory/PV, adjustments, opening, warehouse mapping have code paths, but multi-product real-source accuracy, source-line provenance, true negative tests and family-wide false MATCH rates are UNKNOWN. Real single SKU DS099904440 evidence cannot substitute cohort. 
+- **Open PR inventory (27 at this lookup), recommendations are PROPOSED ONLY; ALL Draft; base branch shown, head SHA shown, base SHA/dependency/CI and per-SHA real UAT still require review before formal disposition:**
+
+| PR | Base branch | Head SHA | Proposal | Evidence gap |
+|---|---|---|---|---|
+| #40 | `main` | `a29d6c33d40a8159feaf64d937d050e1bd560225` | DEFER | CI/UAT per exact SHA: NOT CHECKED here |
+| #43 | `main` | `dc109290611b478a5adbe5d6a8b22ef21fc458b0` | KEEP_AUDIT | CI/UAT per exact SHA: NOT CHECKED here |
+| #44 | `main` | `f43c139bcffc8145b7ca077781761698a0f82f5f` | KEEP_AUDIT | CI/UAT per exact SHA: NOT CHECKED here |
+| #46 | `main` | `b271bc3d75bbca02238b8c0c9b818f275d69d8bf` | KEEP_AUDIT | CI/UAT per exact SHA: NOT CHECKED here |
+| #48 | `fix/issue-45-internal-transfers` | `0d76f1027d184b0989fd3c3917162fd93cb46e33` | SPLIT_DEFER | CI/UAT per exact SHA: NOT CHECKED here |
+| #50 | `main` | `726e86e5b3beda834e96a2aefe2a517a669f98d1` | DEFER | CI/UAT per exact SHA: NOT CHECKED here |
+| #52 | `main` | `9d1f9e1a6e76c017f68a991fecf80bdf44075745` | DEFER | CI/UAT per exact SHA: NOT CHECKED here |
+| #53 | `main` | `2646d88ab28097127a4b6893436583a1ce366c76` | KEEP_AUDIT | CI/UAT per exact SHA: NOT CHECKED here |
+| #55 | `main` | `67d90d2102d13bdb03f4f19399f902ad57c37a3c` | KEEP_AUDIT | CI/UAT per exact SHA: NOT CHECKED here |
+| #56 | `integration/g1-bc-evidence-20261014` | `6a9d0a6e002d6d890b9589627ec698a3b04f5760` | SPLIT_DEFER | CI/UAT per exact SHA: NOT CHECKED here |
+| #57 | `feature/mose-control-arch01-isolated` | `52f04fcbbffed38774542327921897d5b0ae2eb9` | SPLIT_DEFER | CI/UAT per exact SHA: NOT CHECKED here |
+| #58 | `test/gov-002h-mose-index-acceptance` | `d060e77216349add46f03c51ddb41603df1eb4b0` | KEEP_EVIDENCE_DEFER_MERGE | CI/UAT per exact SHA: NOT CHECKED here |
+| #59 | `test/gov-002k-core-double-claim` | `c25eca6a7fed28ec2efc52aaee9c3a59c03f0349` | KEEP_EVIDENCE_DEFER_MERGE | CI/UAT per exact SHA: NOT CHECKED here |
+| #60 | `test/gov-002u-provenance-contract` | `f446e1729da0128767c459dd550a53803dd2ff05` | KEEP_EVIDENCE_DEFER_MERGE | CI/UAT per exact SHA: NOT CHECKED here |
+| #61 | `test/gov-002w-provenance-prototype` | `e5bae3465948511b22bb66e9e76f40527dd27ac7` | KEEP_EVIDENCE_DEFER_MERGE | CI/UAT per exact SHA: NOT CHECKED here |
+| #62 | `test/gov-002x-stale-fail-closed` | `540287fd38376f623c0f3509a258d58810aba1be` | KEEP_EVIDENCE_DEFER_MERGE | CI/UAT per exact SHA: NOT CHECKED here |
+| #63 | `feature/gov-002z-readonly-provenance-adapter` | `b55c7746981397739f13dca61e13a6660ac3b828` | KEEP_EVIDENCE_DEFER_MERGE | CI/UAT per exact SHA: NOT CHECKED here |
+| #64 | `test/gov-002aa-adversarial-adapter` | `f7398d3a13724e3b5f01ea46a21081bebffb97a6` | KEEP_EVIDENCE_DEFER_MERGE | CI/UAT per exact SHA: NOT CHECKED here |
+| #65 | `test/gov-002ac-status-compatibility` | `54f6181c863c42bb7c7b89f6a8ae2265ee733a8a` | KEEP_EVIDENCE_DEFER_MERGE | CI/UAT per exact SHA: NOT CHECKED here |
+| #66 | `feature/gov-002ad-explicit-unverified` | `7beaf319d0d54687611e8ca516a13cc85be89d45` | DEFER | CI/UAT per exact SHA: NOT CHECKED here |
+| #67 | `docs/traceai-governance-plan-20261019` | `d0ea8edc571495fa16cdb75c22547ad28ca78e6c` | DEFER | CI/UAT per exact SHA: NOT CHECKED here |
+| #68 | `docs/traceai-governance-plan-20261019` | `4165e5953af6fd4387573732e97ec22f29a8e772` | KEEP_AUDIT | CI/UAT per exact SHA: NOT CHECKED here |
+| #69 | `core/inv01-contributing-event-refs-20261021` | `b98162ceb211aef13c53c0562709982e0ec3f98a` | DEFER | CI/UAT per exact SHA: NOT CHECKED here |
+| #70 | `feature/core-daily-ui-01-readonly-20261021` | `aef0e57f005a4d740037882e37728f9619ff816f` | KEEP_AUDIT | CI/UAT per exact SHA: NOT CHECKED here |
+| #71 | `fix/rec004-wme-residual-doubleclaim-20261022` | `8359237a8bbe176cee5d5509f4cef22d25dfe51c` | KEEP_AUDIT | CI/UAT per exact SHA: NOT CHECKED here |
+| #72 | `fix/core-pv-001-residual-dedup-20261022` | `a0e1597a7a9898e85847a481afd78f5d1e2b15da` | DEFER | CI/UAT per exact SHA: NOT CHECKED here |
+| #73 | `feature/core-return-ui-001-20261022` | `e8e9009285a8c7874b05967733089968abaa3309` | DEFER | CI/UAT per exact SHA: NOT CHECKED here |
+
+- **Unfinished G0 exit requirements:** exact base SHA and CI/dependency check for all PRs, documented real-source operation-family coverage, source period/units/gestiune completeness, owner acceptance of PR dispositions and CORE candidate. Do not report G0 PASS yet.
+- **Next bounded action:** obtain/verify per-PR base SHAs and CI status for highest-risk CORE PRs (#43/#44/#46/#53/#55/#70/#71), then present a restricted split/defer plan for owner approval; after G0 owner GO, select reproducible stratified up-to-30 SKU pilot from 296 and audit against original source rows read-only. Do not claim any matching accuracy before actual pilot.
