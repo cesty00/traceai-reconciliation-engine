@@ -43,3 +43,8 @@ Original restricted source folders: WMS 1m_Itbp8TDwpZiAJ9vTObwdk_RNs4vAYC; WME 1
 - Drive folder: 1yRMd3hR_JDliBvO_PpjycnYQ90Qe3aP7
 - Archive file: 163mJlY2oaZHjltlme-9aCXyJEq6tiWfn; TraceAI_G1_D2_D10_DOVEZI_PACHET_20261023.zip; size 18487 bytes; listing readback confirmed.
 - Local ZIP SHA256 ffa6bf467f85051983d3a9e02a115579501e406ac2a9f862285828881669487c; all eleven member hashes checked before transfer. Remote file SHA256 has not been independently verified. Former upload-pending state superseded by UPLOADED, METADATA_VERIFIED, REMOTE_HASH_PENDING.
+
+## C3.2 remote integrity verification — 2026-10-23
+- Retrieved exact uploaded Drive file 163mJlY2oaZHjltlme-9aCXyJEq6tiWfn with authenticated Drive download. Recomputed downloaded bytes SHA256 ffa6bf467f85051983d3a9e02a115579501e406ac2a9f862285828881669487c, matching pre-upload local SHA256; ZIP CRC test PASS; all 11 member SHA256 and size checks PASS against MANIFEST.json. Status REMOTE_INTEGRITY_PASS. Earlier REMOTE_HASH_PENDING superseded.
+- Note: internal manifest status text TRANSFER_TO_DRIVE_PENDING describes pre-upload creation, not current external archive status; verified C3.2 status here is authoritative.
+- Both G1 cases linked to archive in CASE_REGISTER.md; technical archiving is complete, business causes remain unverified.
