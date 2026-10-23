@@ -323,3 +323,9 @@ As established in `TRACEAI_DEVELOPMENT_PLAN.md`, apply all six professional revi
 - Created and read-back verified five governance files under docs/governance/registers/: README.md; CASE_REGISTER.md (2 open cases DS099904670 and 20011); DEFECT_REGISTER.md (one CORE COR STOC presentation/classification limitation, plus risks); OPERATIONAL_RULES.md (separates operator rules from hypotheses); DECISION_REGISTER.md (bounded approvals and pending code actions).
 - These are traceability INDEXES; they do NOT archive the source JSON/XLSX attachments or replace the raw evidence. Drive G1-D file metadata search had no exact matches; detailed artifact retention remains OPEN/UNVERIFIED. Older 20011 reports exist but are not G1 source evidence by implication.
 - Read-only G1 diagnostic remains the only approved pilot. No Python code change or automatic MATCH; G0 OPEN, CORE NO_GO. C2 next: provenance inventory with explicit exact Drive IDs, owners and archive location; do not upload raw company material into Git.
+
+
+## GOV-C3 — 2026-10-23 — source evidence linkage, inventory only
+- Verified restricted Drive folders 01_RAW_WMS and 02_RAW_WME directly; indexed stable IDs for Oct11 WMS trace, WME magazie, stock comparison, Jan1 WMS opening in docs/governance/registers/SOURCE_EVIDENCE_INDEX.md. Prior frozen SHA values preserved as historical source checks, not freshly rehashed by this Drive metadata search.
+- CASE-G1-001 and CASE-G1-002 linked to exact source IDs and available raw row references. Named G1-D*/G1_D* archive searches were empty; no inference that alternate-name reports do not exist. Older 20011 report exists but is not equivalent to G1-D5–D10 evidence.
+- C3 PARTIAL: no durable case evidence folder/read-back yet, raw-company bytes NOT uploaded to Git. No CORE code, MATCH, operator verdict or stock edits. G0 OPEN / CORE NO_GO.
