@@ -339,3 +339,9 @@ As established in `TRACEAI_DEVELOPMENT_PLAN.md`, apply all six professional revi
 ## GOV-C3.2 — 2026-10-23 — uploaded Drive evidence independently verified
 - Downloaded Drive archive 163mJlY2oaZHjltlme-9aCXyJEq6tiWfn, SHA256 ffa6bf467f85051983d3a9e02a115579501e406ac2a9f862285828881669487c matches pre-upload; ZIP CRC and 11 member hash/size checks PASS. Linked archive into CASE-G1-001 and CASE-G1-002, updated SOURCE_EVIDENCE_INDEX.md.
 - Archive logistics PASS; neither economic cause nor operator evidence signed off. G0 OPEN / G1 READ-ONLY / CORE NO_GO.
+
+
+## GOV-C4 — 2026-10-23 — operational rules vs CORE code static review
+- Read six OPERATIONAL_RULES entries and frozen CORE Python files engine, receipt/delivery matchers, opening stock policy, COR STOC matcher, source index. Documented exact source blobs and rule-by-rule coverage/gaps in docs/governance/GOV_C4_OPERATIONAL_RULES_CODE_AUDIT_20261023.md.
+- Confirmed static diagnostic limitation DEF-G1-001; other families PARTIALLY_IMPLEMENTED or UNVERIFIED end-to-end. No claim of executed tests/complete economic ownership. Operator-only hypothesis FE214401 remains unvalidated.
+- C4 STATIC REVIEW COMPLETED; next C4.1 full family function map and positive/negative source-backed tests. G0 OPEN, G1 READ-ONLY, CORE NO_GO; no code/stock changes.
