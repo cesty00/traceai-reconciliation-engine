@@ -46,5 +46,5 @@ def test_daily_streamlit_readonly_renders_documents(tmp_path, monkeypatch):
     assert any("DS" not in item.value and "SYN-P" in item.value for item in at.subheader)
     assert any("00060" in item.value for item in at.markdown)
     assert any("UNVERIFIED" in item.value for item in at.markdown)
-    assert any("Validarea documentară" in item.message for item in at.warning)
+    assert any("Validarea documentară" in item.value for item in at.warning)
     assert not at.button
