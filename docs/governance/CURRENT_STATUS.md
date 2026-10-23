@@ -329,3 +329,8 @@ As established in `TRACEAI_DEVELOPMENT_PLAN.md`, apply all six professional revi
 - Verified restricted Drive folders 01_RAW_WMS and 02_RAW_WME directly; indexed stable IDs for Oct11 WMS trace, WME magazie, stock comparison, Jan1 WMS opening in docs/governance/registers/SOURCE_EVIDENCE_INDEX.md. Prior frozen SHA values preserved as historical source checks, not freshly rehashed by this Drive metadata search.
 - CASE-G1-001 and CASE-G1-002 linked to exact source IDs and available raw row references. Named G1-D*/G1_D* archive searches were empty; no inference that alternate-name reports do not exist. Older 20011 report exists but is not equivalent to G1-D5–D10 evidence.
 - C3 PARTIAL: no durable case evidence folder/read-back yet, raw-company bytes NOT uploaded to Git. No CORE code, MATCH, operator verdict or stock edits. G0 OPEN / CORE NO_GO.
+
+
+## GOV-C3.1 — 2026-10-23 — Drive diagnostic evidence transfer
+- Uploaded ZIP with 11 G1-D2–D10 evidence documents to Drive private archive: folder ID 1yRMd3hR_JDliBvO_PpjycnYQ90Qe3aP7, archive file ID 163mJlY2oaZHjltlme-9aCXyJEq6tiWfn, 18487 bytes. Folder listing readback verified, not shared. Local ZIP SHA256 ffa6bf467f85051983d3a9e02a115579501e406ac2a9f862285828881669487c; embedded manifest and all 11 members hash-checked locally. Remote byte SHA re-download still PENDING; do not assert end-to-end integrity proof.
+- Source index docs/governance/registers/SOURCE_EVIDENCE_INDEX.md updated. G0 OPEN / G1 READ-ONLY / CORE NO_GO; no code or operator stock changes. Next: verify remote hash and reconcile archived evidence IDs into cases, then resume G1 audited cohort.
