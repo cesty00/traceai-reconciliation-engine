@@ -357,3 +357,8 @@ As established in `TRACEAI_DEVELOPMENT_PLAN.md`, apply all six professional revi
 - Directly fetched source test files at CORE e8e9009285a8c7874b05967733089968abaa3309; confirmed test files for RECEIPT, DELIVERY, RETURN_IN, TRANSFER MOSE, BC, NP, INVENTORY, COR STOC, OPENING, WAREHOUSE ZONES, SPECIAL STATUS, WME RESIDUAL and SOURCE PROVENANCE. QA coverage matrix stored and readback-verified at docs/governance/GOV_C4_2_QA_TEST_COVERAGE_20261023.md.
 - Existing tests provide safety checks for ambiguous PV/transfer matching and missing/unequal documents. COR STOC generic matcher has only one direct test of special-location exclusion; +/- candidate pair behavior is not covered in that file. Do not infer global absence without full suite search.
 - TEST_FILES_PRESENT, but pytest and candidate-SHA CI NOT RUN in C4.2; source-backed operational UAT unverified. G0 OPEN / G1 diagnostic read-only / CORE NO_GO. Next C4.3 controlled exact-SHA test execution and failure classification; no code writes.
+
+
+## GOV-C4.3 — 2026-10-23 — exact CORE baseline GitHub CI
+- GitHub Actions exact commit e8e9009285a8c7874b05967733089968abaa3309: tests workflow run 39777607040 SUCCESS, pytest job 336 passed / 1 skipped / 4 pandas date warnings; daily-streamlit-ui-check run 39777606995 FAILURE, 1 failed test test_daily_streamlit_readonly_renders_documents; AppTest Warning.message AttributeError in test line 49. Full job logs inspected.
+- Failure class: UI test API contract, not proven inventory logic failure; check supported warning property and test-only fix only after scope approval. No in-session local pytest rerun or source changes. C4.3 report docs/governance/GOV_C4_3_BASELINE_CI_20261023.md. G0 OPEN / CORE NO_GO.
