@@ -238,3 +238,16 @@ As established in `TRACEAI_DEVELOPMENT_PLAN.md`, apply all six professional revi
 
 - **Unfinished G0 exit requirements:** exact base SHA and CI/dependency check for all PRs, documented real-source operation-family coverage, source period/units/gestiune completeness, owner acceptance of PR dispositions and CORE candidate. Do not report G0 PASS yet.
 - **Next bounded action:** obtain/verify per-PR base SHAs and CI status for highest-risk CORE PRs (#43/#44/#46/#53/#55/#70/#71), then present a restricted split/defer plan for owner approval; after G0 owner GO, select reproducible stratified up-to-30 SKU pilot from 296 and audit against original source rows read-only. Do not claim any matching accuracy before actual pilot.
+
+
+## GOV-G0-A7 — 2026-10-23 — priority economic PR baseline / CI verification
+- GitHub PR metadata read for #43, #44, #46, #53, #55, #70, #71. All Draft, reported mergeable=true at lookup. Exact PR base SHA and head SHA verified. GitHub Actions PR-triggered workflow lookup by head SHA returned one completed SUCCESS `tests` run for each; no full test logs or original-source economic acceptance independently verified, and CI green does not close GOV-AT-05/06.
+- #43 head `dc109290611b478a5adbe5d6a8b22ef21fc458b0`, base `dc05cf580288d69635f374a4cb580d8d6e38c5c5`, run `38585012789`: KEEP/AUDIT BC safeguards.
+- #44 head `f43c139bcffc8145b7ca077781761698a0f82f5f`, base `dc05cf580288d69635f374a4cb580d8d6e38c5c5`, run `38475680789`: KEEP/AUDIT PROD-03 attribution gate.
+- #46 head `b271bc3d75bbca02238b8c0c9b818f275d69d8bf`, base `dc05cf580288d69635f374a4cb580d8d6e38c5c5`, run `38477720877`: KEEP/AUDIT internal-transfer stock conservation.
+- #53 head `2646d88ab28097127a4b6893436583a1ce366c76`, base `f947dfd509f1956023ce29c8f6fcbe1333657302`, run `38560703679`: KEEP/AUDIT physical source row provenance.
+- #55 head `67d90d2102d13bdb03f4f19399f902ad57c37a3c`, base `f947dfd509f1956023ce29c8f6fcbe1333657302`, run `39165726873`: SPLIT/DEFER entire large integration candidate (91 paths), no wholesale merge. EventOwnershipLedger code exists there but is not wired into investigate_product.
+- #70 head `aef0e57f005a4d740037882e37728f9619ff816f`, base `b98162ceb211aef13c53c0562709982e0ec3f98a`, run `39771336764`: KEEP receipt-row dedup fix, depends on Daily branch stack.
+- #71 head `8359237a8bbe176cee5d5509f4cef22d25dfe51c`, base `aef0e57f005a4d740037882e37728f9619ff816f`, run `39773430667`: KEEP PV-row dedup fix; stacked on #70.
+- Important: #43/#44/#46 base is older than current main reported `f947dfd5`; mergeable metadata is not semantic compatibility evidence. All seven recommendations PROPOSED, owner approval not yet recorded.
+- **Status:** G0 OPEN / V1 NO_GO, global economic ownership and per-family real-source cohort NOT validated. Next G0 closure decision is owner approval of baseline + dispositions (only after resolving remaining base/CI discrepancies and source scope gaps), followed by read-only stratified G1 sample; do not create new PRs or pretend G1 PASS.
