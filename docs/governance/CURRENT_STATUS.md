@@ -362,3 +362,8 @@ As established in `TRACEAI_DEVELOPMENT_PLAN.md`, apply all six professional revi
 ## GOV-C4.3 — 2026-10-23 — exact CORE baseline GitHub CI
 - GitHub Actions exact commit e8e9009285a8c7874b05967733089968abaa3309: tests workflow run 39777607040 SUCCESS, pytest job 336 passed / 1 skipped / 4 pandas date warnings; daily-streamlit-ui-check run 39777606995 FAILURE, 1 failed test test_daily_streamlit_readonly_renders_documents; AppTest Warning.message AttributeError in test line 49. Full job logs inspected.
 - Failure class: UI test API contract, not proven inventory logic failure; check supported warning property and test-only fix only after scope approval. No in-session local pytest rerun or source changes. C4.3 report docs/governance/GOV_C4_3_BASELINE_CI_20261023.md. G0 OPEN / CORE NO_GO.
+
+
+## GOV-C4.4 — 2026-10-23 — Streamlit AppTest failure isolated
+- Baseline e8e9009285a8c7874b05967733089968abaa3309 UI workflow #39777606995 failed due to tests/test_daily_ui_11_streamlit_apptest.py line 49 accessing Warning.message; Streamlit 1.66.1 AppTest Warning content is accessed through value. Proposed minimal change item.message -> item.value in test only, NOT applied. See docs/governance/GOV_C4_4_STREAMLIT_TEST_FIX_PROPOSAL_20261023.md.
+- Code apps/daily_readonly.py already contains documentary st.warning. C4.4 design completed, no actual patch/CI rerun, request owner approval for test-only isolated change if proceeding. G0 OPEN / CORE NO_GO.
