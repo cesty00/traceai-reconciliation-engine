@@ -38,3 +38,8 @@ Original restricted source folders: WMS 1m_Itbp8TDwpZiAJ9vTObwdk_RNs4vAYC; WME 1
   * TraceAI_G1_D10_20011_coverage_audit.json -> 10671a8d8db4e1e174cea3254d1c01c5bc366c5b70d11169d495a838ebffccc2
   * TraceAI_G1_D10_COR_STOC_regression_spec.md -> 3c4f732a42fa4dba042dbad4081db059ec14d8b23683fef850ce9696b3bac137
 - Subsequent closure requires upload using authorized file connector/file URI, Google Drive metadata readback, exact per-file Drive IDs and content hash check where supported. Avoid duplicate archival; never upload WMS/WME raw company exports into Git.
+
+## C3.1 transfer confirmed 2026-10-23
+- Drive folder: 1yRMd3hR_JDliBvO_PpjycnYQ90Qe3aP7
+- Archive file: 163mJlY2oaZHjltlme-9aCXyJEq6tiWfn; TraceAI_G1_D2_D10_DOVEZI_PACHET_20261023.zip; size 18487 bytes; listing readback confirmed.
+- Local ZIP SHA256 ffa6bf467f85051983d3a9e02a115579501e406ac2a9f862285828881669487c; all eleven member hashes checked before transfer. Remote file SHA256 has not been independently verified. Former upload-pending state superseded by UPLOADED, METADATA_VERIFIED, REMOTE_HASH_PENDING.
