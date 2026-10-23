@@ -334,3 +334,8 @@ As established in `TRACEAI_DEVELOPMENT_PLAN.md`, apply all six professional revi
 ## GOV-C3.1 — 2026-10-23 — Drive diagnostic evidence transfer
 - Uploaded ZIP with 11 G1-D2–D10 evidence documents to Drive private archive: folder ID 1yRMd3hR_JDliBvO_PpjycnYQ90Qe3aP7, archive file ID 163mJlY2oaZHjltlme-9aCXyJEq6tiWfn, 18487 bytes. Folder listing readback verified, not shared. Local ZIP SHA256 ffa6bf467f85051983d3a9e02a115579501e406ac2a9f862285828881669487c; embedded manifest and all 11 members hash-checked locally. Remote byte SHA re-download still PENDING; do not assert end-to-end integrity proof.
 - Source index docs/governance/registers/SOURCE_EVIDENCE_INDEX.md updated. G0 OPEN / G1 READ-ONLY / CORE NO_GO; no code or operator stock changes. Next: verify remote hash and reconcile archived evidence IDs into cases, then resume G1 audited cohort.
+
+
+## GOV-C3.2 — 2026-10-23 — uploaded Drive evidence independently verified
+- Downloaded Drive archive 163mJlY2oaZHjltlme-9aCXyJEq6tiWfn, SHA256 ffa6bf467f85051983d3a9e02a115579501e406ac2a9f862285828881669487c matches pre-upload; ZIP CRC and 11 member hash/size checks PASS. Linked archive into CASE-G1-001 and CASE-G1-002, updated SOURCE_EVIDENCE_INDEX.md.
+- Archive logistics PASS; neither economic cause nor operator evidence signed off. G0 OPEN / G1 READ-ONLY / CORE NO_GO.
