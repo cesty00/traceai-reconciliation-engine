@@ -351,3 +351,9 @@ As established in `TRACEAI_DEVELOPMENT_PLAN.md`, apply all six professional revi
 - Static inspection of frozen CORE e8e9009285a8c7874b05967733089968abaa3309 mapped 11 reconciliation families to actual fetched Python function names. Matrix stored and readback-verified at docs/governance/GOV_C4_1_FAMILY_FUNCTION_TEST_MATRIX_20261023.md.
 - No tests executed; candidate-SHA test IDs/CI and live source-backed acceptance remain TEST_UNVERIFIED. A filename search on default branch cannot establish test absence. RULE-003 COR STOC defect remains open; G0 economic-event ownership remains unresolved.
 - Next C4.2: inspect candidate-SHA tests directly and plan repeatable source-backed tests, with no CORE code edits without approval. G0 OPEN / CORE NO_GO.
+
+
+## GOV-C4.2 — 2026-10-23 — exact frozen CORE QA test inventory
+- Directly fetched source test files at CORE e8e9009285a8c7874b05967733089968abaa3309; confirmed test files for RECEIPT, DELIVERY, RETURN_IN, TRANSFER MOSE, BC, NP, INVENTORY, COR STOC, OPENING, WAREHOUSE ZONES, SPECIAL STATUS, WME RESIDUAL and SOURCE PROVENANCE. QA coverage matrix stored and readback-verified at docs/governance/GOV_C4_2_QA_TEST_COVERAGE_20261023.md.
+- Existing tests provide safety checks for ambiguous PV/transfer matching and missing/unequal documents. COR STOC generic matcher has only one direct test of special-location exclusion; +/- candidate pair behavior is not covered in that file. Do not infer global absence without full suite search.
+- TEST_FILES_PRESENT, but pytest and candidate-SHA CI NOT RUN in C4.2; source-backed operational UAT unverified. G0 OPEN / G1 diagnostic read-only / CORE NO_GO. Next C4.3 controlled exact-SHA test execution and failure classification; no code writes.
