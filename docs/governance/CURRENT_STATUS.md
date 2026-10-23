@@ -345,3 +345,9 @@ As established in `TRACEAI_DEVELOPMENT_PLAN.md`, apply all six professional revi
 - Read six OPERATIONAL_RULES entries and frozen CORE Python files engine, receipt/delivery matchers, opening stock policy, COR STOC matcher, source index. Documented exact source blobs and rule-by-rule coverage/gaps in docs/governance/GOV_C4_OPERATIONAL_RULES_CODE_AUDIT_20261023.md.
 - Confirmed static diagnostic limitation DEF-G1-001; other families PARTIALLY_IMPLEMENTED or UNVERIFIED end-to-end. No claim of executed tests/complete economic ownership. Operator-only hypothesis FE214401 remains unvalidated.
 - C4 STATIC REVIEW COMPLETED; next C4.1 full family function map and positive/negative source-backed tests. G0 OPEN, G1 READ-ONLY, CORE NO_GO; no code/stock changes.
+
+
+## GOV-C4.1 — 2026-10-23 — family/function matrix
+- Static inspection of frozen CORE e8e9009285a8c7874b05967733089968abaa3309 mapped 11 reconciliation families to actual fetched Python function names. Matrix stored and readback-verified at docs/governance/GOV_C4_1_FAMILY_FUNCTION_TEST_MATRIX_20261023.md.
+- No tests executed; candidate-SHA test IDs/CI and live source-backed acceptance remain TEST_UNVERIFIED. A filename search on default branch cannot establish test absence. RULE-003 COR STOC defect remains open; G0 economic-event ownership remains unresolved.
+- Next C4.2: inspect candidate-SHA tests directly and plan repeatable source-backed tests, with no CORE code edits without approval. G0 OPEN / CORE NO_GO.
