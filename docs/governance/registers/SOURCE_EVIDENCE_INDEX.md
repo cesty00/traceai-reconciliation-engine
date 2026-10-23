@@ -19,3 +19,22 @@ Original restricted source folders: WMS 1m_Itbp8TDwpZiAJ9vTObwdk_RNs4vAYC; WME 1
 - A separate older report for item 20011 exists on Drive as Raport_verificare_detaliata_20011_2026-10-06.docx (ID 1k0yJlC2U5GhzyaN84PnLrCqXSEIbWSAX), NOT automatically equated to the new G1 evidence pack.
 - Detailed chat artifacts not yet confirmed archived: raw_DS099904670_target_g1_d2.json; TraceAI_G1_D4_protocol_validare_operator.md; TraceAI_G1_D5_20011_COR_STOC_evidence.json; TraceAI_G1_D6_20011_pair_review.json; TraceAI_G1_D7_20011_code_review.md; TraceAI_G1_D8_20011_CORE_WME_checkpoint.md; TraceAI_G1_D9_20011_checkpoint.md; TraceAI_G1_D9_20011_WME_source_audit.json; TraceAI_G1_D10_20011_coverage_audit.json; TraceAI_G1_D10_COR_STOC_regression_spec.md.
 - Next control: choose approved restricted archive folder for case evidence; persist evidence with content SHA/metadata and verify read-back, without source-byte duplication in Git; then reconcile exact case references, decisions and closure statuses. Do not mark ARCHIVED unless verified.
+
+## C3.1 — controlled private archive location (2026-10-23)
+
+- Created folder in existing private project: RECONCILIERE WMS-WME / 08_RAPOARTE / G1_DOVEZI_DIAGNOSTIC_2026-10-11.
+- Folder ID: 1yRMd3hR_JDliBvO_PpjycnYQ90Qe3aP7 ; parent 17ryLvcJJSgrB-nxKDgPishiRZctUM7Rv. The parent was inspected as not shared, but **new folder permissions must still be read back** before uploading sensitive evidence.
+- Connector upload requires an authenticated connector file URI; available attachments exist only as local /mnt/data paths. Do not fabricate a file URI or assert uploaded status. **All 11 items below are LOCAL_VERIFIED / DRIVE_UPLOAD_PENDING.**
+- Local file name -> SHA256 (content fingerprint; never substitute for document-level operator validation):
+  * raw_DS099904670_target_g1_d2.json -> e8fa9520c469cd54d499c44f29ccc5988f72e0587913aa878fa62a28d9074e15
+  * traceai_g1_d3_wme3034_evidence.json -> aae0212666a8248ee5e02ae517526ecdea7fc0a7a90e81a6075128e5b5dd4827
+  * TraceAI_G1_D4_protocol_validare_operator.md -> 13cae8cd8a6f543681582af0169cc82ec8ac64180dd42314e823daa0125d8101
+  * TraceAI_G1_D5_20011_COR_STOC_evidence.json -> 0cf0389a5161f6c6a8c1a22e9fdbd62eba91ba41913608a5434ddf67dba5a92f
+  * TraceAI_G1_D6_20011_pair_review.json -> 48503b6edf80813bd27f20ce21ce42fabc30c10dc20258f3cdb4fa36832af931
+  * TraceAI_G1_D7_20011_code_review.md -> 15087afe482c6553dae34d56c67cebb777e86241838b4f76af15f51b5f801db9
+  * TraceAI_G1_D8_20011_CORE_WME_checkpoint.md -> acd8f7c15001400b9be93db97a8d29a859b650a7f0d00ce3ec2395feabe3250b
+  * TraceAI_G1_D9_20011_WME_source_audit.json -> 247117ed80bc693e5b0862b942bc61a94050e1548a33f5cee4d54fee036a5f25
+  * TraceAI_G1_D9_20011_checkpoint.md -> 55d284652383ba3f1068c401d0e26bcb1f976976b776088a589a4e507547fe08
+  * TraceAI_G1_D10_20011_coverage_audit.json -> 10671a8d8db4e1e174cea3254d1c01c5bc366c5b70d11169d495a838ebffccc2
+  * TraceAI_G1_D10_COR_STOC_regression_spec.md -> 3c4f732a42fa4dba042dbad4081db059ec14d8b23683fef850ce9696b3bac137
+- Subsequent closure requires upload using authorized file connector/file URI, Google Drive metadata readback, exact per-file Drive IDs and content hash check where supported. Avoid duplicate archival; never upload WMS/WME raw company exports into Git.
