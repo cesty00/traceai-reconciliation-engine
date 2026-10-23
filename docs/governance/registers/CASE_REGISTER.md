@@ -5,3 +5,7 @@
 | CASE-G1-002 | 20011 / COR STOC and opening | On 2026-10-06 same lot 260804/DEPAMB +14776.100 and -14776.100; numeric offset is not economic cancellation. WME internal 1492: 1890 rows total, 49 in Dec 2025 and 1841 in 2026 period. WME last Dec 31 balance 75827 BUC; WMS Jan 1 opening 75227 BUC; WMS−WME boundary −600 BUC if scopes align. | REVIEW / AWAITING_OPERATOR; cause UNKNOWN | GitHub docs/governance/GOV_CONTINUITY_C1_20011_OPENING_20261023.md; WME SHA256 735b4756045ae0c5d22e01beb3d77430e105a939c2cbf8b6f0bf28ac3e041495; WME rows 96997–97045; WMS Stoc_initial_WMS_2026-01-01.xlsx Drive ID 1oOKXLYp-d1h1iFZht9ev0bIRjVC4iJzs | Confirm warehouse/management scope and StocInitial semantics; source-check WME/COR STOC documents |
  
 Do not add the +/−14776.100 movements as an established causal explanation for ending stock. No case marked CLOSED_VERIFIED.
+
+## C3.2 verified archive references
+- CASE-G1-001 / DS099904670: evidence raw_DS099904670_target_g1_d2.json, traceai_g1_d3_wme3034_evidence.json and G1-D4 human validation protocol are members of Drive archive file ID 163mJlY2oaZHjltlme-9aCXyJEq6tiWfn, folder ID 1yRMd3hR_JDliBvO_PpjycnYQ90Qe3aP7. Archive was independently retrieved from Drive, SHA256 ffa6bf467f85051983d3a9e02a115579501e406ac2a9f862285828881669487c, all member hashes PASS. Economic/operator verdict unchanged: AWAITING_OPERATOR / REVIEW.
+- CASE-G1-002 / 20011: G1-D5 to D10 evidence and regression proposal in SAME Drive archive file ID above, all member hashes PASS; economic/operator verdict unchanged: REVIEW / AWAITING_OPERATOR.
