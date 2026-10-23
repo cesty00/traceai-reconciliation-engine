@@ -373,3 +373,9 @@ As established in `TRACEAI_DEVELOPMENT_PLAN.md`, apply all six professional revi
 - Owner approved test-only repair. Created branch fix/c4-5-streamlit-apptest-warning-20261023 at CORE baseline e8e9009285a8c7874b05967733089968abaa3309; commit 5112373cf193a01553132d7705e3d3831b03c701 replaces one assertion in tests/test_daily_ui_11_streamlit_apptest.py: item.message -> item.value. Fetch/readback confirmed. No application, CORE matcher or stock data change.
 - No new GitHub Actions runs were available for this patch commit when checked. Available GitHub connector cannot dispatch fresh workflow; old run reruns would test prior SHA, not the patch. Test status NOT_RUN/CI_PENDING, do not claim repair validated or release allowed.
 - Next authorized step: obtain exact-patch-SHA targeted Streamlit and main pytest CI execution via normal branch/PR workflow or controlled checkout, then inspect logs and classify; no automatic merge. G0 OPEN / CORE NO_GO.
+
+
+## GOV-C4.6 — 2026-10-23 — post-patch CI gate
+- Test-only branch fix/c4-5-streamlit-apptest-warning-20261023 commit 5112373cf193a01553132d7705e3d3831b03c701 has no associated PR-triggered GitHub Actions run at time checked. No fresh patch-SHA pass or fail evidence.
+- GitHub connector cannot dispatch workflows; local environment lacks Streamlit and network checkout of private repo. Do not rerun old SHA or claim CI PASS. No additional PR or merge performed.
+- C4.6 outcome BLOCKED/NOT_RUN. Next: exact SHA targeted Streamlit plus full tests through approved CI trigger, then audit logs. G0 OPEN / CORE NO_GO.
