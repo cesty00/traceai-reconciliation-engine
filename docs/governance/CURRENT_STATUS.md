@@ -379,3 +379,8 @@ As established in `TRACEAI_DEVELOPMENT_PLAN.md`, apply all six professional revi
 - Test-only branch fix/c4-5-streamlit-apptest-warning-20261023 commit 5112373cf193a01553132d7705e3d3831b03c701 has no associated PR-triggered GitHub Actions run at time checked. No fresh patch-SHA pass or fail evidence.
 - GitHub connector cannot dispatch workflows; local environment lacks Streamlit and network checkout of private repo. Do not rerun old SHA or claim CI PASS. No additional PR or merge performed.
 - C4.6 outcome BLOCKED/NOT_RUN. Next: exact SHA targeted Streamlit plus full tests through approved CI trigger, then audit logs. G0 OPEN / CORE NO_GO.
+
+
+## GOV-C4.7 — 2026-10-27 — CI trigger visibility correction
+- Confirmed frozen CORE .github/workflows/tests.yml triggers on push to fix/** branches and pull_request. GitHub connector fetch_commit_workflow_runs only exposes PR-triggered runs, thus empty results for test fix SHA 5112373cf193a01553132d7705e3d3831b03c701 do NOT prove that a push-run is absent. Previous C4.6 claim of zero workflows requires this qualification.
+- No available connector action can enumerate push runs by branch or dispatch new workflow. No CI PASS/FAIL demonstrated on patch SHA, no new PR opened or code changed. Audit: docs/governance/GOV_C4_7_CI_TRIGGER_VERIFICATION_20261027.md. G0 OPEN / CORE NO_GO.
